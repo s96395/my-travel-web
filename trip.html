@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>旅程規劃 | VoyageArchive</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .trip-hero { height: 400px; position: relative; border-radius: 0 0 40px 40px; overflow: hidden; margin-bottom: -60px; }
+        .trip-hero img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
+        .hero-info { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); text-align: center; color: white; width: 90%; }
+        
+        .trip-container { display: grid; grid-template-columns: 1fr 350px; gap: 30px; margin-top: 20px; }
+        .main-content { display: flex; flex-direction: column; gap: 30px; }
+        
+        .card { background: white; border-radius: 20px; padding: 25px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
+        
+        /* 時間軸樣式 */
+        .timeline { position: relative; padding-left: 30px; }
+        .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--secondary); }
+        .day-block { margin-bottom: 40px; position: relative; }
+        .day-dot { position: absolute; left: -30px; width: 16px; height: 16px; background: var(--primary); border-radius: 50%; border: 4px solid white; top: 5px; }
+        .itinerary-item { background: #f9f9f9; padding: 15px; border-radius: 12px; margin-bottom: 10px; cursor: grab; transition: 0.2s; position: relative; }
+        .itinerary-item:hover { background: #f0f0f0; }
+        
+        /* 支出圖表 */
+        #expenseChart { max-width: 200px; margin: 0 auto; display: block; }
+        
+        .share-box { background: var(--primary); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+        
+        @media (max-width: 900px) {
+            .trip-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container nav-content">
+            <a href="index.html" class="logo">VOYAGE<span>ARCHIVE</span></a>
+            <div class="nav-links">
+                <a href="index.html">返回我的旅程</a>
+            </div>
+        </div>
+    </nav>
+
+    <div id="app-content">
+        <div id="auth-error" style="display:none; text-align:center; padding: 100px 20px;">
+            <h1>抱歉，無權存取</h1>
+            <p>請確認您的分享連結是否正確。</p>
+            <a href="index.html" class="btn btn-primary" style="display:inline-block; margin-top:20px;">回首頁</a>
+        </div>
+
+        <div id="trip-details" style="display:none;">
+            <header class="trip-hero">
+                <img id="trip-cover" src="" alt="Cover">
+                <div class="hero-info">
+                    <h1 id="trip-title">載入中...</h1>
+                    <p id="trip-subtitle"></p>
+                </div>
+            </header>
+
+            <div class="container trip-container">
+                <div class="main-content">
+                    
+                    <section class="card">
+                        <div class="card-header">
+                            <h2>每日行程</h2>
+                            <button class="btn btn-primary" id="addDayBtn">+ 新增天數</button>
+                        </div>
+                        <div id="itinerary-timeline" class="timeline">
+                            </div>
+                    </section>
+
+                    <section class="card">
+                        <div class="card-header">
+                            <h2>旅程相簿</h2>
+                            <button class="btn btn-primary" id="addImageBtn">+ 新增照片</button>
+                        </div>
+                        <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
+                            </div>
+                    </section>
+                </div>
+
+                <aside class="sidebar">
+                    <div class="share-box">
+                        <h4 style="margin-bottom:10px;">旅伴共編</h4>
+                        <p style="font-size:0.8rem; opacity:0.8; margin-bottom:15px;">複製下方連結傳給旅伴，即可一起編輯行程與支出。</p>
+                        <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
+                    </div>
+
+                    <section class="card" style="margin-bottom:20px;">
+                        <div class="card-header"><h4>航班資訊</h4></div>
+                        <div id="flight-list"></div>
+                        <button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px;" id="addFlightBtn">+ 新增航班</button>
+                    </section>
+
+                    <section class="card" style="margin-bottom:20px;">
+                        <div class="card-header"><h4>住宿安排</h4></div>
+                        <div id="hotel-list"></div>
+                        <button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px;" id="addHotelBtn">+ 新增住宿</button>
+                    </section>
+
+                    <section class="card">
+                        <div class="card-header"><h4>花費統計</h4></div>
+                        <canvas id="expenseChart" width="200" height="200"></canvas>
+                        <div id="total-expense" style="text-align:center; margin-top:15px; font-weight:800; font-size:1.2rem;">$0</div>
+                        <div id="expense-list" style="margin-top:20px;"></div>
+                        <button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px; margin-top:10px;" id="addExpenseBtn">+ 新增支出</button>
+                    </section>
+                </aside>
+            </div>
+        </div>
+    </div>
+
+    <div id="universalModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">標題</h2>
+                <span class="close" onclick="document.getElementById('universalModal').style.display='none'">&times;</span>
+            </div>
+            <form id="modalForm">
+                <div id="modalBody"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">儲存</button>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="trip.js"></script>
+</body>
+</html>

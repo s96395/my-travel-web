@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>歷史旅程檔案館 | VoyageArchive</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav>
+        <div class="container nav-content">
+            <a href="index.html" class="logo">VOYAGE<span>ARCHIVE</span></a>
+            <div class="nav-links">
+                <a href="index.html">我的旅程</a>
+                <a href="history.html" class="active" style="color: var(--accent);">歷史存檔</a>
+                <a href="index.html" class="btn btn-primary">＋ 新增旅程</a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero" style="padding: 60px 0; background: #f4f1ea;">
+        <div class="container">
+            <h1 style="font-size: 2.5rem;">旅程檔案館</h1>
+            <p>珍藏每一次出發的足跡，複習那些閃閃發光的日子。</p>
+        </div>
+    </header>
+
+    <main class="container" style="margin-top: 40px;">
+        <section class="filter-section">
+            <input type="text" id="historySearch" placeholder="搜尋過去的旅程、國家...">
+            <select id="yearFilter">
+                <option value="all">所有年份</option>
+                </select>
+        </section>
+
+        <section class="trip-grid" id="historyGrid">
+            <div class="loading-placeholder">正在翻閱檔案庫...</div>
+        </section>
+    </main>
+
+    <footer style="text-align: center; padding: 60px 0; color: var(--text-muted); font-size: 0.9rem;">
+        <p>© 2026 VoyageArchive - 你的專屬旅遊足跡</p>
+    </footer>
+
+    <script type="module" src="history.js"></script>
+</body>
+</html>
