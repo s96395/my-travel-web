@@ -15,7 +15,12 @@
 }
 
 /* --- Reset & Base --- */
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
+    -webkit-tap-highlight-color: transparent; 
+}
 
 body {
     background-color: var(--bg-color);
@@ -170,30 +175,41 @@ nav {
     font-size: 0.7rem;
     font-weight: 800;
     color: var(--primary);
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-/* --- Modal --- */
+/* --- Modal (捲軸核心修復區) --- */
 .modal {
     display: none;
     position: fixed;
     z-index: 2000;
-    left: 0; top: 0;
-    width: 100%; height: 100%;
+    left: 0; 
+    top: 0;
+    width: 100%; 
+    height: 100%;
     background-color: rgba(26, 58, 95, 0.7);
     backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    
+    /* 讓整個背景遮罩層可以捲動 */
+    overflow-y: auto; 
+    padding: 40px 0; 
 }
+
 .modal-content {
     background-color: #fff;
-    margin: 5vh auto;
-    padding: 30px 20px;
+    margin: 0 auto; /* 靠頂部間距由 .modal 的 padding 控制 */
+    padding: 30px 24px;
     width: 90%;
-    max-width: 450px;
+    max-width: 480px;
     border-radius: var(--radius-lg);
-    max-height: 90vh;
-    overflow-y: auto;
     position: relative;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+    
+    /* 確保內容不被截斷，自然撐開 */
+    height: auto; 
+    min-height: min-content;
 }
+
 .close {
     position: absolute;
     right: 20px; top: 15px;
@@ -201,49 +217,49 @@ nav {
 }
 
 /* --- Forms --- */
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; }
+.form-group { margin-bottom: 18px; text-align: left; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.9rem; color: var(--primary); }
 input, select, textarea {
     width: 100%;
-    padding: 12px;
+    padding: 12px 14px;
     border: 1px solid var(--border-color);
     border-radius: 10px;
     font-size: 1rem;
     background: #FAFAFA;
+    transition: all 0.2s;
 }
-input:focus { border-color: var(--primary); outline: none; background: #FFF; }
+input:focus { border-color: var(--primary); outline: none; background: #FFF; box-shadow: 0 0 0 3px rgba(26, 58, 95, 0.1); }
 
 /* --- Buttons --- */
 .btn {
-    padding: 10px 20px;
+    padding: 12px 24px;
     border-radius: 50px;
     border: none;
     font-weight: 700;
     cursor: pointer;
     transition: 0.3s;
-    font-size: 0.9rem;
+    font-size: 1rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 .btn-primary { background: var(--primary); color: white; }
-.btn-primary:active { transform: scale(0.95); }
+.btn-primary:active { transform: scale(0.96); }
 
 /* --- Toast --- */
 .toast {
-    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
-    background: var(--primary); color: white; padding: 10px 20px;
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--primary); color: white; padding: 12px 24px;
     border-radius: 50px; z-index: 3000; transition: 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
-    font-size: 0.9rem; white-space: nowrap;
+    font-size: 0.9rem; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
-/* --- RWD Adjustments (Mobile Optimization) --- */
+/* --- RWD Adjustments --- */
 @media (max-width: 768px) {
     .hero h1 { font-size: 2.2rem; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: -20px; }
-    
-    .nav-links a { display: none; } /* 手機版隱藏文字連結，只留按鈕 */
+    .nav-links a { display: none; }
     
     .filter-section {
         flex-direction: column;
@@ -252,22 +268,13 @@ input:focus { border-color: var(--primary); outline: none; background: #FFF; }
     }
     .filter-section input { padding: 5px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
     
-    .modal-content { margin: 2vh auto; width: 95%; }
+    .modal { padding: 20px 0; }
+    .modal-content { padding: 25px 20px; }
 }
 
 @media (max-width: 480px) {
     .hero { padding: 40px 0 60px; }
     .hero h1 { font-size: 1.8rem; }
     .logo { font-size: 1.1rem; }
-    .btn { padding: 8px 15px; font-size: 0.8rem; }
-}
-
-/* 針對 trip.html 的側欄優化 */
-@media (max-width: 900px) {
-    .trip-container {
-        display: flex;
-        flex-direction: column;
-    }
-    .sidebar { order: 2; }
-    .main-content { order: 1; }
+    .btn { padding: 10px 18px; font-size: 0.9rem; }
 }
