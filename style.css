@@ -14,7 +14,8 @@
     --font-sans: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* --- Reset & Base --- */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 body {
     background-color: var(--bg-color);
@@ -22,25 +23,35 @@ body {
     font-family: var(--font-sans);
     line-height: 1.6;
     overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
 }
 
-.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+.container { 
+    max-width: 1100px; 
+    margin: 0 auto; 
+    padding: 0 20px; 
+}
 
 /* --- Navigation --- */
 nav {
     background: rgba(253, 252, 248, 0.95);
     backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
     z-index: 1000;
     border-bottom: 1px solid var(--border-color);
-    padding: 18px 0;
+    padding: 12px 0;
 }
 
-.nav-content { display: flex; justify-content: space-between; align-items: center; }
+.nav-content { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+}
 
 .logo {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
     font-weight: 900;
     color: var(--primary);
     text-decoration: none;
@@ -48,155 +59,215 @@ nav {
 }
 .logo span { font-weight: 300; color: var(--text-muted); }
 
-.nav-links { display: flex; align-items: center; gap: 24px; }
-.nav-links a { text-decoration: none; color: var(--text-main); font-weight: 500; font-size: 0.95rem; }
+.nav-links { display: flex; align-items: center; gap: 15px; }
+.nav-links a { 
+    text-decoration: none; 
+    color: var(--text-main); 
+    font-weight: 500; 
+    font-size: 0.9rem; 
+}
 
-/* --- Hero --- */
+/* --- Hero Section --- */
 .hero {
-    padding: 100px 0 80px;
+    padding: 60px 0 80px;
     background: linear-gradient(180deg, #F4F1EA 0%, var(--bg-color) 100%);
     text-align: center;
 }
-.hero h1 { font-size: 3rem; color: var(--primary); margin-bottom: 16px; letter-spacing: -1px; }
-.hero p { color: var(--text-muted); font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
+.hero h1 { 
+    font-size: 2.8rem; 
+    color: var(--primary); 
+    margin-bottom: 12px; 
+    letter-spacing: -1px;
+    line-height: 1.2;
+}
+.hero p { 
+    color: var(--text-muted); 
+    font-size: 1rem; 
+    max-width: 500px; 
+    margin: 0 auto; 
+    padding: 0 20px;
+}
 
 /* --- Stats Dashboard --- */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    gap: 15px;
     margin-top: -40px;
-    margin-bottom: 60px;
+    margin-bottom: 40px;
 }
 .stat-card {
     background: var(--card-bg);
-    padding: 24px;
+    padding: 20px 10px;
     border-radius: var(--radius-md);
     box-shadow: var(--shadow);
     text-align: center;
     border: 1px solid rgba(26, 58, 95, 0.05);
 }
-.stat-value { font-size: 1.8rem; font-weight: 800; color: var(--primary); display: block; }
-.stat-label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+.stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: block; }
+.stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 500; white-space: nowrap; }
 
-/* --- Filter Section --- */
+/* --- Filter & Search --- */
 .filter-section {
     display: flex;
-    gap: 12px;
-    margin-bottom: 40px;
+    gap: 10px;
+    margin-bottom: 30px;
     background: #fff;
-    padding: 12px;
+    padding: 8px;
     border-radius: 50px;
     box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
 }
 .filter-section input {
     flex: 1;
     border: none;
-    padding: 10px 20px;
+    padding: 10px 15px;
     outline: none;
-    font-size: 1rem;
+    font-size: 0.95rem;
     background: transparent;
 }
 .filter-section select {
     border: none;
     background: #f4f1ea;
-    padding: 10px 20px;
+    padding: 8px 15px;
     border-radius: 30px;
     outline: none;
     cursor: pointer;
+    font-size: 0.85rem;
 }
 
-/* --- Trip Grid --- */
+/* --- Trip Card Grid --- */
 .trip-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 32px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    padding-bottom: 50px;
 }
 .trip-card {
     background: var(--card-bg);
     border-radius: var(--radius-lg);
     overflow: hidden;
     box-shadow: var(--shadow);
-    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    transition: all 0.3s ease;
     cursor: pointer;
     position: relative;
     border: 1px solid var(--border-color);
 }
-.trip-card:hover { transform: translateY(-8px); box-shadow: 0 20px 40px rgba(26, 58, 95, 0.12); }
-.trip-cover { width: 100%; height: 220px; object-fit: cover; }
-.trip-info { padding: 24px; }
-.trip-info h3 { color: var(--primary); margin-bottom: 8px; font-size: 1.25rem; }
-.trip-meta { font-size: 0.85rem; color: var(--accent); font-weight: 700; margin-bottom: 4px; }
-.trip-date { font-size: 0.85rem; color: var(--text-muted); }
+.trip-card:hover { transform: translateY(-5px); }
+.trip-cover { width: 100%; height: 200px; object-fit: cover; background: #eee; }
+.trip-info { padding: 20px; }
+.trip-info h3 { color: var(--primary); margin-bottom: 6px; font-size: 1.15rem; }
+.trip-meta { font-size: 0.8rem; color: var(--accent); font-weight: 700; margin-bottom: 2px; }
+.trip-date { font-size: 0.8rem; color: var(--text-muted); }
 
-/* --- Modal (重要：修復目前畫面雜亂的關鍵) --- */
+.status-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+/* --- Modal --- */
 .modal {
-    display: none; /* 預設隱藏 */
+    display: none;
     position: fixed;
     z-index: 2000;
     left: 0; top: 0;
     width: 100%; height: 100%;
-    background-color: rgba(26, 58, 95, 0.6);
-    backdrop-filter: blur(4px);
+    background-color: rgba(26, 58, 95, 0.7);
+    backdrop-filter: blur(5px);
 }
 .modal-content {
     background-color: #fff;
-    margin: 5% auto;
-    padding: 40px;
+    margin: 5vh auto;
+    padding: 30px 20px;
     width: 90%;
-    max-width: 500px;
+    max-width: 450px;
     border-radius: var(--radius-lg);
-    box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+    max-height: 90vh;
+    overflow-y: auto;
     position: relative;
 }
-.modal-header { margin-bottom: 24px; }
 .close {
     position: absolute;
-    right: 24px; top: 20px;
-    font-size: 28px; cursor: pointer; color: var(--text-muted);
+    right: 20px; top: 15px;
+    font-size: 24px; cursor: pointer; color: var(--text-muted);
 }
 
 /* --- Forms --- */
-.form-group { margin-bottom: 20px; }
-.form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
-.form-row { display: grid; grid-template-cols: 1fr 1fr; gap: 16px; }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; }
 input, select, textarea {
     width: 100%;
-    padding: 12px 16px;
+    padding: 12px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-family: inherit;
+    border-radius: 10px;
     font-size: 1rem;
-    transition: border 0.3s;
+    background: #FAFAFA;
 }
-input:focus { border-color: var(--primary); outline: none; }
+input:focus { border-color: var(--primary); outline: none; background: #FFF; }
 
 /* --- Buttons --- */
 .btn {
-    padding: 12px 28px;
+    padding: 10px 20px;
     border-radius: 50px;
     border: none;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.3s;
-    font-size: 0.95rem;
+    transition: 0.3s;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 .btn-primary { background: var(--primary); color: white; }
-.btn-primary:hover { background: var(--accent); transform: scale(1.02); }
+.btn-primary:active { transform: scale(0.95); }
 
 /* --- Toast --- */
 .toast {
-    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
-    background: var(--primary); color: white; padding: 12px 30px;
-    border-radius: 50px; z-index: 3000; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+    background: var(--primary); color: white; padding: 10px 20px;
+    border-radius: 50px; z-index: 3000; transition: 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    font-size: 0.9rem; white-space: nowrap;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
-/* --- Loading & Empty --- */
-.empty-state { text-align: center; padding: 60px; color: var(--text-muted); grid-column: 1 / -1; }
-
+/* --- RWD Adjustments (Mobile Optimization) --- */
 @media (max-width: 768px) {
-    .stats-grid { grid-template-columns: 1fr 1fr; margin-top: 0; }
     .hero h1 { font-size: 2.2rem; }
-    .form-row { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: -20px; }
+    
+    .nav-links a { display: none; } /* 手機版隱藏文字連結，只留按鈕 */
+    
+    .filter-section {
+        flex-direction: column;
+        border-radius: 20px;
+        padding: 15px;
+    }
+    .filter-section input { padding: 5px; margin-bottom: 10px; border-bottom: 1px solid #eee; }
+    
+    .modal-content { margin: 2vh auto; width: 95%; }
+}
+
+@media (max-width: 480px) {
+    .hero { padding: 40px 0 60px; }
+    .hero h1 { font-size: 1.8rem; }
+    .logo { font-size: 1.1rem; }
+    .btn { padding: 8px 15px; font-size: 0.8rem; }
+}
+
+/* 針對 trip.html 的側欄優化 */
+@media (max-width: 900px) {
+    .trip-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .sidebar { order: 2; }
+    .main-content { order: 1; }
 }
