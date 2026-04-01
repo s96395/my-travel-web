@@ -6,11 +6,65 @@
     <title>旅程規劃 | VoyageArchive</title>
     <link rel="stylesheet" href="style.css">
     <style>
-        .trip-hero { height: 400px; position: relative; border-radius: 0 0 40px 40px; overflow: hidden; margin-bottom: -60px; }
-        .trip-hero img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
-        .hero-info { position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%); text-align: center; color: white; width: 90%; }
-        
-        .trip-container { display: grid; grid-template-columns: 1fr 350px; gap: 30px; margin-top: 20px; }
+        /* --- 封面圖比例與視覺優化 --- */
+        .trip-hero { 
+            height: 350px; 
+            position: relative; 
+            width: 100%;
+            overflow: hidden; 
+            margin-bottom: -40px; /* 讓內容稍微往上疊加，更有設計感 */
+            border-radius: 0 0 40px 40px;
+        }
+
+        .trip-hero img { 
+            width: 100%; 
+            height: 100%; 
+            object-fit: cover; 
+            object-position: center 30%; /* 確保視覺中心在圖片上方三分之一 */
+            filter: brightness(0.65) contrast(1.1); 
+        }
+
+        .hero-info { 
+            position: absolute; 
+            bottom: 80px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            text-align: center; 
+            color: white; 
+            width: 90%; 
+            z-index: 10;
+        }
+
+        .hero-info h1 {
+            font-size: 2.5rem;
+            font-weight: 900;
+            margin-bottom: 12px;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.6); /* 強烈陰影確保文字可讀 */
+            letter-spacing: 2px;
+        }
+
+        .hero-info p {
+            font-size: 1rem;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.25); /* 文字背板 */
+            display: inline-block;
+            padding: 6px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(8px); /* 毛玻璃效果 */
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        /* --- 內容佈局優化 --- */
+        .trip-container { 
+            position: relative;
+            z-index: 20; /* 確保內容在 Hero 區上方 */
+            display: grid; 
+            grid-template-columns: 1fr 350px; 
+            gap: 30px; 
+            margin-top: 20px;
+        }
+
         .main-content { display: flex; flex-direction: column; gap: 30px; }
         
         .card { background: white; border-radius: 20px; padding: 25px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
@@ -21,16 +75,53 @@
         .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--secondary); }
         .day-block { margin-bottom: 40px; position: relative; }
         .day-dot { position: absolute; left: -30px; width: 16px; height: 16px; background: var(--primary); border-radius: 50%; border: 4px solid white; top: 5px; }
-        .itinerary-item { background: #f9f9f9; padding: 15px; border-radius: 12px; margin-bottom: 10px; cursor: grab; transition: 0.2s; position: relative; }
-        .itinerary-item:hover { background: #f0f0f0; }
+        
+        .itinerary-item { 
+            background: #f9f9f9; 
+            padding: 15px; 
+            border-radius: 12px; 
+            margin-bottom: 10px; 
+            cursor: grab; 
+            transition: 0.2s; 
+            position: relative; 
+            border-left: 4px solid transparent;
+        }
+        .itinerary-item:hover { 
+            background: #f0f0f0; 
+            border-left: 4px solid var(--accent);
+            transform: translateX(5px);
+        }
         
         /* 支出圖表 */
         #expenseChart { max-width: 200px; margin: 0 auto; display: block; }
         
-        .share-box { background: var(--primary); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; }
+        .share-box { background: var(--primary); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(26, 58, 95, 0.2); }
         
+        .info-mini-card {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            border: 1px solid #eee;
+        }
+
+        .delete-btn {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            background: none;
+            border: none;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        .delete-btn:hover { color: #e74c3c; }
+
         @media (max-width: 900px) {
-            .trip-container { grid-template-columns: 1fr; }
+            .trip-container { grid-template-columns: 1fr; margin-top: 10px; }
+            .trip-hero { height: 280px; }
+            .hero-info h1 { font-size: 1.8rem; }
         }
     </style>
 </head>
@@ -68,8 +159,7 @@
                             <h2>每日行程</h2>
                             <button class="btn btn-primary" id="addDayBtn">+ 新增天數</button>
                         </div>
-                        <div id="itinerary-timeline" class="timeline">
-                            </div>
+                        <div id="itinerary-timeline" class="timeline"></div>
                     </section>
 
                     <section class="card">
@@ -77,8 +167,7 @@
                             <h2>旅程相簿</h2>
                             <button class="btn btn-primary" id="addImageBtn">+ 新增照片</button>
                         </div>
-                        <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;">
-                            </div>
+                        <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
                     </section>
                 </div>
 
