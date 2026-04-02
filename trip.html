@@ -60,6 +60,43 @@
                     <div class="card-header"><h2>每日行程</h2><button class="btn btn-primary" id="addDayBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增項目</button></div>
                     <div id="itinerary-timeline"></div>
                 </section>
+                <!-- 旅行總支出 -->
+                <section class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>旅行總支出</h2>
+                            <p id="total-expense" style="font-size:0.9rem; color:var(--accent); margin-top:4px; font-weight:600;">$0</p>
+                        </div>
+                        <button class="btn btn-primary" id="addExpenseBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增支出</button>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="expense-table">
+                            <thead>
+                                <tr>
+                                    <th>項目</th>
+                                    <th>分類</th>
+                                    <th>金額</th>
+                                    <th>付款方式</th>
+                                    <th>備註</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="expense-list"></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="2" class="expense-table-total-label">總計</td>
+                                    <td id="expense-total-foot" class="expense-table-total-amt">$0</td>
+                                    <td colspan="3"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="expense-chart-wrap">
+                        <canvas id="expenseChart" width="160" height="160"></canvas>
+                        <div id="expense-cat-legend" class="expense-cat-legend"></div>
+                    </div>
+                </section>
+
                 <section class="card">
                     <div class="card-header"><h2>旅程相簿</h2><button class="btn btn-primary" id="addImageBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增網址</button></div>
                     <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;"></div>
@@ -72,13 +109,6 @@
                     <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享此網址即可一起規劃旅程</p>
                     <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
                 </div>
-                <section class="card">
-                    <div class="card-header"><h4>支出分析</h4></div>
-                    <canvas id="expenseChart" width="250" height="250"></canvas>
-                    <div id="total-expense" style="text-align:center; margin-top:20px; font-size:1.8rem; color:var(--primary);">$0</div>
-                    <div id="expense-list" style="margin-top:20px;"></div>
-                    <button class="btn btn-primary" id="addExpenseBtn" style="width:100%; margin-top: 15px; font-size: 0.8rem;">＋ 紀錄支出</button>
-                </section>
                 <!-- 刪除旅程按鈕 -->
                 <section class="card" style="border: 1px solid #ffcccc; background: #fffafb;">
                     <h4 style="color: #e74c3c; margin-bottom: 10px;">危險區域</h4>

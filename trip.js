@@ -149,18 +149,32 @@ function setupEvents() {
         <div class="form-group"><label>地點</label><input type="text" name="location"></div>
     `, "itinerary");
 
-    document.getElementById('addExpenseBtn').onclick = () => open("紀錄支出", `
-        <div class="form-group"><label>項目名稱</label><input type="text" name="name" required></div>
-        <div class="form-group"><label>金額 (TWD)</label><input type="number" name="amount" required min="0"></div>
-        <div class="form-group"><label>分類</label>
-            <select name="category">
-                <option value="餐飲">餐飲</option>
-                <option value="交通">交通</option>
-                <option value="住宿">住宿</option>
-                <option value="購物">購物</option>
+    document.getElementById('addExpenseBtn').onclick = () => open("新增支出", `
+        <div class="form-group"><label>項目名稱</label><input type="text" name="name" required placeholder="例如：機票"></div>
+        <div style="display:flex;gap:12px;">
+            <div class="form-group" style="flex:1"><label>金額 (TWD)</label><input type="number" name="amount" required min="0"></div>
+            <div class="form-group" style="flex:1"><label>分類</label>
+                <select name="category">
+                    <option value="交通">交通</option>
+                    <option value="住宿">住宿</option>
+                    <option value="餐飲">餐飲</option>
+                    <option value="景點">景點</option>
+                    <option value="購物">購物</option>
+                    <option value="保險/簽證">保險/簽證</option>
+                    <option value="電信費">電信費</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group"><label>付款方式</label>
+            <select name="payMethod">
+                <option value="刷卡">刷卡</option>
+                <option value="現金">現金</option>
+                <option value="行動支付">行動支付</option>
                 <option value="其他">其他</option>
             </select>
         </div>
+        <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="例如：一人 $8790，媽媽先轉帳"></div>
     `, "expenses");
 
     document.getElementById('addImageBtn').onclick = () => open("新增相片", `
@@ -284,16 +298,21 @@ async function loadAllData() {
         const ex = d.data(); const amt = Number(ex.amount) || 0;
         total += amt;
         cats[ex.category] = (cats[ex.category] || 0) + amt;
-        // ✅ 修正：改用 data-* 屬性
-        htmlE += `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <span>💸 ${ex.name} <small style="color:var(--text-muted); font-weight:400;">(${ex.category})</small></span>
-                    <span style="display:flex; align-items:center; gap:8px;">$${amt.toLocaleString()}
-                        <button data-delete-type="expenses" data-delete-id="${d.id}" style="border:none;background:none;color:#ccc;cursor:pointer;font-size:1rem;" title="刪除">×</button>
-                    </span>
-                  </div>`;
+        const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
+        htmlE += `<tr>
+            <td class="expense-name">${ex.name}</td>
+            <td><span class="expense-cat-badge">${ex.category || '其他'}</span></td>
+            <td class="expense-amt">$${amt.toLocaleString()}</td>
+            <td>${ex.payMethod ? `<span class="${payBadgeClass}">${ex.payMethod}</span>` : '—'}</td>
+            <td class="expense-note">${ex.note || ''}</td>
+            <td><button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${d.id}" title="刪除">×</button></td>
+        </tr>`;
     });
     document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;
-    document.getElementById('expense-list').innerHTML = htmlE || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400;'>尚無支出紀錄</p>";
+    const footTotal = document.getElementById('expense-total-foot');
+    if (footTotal) footTotal.innerText = `$${total.toLocaleString()}`;
+    document.getElementById('expense-list').innerHTML = htmlE ||
+        `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px; font-weight:400;">尚無支出紀錄</td></tr>`;
     renderChart(cats);
 
     // 同步總支出回 trips 主文件
@@ -380,21 +399,36 @@ async function loadTodos() {
 function renderChart(data) {
     const ctx = document.getElementById('expenseChart');
     if (chartInstance) chartInstance.destroy();
-    if (Object.keys(data).length === 0) return;
+    const colors = ['#1A3A5F', '#E67E22', '#E6D5B8', '#95A5A6', '#2C3E50', '#8E44AD', '#16A085', '#C0392B'];
+    const keys = Object.keys(data);
+    if (keys.length === 0) return;
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: Object.keys(data),
+            labels: keys,
             datasets: [{
                 data: Object.values(data),
-                backgroundColor: ['#1A3A5F', '#E67E22', '#E6D5B8', '#95A5A6', '#2C3E50'],
+                backgroundColor: colors,
                 borderWidth: 2,
                 borderColor: '#fff'
             }]
         },
         options: {
             cutout: '75%',
-            plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 12 } } } }
+            plugins: { legend: { display: false } }
         }
     });
+    // 渲染圖例
+    const total = Object.values(data).reduce((a, b) => a + b, 0);
+    const legend = document.getElementById('expense-cat-legend');
+    if (legend) {
+        legend.innerHTML = keys.map((k, i) => `
+            <div class="expense-cat-legend-item">
+                <span class="expense-cat-legend-dot" style="background:${colors[i % colors.length]};"></span>
+                <span style="flex:1;">${k}</span>
+                <span style="font-weight:600;">$${data[k].toLocaleString()}</span>
+                <span style="color:var(--text-muted); margin-left:4px;">(${Math.round(data[k]/total*100)}%)</span>
+            </div>
+        `).join('');
+    }
 }

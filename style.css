@@ -292,3 +292,87 @@ input:focus { border-color: var(--primary); background: #fff; }
 .status-pill.upcoming  { background: #FAEEDA; color: #854F0B; }
 .status-pill.completed { background: #E6F1FB; color: #185FA5; }
 .status-pill.archived  { background: #F1EFE8; color: #5F5E5A; }
+
+/* ===== 旅行總支出表格 ===== */
+.expense-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+.expense-table thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
+}
+.expense-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+}
+.expense-table tbody tr:hover { background: #f7f9fc; }
+.expense-table tbody td, .expense-table tfoot td {
+    padding: 11px 14px;
+    vertical-align: middle;
+}
+.expense-table tfoot td { border-top: 2px solid var(--border-color); }
+.expense-table-total-label { font-weight: 700; color: var(--primary); }
+.expense-table-total-amt { font-weight: 700; color: var(--primary); }
+
+.expense-name { font-weight: 500; }
+.expense-amt { font-weight: 600; white-space: nowrap; }
+.expense-note { color: var(--text-muted); font-size: 0.82rem; font-weight: 400; max-width: 200px; }
+
+/* 分類徽章 */
+.expense-cat-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--secondary);
+    color: var(--primary);
+    white-space: nowrap;
+}
+
+/* 付款方式徽章 */
+.pay-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.pay-badge.card { background: #e8f0fe; color: #1a56db; }
+.pay-badge.cash { background: #e6f4ea; color: #1e7e34; }
+
+/* 圖表區 */
+.expense-chart-wrap {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+}
+.expense-cat-legend { flex: 1; min-width: 120px; }
+.expense-cat-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+    color: var(--text-main);
+}
+.expense-cat-legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
