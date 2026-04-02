@@ -38,6 +38,58 @@ function renderHeader(data) {
     document.getElementById('trip-title').innerText = data.title;
     document.getElementById('trip-subtitle').innerText = `${data.country} · ${formatDate(data.startDate)} — ${formatDate(data.endDate)}`;
     document.getElementById('inner-hero').style.backgroundImage = `linear-gradient(rgba(26,58,95,0.7), rgba(26,58,95,0.7)), url('${data.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}')`;
+    renderSummaryCard(data);
+}
+
+function renderSummaryCard(data) {
+    const statusMap = {
+        '規劃中': 'planning', '即將出發': 'upcoming',
+        '已完成': 'completed', '已封存': 'archived'
+    };
+    const days = data.days || (data.startDate && data.endDate
+        ? Math.ceil((new Date(data.endDate) - new Date(data.startDate)) / 86400000) + 1
+        : '—');
+    const tags = Array.isArray(data.tags) ? data.tags
+        : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+
+    document.getElementById('trip-summary-display').innerHTML = `
+        <div class="summary-item">
+            <span class="summary-label">國家 / 城市</span>
+            <span class="summary-value">${data.country || '—'}${data.city ? ' · ' + data.city : ''}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">出發日期</span>
+            <span class="summary-value">${formatDate(data.startDate) || '—'}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">回程日期</span>
+            <span class="summary-value">${formatDate(data.endDate) || '—'}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">天數</span>
+            <span class="summary-value">${days} 天</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">旅伴</span>
+            <span class="summary-value">${data.companions || '獨旅'}</span>
+        </div>
+        <div class="summary-item">
+            <span class="summary-label">狀態</span>
+            <span class="summary-value">
+                <span class="status-pill ${statusMap[data.status] || 'planning'}">${data.status || '規劃中'}</span>
+            </span>
+        </div>
+        ${data.note ? `
+        <div class="summary-item" style="flex-basis: 100%;">
+            <span class="summary-label">備註</span>
+            <span class="summary-value" style="font-weight:400; color:var(--text-muted);">${data.note}</span>
+        </div>` : ''}
+        ${tags.length > 0 ? `
+        <div class="summary-item" style="flex-basis: 100%;">
+            <span class="summary-label">標籤</span>
+            <div class="summary-tags">${tags.map(t => `<span class="summary-tag">${t}</span>`).join('')}</div>
+        </div>` : ''}
+    `;
 }
 
 // ✅ 修正：改用 event delegation，不需要掛 window
@@ -117,6 +169,37 @@ function setupEvents() {
 
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
+    // 編輯旅程基本資料
+    document.getElementById('editTripInfoBtn').onclick = async () => {
+        const snap = await getDoc(doc(db, 'trips', tripId));
+        const d = snap.data();
+        const tags = Array.isArray(d.tags) ? d.tags.join(', ')
+            : (d.tags || '');
+        open('編輯旅程資料', `
+            <div class="form-group"><label>旅程名稱</label><input type="text" name="title" value="${d.title || ''}" required></div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>國家</label><input type="text" name="country" value="${d.country || ''}"></div>
+                <div class="form-group" style="flex:1"><label>城市</label><input type="text" name="city" value="${d.city || ''}"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>出發日期</label><input type="date" name="startDate" value="${d.startDate || ''}"></div>
+                <div class="form-group" style="flex:1"><label>回程日期</label><input type="date" name="endDate" value="${d.endDate || ''}"></div>
+            </div>
+            <div class="form-group"><label>旅伴</label><input type="text" name="companions" value="${d.companions || ''}" placeholder="例如：小明、小花"></div>
+            <div class="form-group"><label>狀態</label>
+                <select name="status">
+                    <option value="規劃中" ${d.status==='規劃中'?'selected':''}>規劃中</option>
+                    <option value="即將出發" ${d.status==='即將出發'?'selected':''}>即將出發</option>
+                    <option value="已完成" ${d.status==='已完成'?'selected':''}>已完成</option>
+                    <option value="已封存" ${d.status==='已封存'?'selected':''}>已封存</option>
+                </select>
+            </div>
+            <div class="form-group"><label>封面圖網址</label><input type="url" name="coverImageUrl" value="${d.coverImageUrl || ''}" placeholder="https://..."></div>
+            <div class="form-group"><label>標籤（用逗號分隔）</label><input type="text" name="tags" value="${tags}" placeholder="自由行, 美食, 親子"></div>
+            <div class="form-group"><label>備註</label><textarea name="note" rows="3" style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:10px;font-size:0.95rem;resize:vertical;">${d.note || ''}</textarea></div>
+        `, 'tripInfo');
+    };
+
     document.getElementById('deleteTripBtn').onclick = async () => {
         if (confirm("⚠️ 確定要刪除整趟旅程嗎？此操作無法復原。")) {
             try {
@@ -133,6 +216,30 @@ function setupEvents() {
         e.preventDefault();
         const type = modalForm.dataset.type;
         const data = Object.fromEntries(new FormData(modalForm).entries());
+
+        // 特殊處理：更新旅程主文件
+        if (type === 'tripInfo') {
+            if (data.tags) {
+                data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
+            } else {
+                data.tags = [];
+            }
+            data.updatedAt = serverTimestamp();
+            data.updatedByName = getUserNickname();
+            try {
+                await updateDoc(doc(db, 'trips', tripId), data);
+                modal.style.display = 'none';
+                modalForm.reset();
+                showToast("旅程資料已更新 ✓");
+                // 重新渲染摘要卡與 Hero
+                const snap = await getDoc(doc(db, 'trips', tripId));
+                renderHeader(snap.data());
+            } catch (err) {
+                showToast("儲存失敗", "error");
+            }
+            return;
+        }
+
         if (data.amount) data.amount = Number(data.amount);
         if (data.day) data.day = Number(data.day);
         data.createdAt = serverTimestamp();

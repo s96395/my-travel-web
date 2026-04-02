@@ -207,3 +207,81 @@ input:focus { border-color: var(--primary); background: #fff; }
         grid-template-columns: 1fr !important;
     }
 }
+
+/* ===== 旅程摘要卡 ===== */
+.trip-summary-card {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.trip-summary-body {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    flex: 1;
+}
+.summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 100px;
+}
+.summary-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.summary-value {
+    font-size: 0.95rem;
+    color: var(--text-main);
+    font-weight: 500;
+}
+.summary-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 2px;
+}
+.summary-tag {
+    background: var(--secondary);
+    color: var(--primary);
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 50px;
+    font-weight: 500;
+}
+.trip-summary-actions {
+    flex-shrink: 0;
+    align-self: center;
+}
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 8px 18px;
+    border-radius: 50px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: 0.2s;
+    white-space: nowrap;
+}
+.btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: #f0f4f8;
+}
+.status-pill {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 50px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.status-pill.planning  { background: #EAF3DE; color: #3B6D11; }
+.status-pill.upcoming  { background: #FAEEDA; color: #854F0B; }
+.status-pill.completed { background: #E6F1FB; color: #185FA5; }
+.status-pill.archived  { background: #F1EFE8; color: #5F5E5A; }
