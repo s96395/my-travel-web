@@ -1,6 +1,6 @@
-/* --- VoyageArchive 全站圓潤還原版 --- */
+/* --- VoyageArchive 最終完美還原版 --- */
 
-/* 1. 強制全站字體為微軟正黑體加粗 */
+/* 強制全站字體：微軟正黑體加粗 */
 * { 
     box-sizing: border-box; 
     margin: 0; 
@@ -19,9 +19,10 @@
     --text-muted: #7F8C8D;
     --card-bg: #FFFFFF;
     --border-color: #ECE9E2;
-    --radius-lg: 30px; /* 大圓角 */
-    --radius-md: 18px; /* 中圓角 */
-    --shadow: 0 15px 35px rgba(26, 58, 95, 0.1);
+    /* 全站圓角設定 */
+    --radius-lg: 30px; 
+    --radius-md: 20px;
+    --shadow: 0 15px 35px rgba(26, 58, 95, 0.12);
 }
 
 body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
@@ -37,11 +38,10 @@ nav {
     z-index: 1000;
 }
 .nav-content { display: flex; justify-content: space-between; align-items: center; }
-.logo { font-size: 1.5rem; font-weight: 900; color: var(--primary); text-decoration: none; }
-.nav-links { display: flex; align-items: center; gap: 20px; }
-.nav-links a { text-decoration: none; color: var(--text-main); font-size: 0.95rem; }
+.logo { font-size: 1.5rem; color: var(--primary); text-decoration: none; letter-spacing: 1px; }
+.nav-links a { text-decoration: none; color: var(--text-main); margin-left: 20px; font-size: 0.95rem; }
 
-/* 2. 還原首頁大圖 Hero */
+/* 還原首頁 Hero 視覺 */
 .hero { 
     height: 400px; 
     background: linear-gradient(rgba(26,58,95,0.7), rgba(26,58,95,0.7)), url('https://images.unsplash.com/photo-1488646953014-85cb44e25828');
@@ -54,14 +54,14 @@ nav {
     text-align: center;
     padding-bottom: 80px;
 }
-.hero h1 { font-size: 3rem; margin-bottom: 15px; }
+.hero h1 { font-size: 3rem; margin-bottom: 10px; }
 
-/* 3. 還原 4 個白色圓角方塊 (浮動效果) */
+/* 還原 4 個浮動圓角方塊 */
 .stats-grid { 
     display: grid; 
     grid-template-columns: repeat(4, 1fr); 
     gap: 20px; 
-    margin-top: -60px; /* 向上浮動 */
+    margin-top: -60px; /* 向上浮動疊在大圖上 */
     margin-bottom: 50px; 
 }
 .stat-card { 
@@ -74,21 +74,20 @@ nav {
 .stat-value { font-size: 2rem; color: var(--primary); display: block; margin-bottom: 5px; }
 .stat-label { font-size: 0.85rem; color: var(--text-muted); }
 
-/* 搜尋功能 (全圓角) */
+/* 搜尋框全圓角 */
 .filter-section input {
     width: 100%;
     padding: 16px 25px;
     border: 1px solid var(--border-color);
     border-radius: 50px;
     font-size: 1rem;
-    background: #fff;
     outline: none;
     box-shadow: var(--shadow);
 }
 
-/* 4. 旅程卡片 (16:9 比例) */
+/* 旅程卡片 (16:9 比例) */
 .trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 35px; padding-bottom: 80px; }
-.trip-card { background: white; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; position: relative; transition: 0.3s; }
+.trip-card { background: white; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: 0.3s; position: relative; }
 .trip-card:hover { transform: translateY(-10px); }
 
 .trip-cover-wrap { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; }
@@ -96,17 +95,17 @@ nav {
 .trip-info { padding: 25px; }
 .status-badge { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9); padding: 6px 15px; border-radius: 50px; font-size: 0.75rem; color: var(--primary); }
 
-/* 5. Modal 彈窗 (修正叉叉與填寫樣式) */
-.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); }
+/* Modal 彈窗全圓角 */
+.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); }
 .modal-content { 
-    background: white; margin: 80px auto; padding: 45px; 
+    background: white; margin: 60px auto; padding: 45px; 
     width: 90%; max-width: 550px; border-radius: var(--radius-lg); position: relative; 
     box-shadow: 0 30px 60px rgba(0,0,0,0.2);
 }
 .close { position: absolute; top: 25px; right: 25px; font-size: 32px; cursor: pointer; color: #ccc; line-height: 1; }
 .close:hover { color: var(--accent); }
 
-/* 填寫欄位樣式 */
+/* 填寫欄位圓角 */
 .form-group { margin-bottom: 20px; }
 .form-group label { display: block; margin-bottom: 10px; font-size: 0.9rem; color: var(--primary); }
 input, select, textarea { 
@@ -115,13 +114,14 @@ input, select, textarea {
 }
 input:focus { border-color: var(--primary); background: #fff; }
 
-/* 按鈕 (圓角膠囊) */
+/* 按鈕圓角膠囊型 */
 .btn { padding: 14px 30px; border-radius: 50px; border: none; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; justify-content: center; }
 .btn-primary { background: var(--primary); color: white; }
 
-/* 內頁小項目 (圓角化) */
+/* 內頁卡片與行程圓化 */
 .card { background: white; border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; }
 .itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); }
+.delete-btn-sub { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.2rem; }
 
 @media (max-width: 768px) {
     .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: -40px; }

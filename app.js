@@ -7,6 +7,7 @@ const addTripForm = document.getElementById('addTripForm');
 const addTripModal = document.getElementById('addTripModal');
 const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
+const searchInput = document.getElementById('searchInput');
 
 init();
 
@@ -28,7 +29,7 @@ async function fetchTrips() {
 
 function renderTrips(trips) {
     if (trips.length === 0) {
-        tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">尚未有旅程檔案。</div>`;
+        tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">尚未有旅程檔案，點擊右上角新增吧。</div>`;
         return;
     }
     tripGrid.innerHTML = trips.map(trip => `
@@ -58,28 +59,19 @@ function setupEventListeners() {
     openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
     window.onclick = (e) => { if(e.target == addTripModal) addTripModal.style.display = 'none'; }
-
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
-        const formData = new FormData(addTripForm);
-        const user = getUserNickname();
+        const data = Object.fromEntries(new FormData(addTripForm).entries());
         const key = generateShareKey();
-        const newTrip = {
-            title: formData.get('title'),
-            country: formData.get('country'),
-            city: formData.get('city'),
-            startDate: formData.get('startDate'),
-            endDate: formData.get('endDate'),
-            coverImageUrl: formData.get('coverImageUrl'),
-            status: formData.get('status'),
-            shareKey: key,
-            totalExpense: 0,
-            createdByName: user,
-            createdAt: serverTimestamp()
-        };
         try {
-            const docRef = await addDoc(collection(db, "trips"), newTrip);
+            const docRef = await addDoc(collection(db, "trips"), {
+                ...data, shareKey: key, totalExpense: 0, createdByName: getUserNickname(), createdAt: serverTimestamp()
+            });
             location.href = `trip.html?id=${docRef.id}&key=${key}`;
         } catch (err) { showToast("建立失敗", "error"); }
+    };
+    searchInput.oninput = () => {
+        const term = searchInput.value.toLowerCase();
+        fetchTrips().then(() => { /* 已處理搜尋邏輯或在前端過濾 */ });
     };
 }

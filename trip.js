@@ -43,13 +43,24 @@ function setupEvents() {
     };
 
     document.getElementById('closeModal').onclick = () => modal.style.display = 'none';
-    document.getElementById('addDayBtn').onclick = () => open("新增行程", `<div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" required></div><div class="form-group"><label>時間</label><input type="time" name="time"></div><div class="form-group"><label>活動內容</label><input type="text" name="activity" required></div><div class="form-group"><label>地點</label><input type="text" name="location"></div>`, "itinerary");
-    document.getElementById('addExpenseBtn').onclick = () => open("紀錄支出", `<div class="form-group"><label>項目</label><input type="text" name="name" required></div><div class="form-group"><label>金額</label><input type="number" name="amount" required></div><div class="form-group"><label>分類</label><select name="category"><option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option></select></div>`, "expenses");
+
+    document.getElementById('addDayBtn').onclick = () => open("新增行程", `
+        <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" required></div>
+        <div class="form-group"><label>時間</label><input type="time" name="time"></div>
+        <div class="form-group"><label>活動內容</label><input type="text" name="activity" required placeholder="例如：參觀首里城"></div>
+        <div class="form-group"><label>地點</label><input type="text" name="location"></div>
+    `, "itinerary");
+
+    document.getElementById('addExpenseBtn').onclick = () => open("紀錄支出", `
+        <div class="form-group"><label>項目名稱</label><input type="text" name="name" required></div>
+        <div class="form-group"><label>金額 (TWD)</label><input type="number" name="amount" required></div>
+        <div class="form-group"><label>分類</label><select name="category"><option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option></select></div>
+    `, "expenses");
+
     document.getElementById('addImageBtn').onclick = () => open("新增相片", `<div class="form-group"><label>圖片網址 (URL)</label><input type="url" name="url" required></div>`, "images");
-    
+
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
-    // 刪除整趟旅程
     document.getElementById('deleteTripBtn').onclick = async () => {
         if (confirm("⚠️ 確定要刪除整趟旅程嗎？此操作無法復原。")) {
             await deleteDoc(doc(db, "trips", tripId));
@@ -79,7 +90,7 @@ async function loadAllData() {
     let htmlI = ""; let lastDay = null;
     sI.forEach(d => {
         const item = d.data();
-        if(lastDay !== item.day) { lastDay = item.day; htmlI += `<h3 style="margin:20px 0 10px; border-left:5px solid var(--primary); padding-left:10px;">Day ${lastDay}</h3>`; }
+        if(lastDay !== item.day) { lastDay = item.day; htmlI += `<h3 style="margin-top:25px; margin-bottom:10px; border-left:6px solid var(--primary); padding-left:15px;">Day ${lastDay}</h3>`; }
         htmlI += `<div class="itinerary-item">
                     <div><span style="color:var(--accent);">${item.time || '--:--'}</span> <strong>${item.activity}</strong></div>
                     <button class="delete-btn-sub" onclick="deleteSubItem('itinerary', '${d.id}')">×</button>
