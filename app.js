@@ -11,6 +11,7 @@ const closeAddModalBtn = document.getElementById('closeAddModal');
 init();
 
 async function init() {
+    getUserNickname(); // 要求輸入暱稱
     await fetchTrips();
     setupEventListeners();
 }
@@ -19,42 +20,58 @@ async function fetchTrips() {
     try {
         const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
-        renderTrips(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const trips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderTrips(trips);
+        updateStats(trips);
     } catch (err) { console.error(err); }
 }
 
 function renderTrips(trips) {
     if (trips.length === 0) {
-        tripGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 100px; color: var(--text-muted);">尚未有旅程檔案。</div>`;
+        tripGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 100px; color: var(--text-muted); font-weight:300; letter-spacing:2px;">NO ARCHIVES YET.</div>`;
         return;
     }
     tripGrid.innerHTML = trips.map(trip => `
-        <div class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'" style="cursor:pointer; transition:0.4s;">
-            <div style="width:100%; aspect-ratio: 4/5; border-radius:15px; overflow:hidden; margin-bottom:15px; box-shadow:0 10px 30px rgba(0,0,0,0.05);">
-                <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" style="width:100%; height:100%; object-fit:cover;">
+        <article class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'">
+            <div class="trip-image-wrap">
+                <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover">
             </div>
             <div class="trip-info">
-                <div style="color:var(--accent); font-size:0.75rem; font-weight:700; text-transform:uppercase;">${trip.country} · ${trip.status}</div>
-                <h3 style="font-family:var(--serif-font); font-size:1.4rem; margin: 5px 0;">${trip.title}</h3>
-                <p style="color:var(--text-muted); font-size:0.8rem;">${formatDate(trip.startDate)} — ${formatDate(trip.endDate)}</p>
+                <span class="trip-meta">${trip.country} · ${trip.status}</span>
+                <h3>${trip.title}</h3>
+                <p class="trip-date">${formatDate(trip.startDate)} — ${formatDate(trip.endDate)}</p>
             </div>
-        </div>
+        </article>
     `).join('');
 }
 
+function updateStats(trips) {
+    document.getElementById('stat-total').innerText = trips.length;
+    document.getElementById('stat-planning').innerText = trips.filter(t => t.status === '規劃中').length;
+    document.getElementById('stat-completed').innerText = trips.filter(t => t.status === '已完成').length;
+    const total = trips.reduce((sum, t) => sum + (Number(t.totalExpense) || 0), 0);
+    document.getElementById('stat-expense').innerText = `$${total.toLocaleString()}`;
+}
+
 function setupEventListeners() {
-    openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
+    openAddModalBtn.onclick = (e) => { e.preventDefault(); addTripModal.style.display = 'block'; };
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
     window.onclick = (e) => { if(e.target == addTripModal) addTripModal.style.display = 'none'; }
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(addTripForm).entries());
+        const user = getUserNickname();
         try {
             const docRef = await addDoc(collection(db, "trips"), {
-                ...data, shareKey: generateShareKey(), totalExpense: 0, createdAt: serverTimestamp()
+                ...data,
+                shareKey: generateShareKey(),
+                totalExpense: 0,
+                createdByName: user,
+                createdAt: serverTimestamp()
             });
-            location.href = `trip.html?id=${docRef.id}&key=${docRef.id}`; // 簡化處理
-        } catch (err) { showToast("建立失敗", "error"); }
+            showToast("JOURNEY ARCHIVED.");
+            location.href = `trip.html?id=${docRef.id}&key=${data.shareKey}`;
+        } catch (err) { showToast("FAILED", "error"); }
     };
 }
