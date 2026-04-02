@@ -3,95 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅程規劃 | VoyageArchive</title>
+    <title>旅程詳情 | VoyageArchive</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        /* --- 封面視覺優化 --- */
-        .trip-hero { height: 350px; position: relative; width: 100%; overflow: hidden; margin-bottom: -40px; border-radius: 0 0 40px 40px; }
-        .trip-hero img { width: 100%; height: 100%; object-fit: cover; object-position: center 30%; filter: brightness(0.65) contrast(1.1); }
-        .hero-info { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); text-align: center; color: white; width: 90%; z-index: 10; }
-        .hero-info h1 { font-size: 2.5rem; font-weight: 900; margin-bottom: 12px; text-shadow: 0 4px 15px rgba(0,0,0,0.6); letter-spacing: 2px; }
-        .hero-info p { font-size: 1rem; background: rgba(0, 0, 0, 0.25); display: inline-block; padding: 6px 20px; border-radius: 30px; backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.2); }
-        .trip-container { position: relative; z-index: 20; display: grid; grid-template-columns: 1fr 350px; gap: 30px; margin-top: 20px; }
-        .main-content { display: flex; flex-direction: column; gap: 30px; }
-        .card { background: white; border-radius: 20px; padding: 25px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px dashed #eee; padding-bottom: 10px; }
-        .timeline { position: relative; padding-left: 30px; }
-        .timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: var(--secondary); }
-        .day-block { margin-bottom: 40px; position: relative; }
-        .day-dot { position: absolute; left: -30px; width: 16px; height: 16px; background: var(--primary); border-radius: 50%; border: 4px solid white; top: 5px; }
-        .share-box { background: var(--primary); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(26, 58, 95, 0.2); }
-        @media (max-width: 900px) { .trip-container { grid-template-columns: 1fr; } .trip-hero { height: 280px; } }
-    </style>
 </head>
 <body>
     <nav>
         <div class="container nav-content">
-            <a href="index.html" class="logo">VOYAGE<span>ARCHIVE</span></a>
-            <div class="nav-links">
-                <a href="index.html">返回我的旅程</a>
-            </div>
+            <a href="index.html" class="logo">VOYAGE ARCHIVE</a>
+            <div class="nav-links"><a href="index.html">My Journeys</a></div>
         </div>
     </nav>
 
-    <div id="app-content">
-        <div id="auth-error" style="display:none; text-align:center; padding: 100px 20px;">
-            <h1>抱歉，無權存取</h1>
-            <p>請確認您的分享連結是否正確。</p>
-            <a href="index.html" class="btn btn-primary" style="display:inline-block; margin-top:20px;">回首頁</a>
-        </div>
-
-        <div id="trip-details" style="display:none;">
-            <header class="trip-hero">
-                <img id="trip-cover" src="" alt="Cover">
-                <div class="hero-info">
-                    <h1 id="trip-title">載入中...</h1>
-                    <p id="trip-subtitle"></p>
-                </div>
-            </header>
-
-            <div class="container trip-container">
-                <div class="main-content">
-                    <section class="card">
-                        <div class="card-header">
-                            <h2>每日行程</h2>
-                            <button class="btn btn-primary" id="addDayBtn">+ 新增行程</button>
-                        </div>
-                        <div id="itinerary-timeline" class="timeline"></div>
-                    </section>
-                    <section class="card">
-                        <div class="card-header">
-                            <h2>旅程相簿</h2>
-                            <button class="btn btn-primary" id="addImageBtn">+ 新增照片</button>
-                        </div>
-                        <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
-                    </section>
-                </div>
-
-                <aside class="sidebar">
-                    <div class="share-box">
-                        <h4 style="margin-bottom:10px;">旅伴共編</h4>
-                        <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
-                    </div>
-                    <section class="card" style="margin-bottom:20px;"><div class="card-header"><h4>航班資訊</h4></div><div id="flight-list"></div><button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px;" id="addFlightBtn">+ 新增航班</button></section>
-                    <section class="card" style="margin-bottom:20px;"><div class="card-header"><h4>住宿安排</h4></div><div id="hotel-list"></div><button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px;" id="addHotelBtn">+ 新增住宿</button></section>
-                    <section class="card">
-                        <div class="card-header"><h4>花費統計</h4></div>
-                        <canvas id="expenseChart" width="200" height="200"></canvas>
-                        <div id="total-expense" style="text-align:center; margin-top:15px; font-weight:800; font-size:1.2rem;">$0</div>
-                        <div id="expense-list" style="margin-top:20px;"></div>
-                        <button class="btn btn-primary" style="width:100%; font-size:0.8rem; padding:8px; margin-top:10px;" id="addExpenseBtn">+ 新增支出</button>
-                    </section>
-                </aside>
+    <div id="trip-details" style="display:none;">
+        <header class="trip-hero">
+            <img id="trip-cover" src="" alt="Cover Image">
+            <div class="hero-info">
+                <h1 id="trip-title">載入中...</h1>
+                <p id="trip-subtitle"></p>
             </div>
+        </header>
+
+        <div class="container trip-container">
+            <div class="main-content">
+                <!-- 每日行程區區塊 -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 style="font-family: var(--serif-font); font-style: italic;">Itinerary</h2>
+                        <button class="btn btn-primary" id="addDayBtn">＋ 新增行程</button>
+                    </div>
+                    <div id="itinerary-timeline"></div>
+                </section>
+
+                <!-- 相簿區塊 -->
+                <section class="card">
+                    <div class="card-header">
+                        <h2 style="font-family: var(--serif-font); font-style: italic;">Memories</h2>
+                        <button class="btn btn-primary" id="addImageBtn">＋ 照片網址</button>
+                    </div>
+                    <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
+                </section>
+            </div>
+
+            <aside class="sidebar">
+                <!-- 共編資訊 -->
+                <div class="card" style="background: var(--primary); color: white; text-align: center;">
+                    <h4 style="margin-bottom:10px; font-family: var(--serif-font); font-style: italic;">Collaborate</h4>
+                    <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">複製連結傳給旅伴，即可同步編輯行程。</p>
+                    <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
+                </div>
+
+                <!-- 支出統計 -->
+                <section class="card">
+                    <div class="card-header"><h4 style="font-family: var(--serif-font); font-style: italic;">Financials</h4></div>
+                    <canvas id="expenseChart" width="200" height="200"></canvas>
+                    <div id="total-expense" style="text-align:center; margin-top:15px; font-weight:800; font-size:1.2rem;">$0</div>
+                    <div id="expense-list" style="margin-top:20px;"></div>
+                    <button class="btn btn-primary" style="width:100%; font-size:0.8rem; margin-top: 15px;" id="addExpenseBtn">＋ 新增支出</button>
+                </section>
+            </aside>
         </div>
     </div>
 
+    <!-- 通用彈窗 -->
     <div id="universalModal" class="modal">
         <div class="modal-content">
-            <div class="modal-header"><h2 id="modalTitle">標題</h2><span class="close" id="closeModal">&times;</span></div>
-            <form id="modalForm"><div id="modalBody"></div><button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">儲存</button></form>
+            <h2 id="modalTitle" style="font-family: var(--serif-font); margin-bottom: 20px; font-style: italic;">標題</h2>
+            <form id="modalForm">
+                <div id="modalBody"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">儲存內容</button>
+            </form>
+            <p onclick="document.getElementById('universalModal').style.display='none'" style="text-align:center; margin-top:15px; cursor:pointer; color:var(--text-muted); font-size: 0.9rem;">取消</p>
         </div>
     </div>
 

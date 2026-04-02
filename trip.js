@@ -1,8 +1,5 @@
 import { db } from './firebase-db.js';
-import { 
-    doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc,
-    query, orderBy, serverTimestamp 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getUserNickname, showToast, formatDate, copyToClipboard } from './utils.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -13,46 +10,55 @@ let chartInstance = null;
 if (tripId && shareKey) {
     init();
 } else {
-    document.getElementById('auth-error').style.display = 'block';
+    document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h1>無權存取</h1><p>請檢查分享連結是否正確。</p><a href="index.html">回到首頁</a></div>`;
 }
 
 async function init() {
     try {
-        const tripRef = doc(db, "trips", tripId);
-        const tripSnap = await getDoc(tripRef);
+        const tripSnap = await getDoc(doc(db, "trips", tripId));
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
-            renderTripHeader(tripSnap.data());
-            setupEventListeners();
-            loadAllSubData();
+            renderHeader(tripSnap.data());
+            setupEvents();
+            loadData();
             document.getElementById('trip-details').style.display = 'block';
-        } else {
-            document.getElementById('auth-error').style.display = 'block';
         }
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error("Initialization error:", err); }
 }
 
-function renderTripHeader(data) {
+function renderHeader(data) {
     document.getElementById('trip-title').innerText = data.title;
-    document.getElementById('trip-subtitle').innerText = `${data.country} · ${formatDate(data.startDate)} - ${formatDate(data.endDate)}`;
+    document.getElementById('trip-subtitle').innerText = `${data.country} · ${formatDate(data.startDate)} — ${formatDate(data.endDate)}`;
     document.getElementById('trip-cover').src = data.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 }
 
-function setupEventListeners() {
+function setupEvents() {
     const modal = document.getElementById('universalModal');
     const modalForm = document.getElementById('modalForm');
-    const openForm = (title, html, type) => {
+    const open = (title, body, type) => {
         document.getElementById('modalTitle').innerText = title;
-        document.getElementById('modalBody').innerHTML = html;
+        document.getElementById('modalBody').innerHTML = body;
         modalForm.dataset.type = type;
         modal.style.display = 'block';
     };
 
-    document.getElementById('closeModal').onclick = () => modal.style.display = 'none';
-    document.getElementById('addDayBtn').onclick = () => openForm("新增行程項目", `<div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" required></div><div class="form-group"><label>時間</label><input type="time" name="time"></div><div class="form-group"><label>內容</label><input type="text" name="activity" required></div><div class="form-group"><label>地點</label><input type="text" name="location"></div>`, "itinerary");
-    document.getElementById('addExpenseBtn').onclick = () => openForm("新增支出", `<div class="form-group"><label>項目</label><input type="text" name="name" required></div><div class="form-group"><label>金額</label><input type="number" name="amount" required></div><div class="form-group"><label>分類</label><select name="category"><option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option></select></div>`, "expenses");
-    document.getElementById('addImageBtn').onclick = () => openForm("新增照片連結", `<div class="form-group"><label>圖片網址</label><input type="url" name="url" placeholder="https://..." required></div><div class="form-group"><label>備註</label><input type="text" name="note"></div>`, "images");
-    document.getElementById('addFlightBtn').onclick = () => openForm("新增航班", `<div class="form-group"><label>航班編號</label><input type="text" name="flightNumber" required></div><div class="form-group"><label>航線</label><input type="text" name="route" placeholder="TPE -> OKA"></div>`, "flights");
-    document.getElementById('addHotelBtn').onclick = () => openForm("新增住宿", `<div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" required></div><div class="form-group"><label>地址</label><input type="text" name="address"></div>`, "hotels");
+    document.getElementById('addDayBtn').onclick = () => open("New Itinerary Item", `
+        <div style="margin-bottom:15px;"><label>天數</label><input type="number" name="day" value="1" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+        <div style="margin-bottom:15px;"><label>時間</label><input type="time" name="time" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+        <div style="margin-bottom:15px;"><label>地點/活動</label><input type="text" name="activity" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+    `, "itinerary");
+
+    document.getElementById('addExpenseBtn').onclick = () => open("New Expense", `
+        <div style="margin-bottom:15px;"><label>項目名稱</label><input type="text" name="name" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+        <div style="margin-bottom:15px;"><label>金額 (TWD)</label><input type="number" name="amount" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+        <div style="margin-bottom:15px;"><label>分類</label><select name="category" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;">
+            <option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option>
+        </select></div>
+    `, "expenses");
+
+    document.getElementById('addImageBtn').onclick = () => open("New Memory Link", `
+        <div><label>照片網址</label><input type="url" name="url" required placeholder="貼上圖片網址" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+    `, "images");
+
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
     modalForm.onsubmit = async (e) => {
@@ -66,82 +72,69 @@ function setupEventListeners() {
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none';
-            showToast("已儲存");
-            loadAllSubData();
-        } catch (err) { showToast("儲存失敗", "error"); }
+            loadData();
+        } catch (err) { console.error("Save error:", err); }
     };
 }
 
-async function loadAllSubData() {
-    loadItinerary();
-    loadExpenses();
-    loadImages();
-    loadFlights();
-    loadHotels();
-}
-
-async function loadItinerary() {
-    const q = query(collection(db, `trips/${tripId}/itinerary`), orderBy("day"), orderBy("time"));
-    const snap = await getDocs(q);
-    const container = document.getElementById('itinerary-timeline');
-    container.innerHTML = "";
-    let lastDay = null;
-    snap.forEach(d => {
+async function loadData() {
+    // 載入行程
+    const qI = query(collection(db, `trips/${tripId}/itinerary`), orderBy("day"), orderBy("time"));
+    const sI = await getDocs(qI);
+    let htmlI = ""; let lastDay = null;
+    sI.forEach(d => {
         const item = d.data();
-        if (lastDay !== item.day) {
-            lastDay = item.day;
-            container.innerHTML += `<div class="day-block"><div class="day-dot"></div><h3>Day ${lastDay}</h3></div>`;
-        }
-        container.innerHTML += `<div class="itinerary-item"><div><strong>${item.time || '--:--'}</strong> ${item.activity}<div class="itinerary-loc">${item.location || ''}</div></div><button class="delete-btn-sub" onclick="deleteSubItem('itinerary', '${d.id}')">×</button></div>`;
+        if(lastDay !== item.day) { lastDay = item.day; htmlI += `<h3 style="margin: 30px 0 15px; font-family: var(--serif-font); border-bottom: 1px solid #eee; padding-bottom: 5px;">Day ${lastDay}</h3>`; }
+        htmlI += `<div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:#fafafa; border-radius:12px; margin-bottom:12px; border-left: 4px solid var(--primary);">
+                    <div><span style="font-weight:700; color:var(--primary); margin-right:15px;">${item.time || '--:--'}</span> ${item.activity}</div>
+                    <button onclick="deleteSubItem('itinerary', '${d.id}')" style="background:none; border:none; color:#ddd; cursor:pointer; font-size:1.2rem;">×</button>
+                  </div>`;
     });
-}
+    document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc;'>點擊右上方新增第一筆行程</p>";
 
-async function loadExpenses() {
-    const snap = await getDocs(collection(db, `trips/${tripId}/expenses`));
-    const list = document.getElementById('expense-list');
-    let total = 0; const cats = {}; list.innerHTML = "";
-    snap.forEach(d => {
+    // 載入支出
+    const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
+    let total = 0; const cats = {}; let htmlE = "";
+    sE.forEach(d => {
         const ex = d.data(); const amt = Number(ex.amount) || 0;
         total += amt; cats[ex.category] = (cats[ex.category] || 0) + amt;
-        list.innerHTML += `<div class="info-mini-card"><span>💸 ${ex.name}: $${amt.toLocaleString()}</span><button class="delete-btn-sub" onclick="deleteSubItem('expenses', '${d.id}')">×</button></div>`;
+        htmlE += `<div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:10px; border-bottom: 1px dashed #eee; padding-bottom: 5px;">
+                    <span>💸 ${ex.name}: $${amt.toLocaleString()}</span>
+                    <button onclick="deleteSubItem('expenses', '${d.id}')" style="border:none; background:none; color:#ddd; cursor:pointer;">×</button>
+                  </div>`;
     });
     document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;
+    document.getElementById('expense-list').innerHTML = htmlE;
     renderChart(cats);
-    // 同步到父文件，確保首頁統計正確
     await updateDoc(doc(db, "trips", tripId), { totalExpense: total });
+
+    // 載入照片
+    const sPh = await getDocs(collection(db, `trips/${tripId}/images`));
+    let htmlPh = "";
+    sPh.forEach(d => {
+        htmlPh += `<div style="position:relative; aspect-ratio:1; overflow:hidden; border-radius:12px; box-shadow: var(--shadow-soft);">
+                    <img src="${d.data().url}" style="width:100%; height:100%; object-fit:cover;">
+                    <button onclick="deleteSubItem('images', '${d.id}')" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.8); border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
+                   </div>`;
+    });
+    document.getElementById('photo-grid').innerHTML = htmlPh;
 }
 
 function renderChart(data) {
-    const ctx = document.getElementById('expenseChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-    if (Object.keys(data).length === 0) return;
+    const ctx = document.getElementById('expenseChart');
+    if(chartInstance) chartInstance.destroy();
+    if(Object.keys(data).length === 0) return;
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
-        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#1A3A5F', '#E67E22', '#E6D5B8', '#2C3E50', '#7F8C8D'] }] },
-        options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+        data: { labels: Object.keys(data), datasets: [{ data: Object.values(data), backgroundColor: ['#1A3A5F', '#E67E22', '#E6D5B8', '#2C3E50', '#7F8C8D'], borderWidth: 2, borderColor: '#fff' }] },
+        options: { cutout: '75%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
     });
 }
 
-async function loadImages() {
-    const snap = await getDocs(collection(db, `trips/${tripId}/images`));
-    const grid = document.getElementById('photo-grid'); grid.innerHTML = "";
-    snap.forEach(d => { grid.innerHTML += `<div class="photo-item"><img src="${d.data().url}"><button class="delete-btn-sub" onclick="deleteSubItem('images', '${d.id}')">×</button></div>`; });
-}
-
-async function loadFlights() {
-    const snap = await getDocs(collection(db, `trips/${tripId}/flights`));
-    const container = document.getElementById('flight-list'); container.innerHTML = "";
-    snap.forEach(d => { const f = d.data(); container.innerHTML += `<div class="info-mini-card">✈️ ${f.flightNumber} (${f.route})<button class="delete-btn-sub" onclick="deleteSubItem('flights', '${d.id}')">×</button></div>`; });
-}
-
-async function loadHotels() {
-    const snap = await getDocs(collection(db, `trips/${tripId}/hotels`));
-    const container = document.getElementById('hotel-list'); container.innerHTML = "";
-    snap.forEach(d => { const h = d.data(); container.innerHTML += `<div class="info-mini-card">🏨 ${h.hotelName}<button class="delete-btn-sub" onclick="deleteSubItem('hotels', '${d.id}')">×</button></div>`; });
-}
-
 window.deleteSubItem = async (type, id) => {
-    if (!confirm("確定刪除？")) return;
-    await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
-    showToast("已刪除"); loadAllSubData();
+    if(!confirm("確定要刪除這筆紀錄嗎？")) return;
+    try {
+        await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
+        loadData();
+    } catch (err) { console.error("Delete error:", err); }
 };
