@@ -420,6 +420,7 @@ async function loadAllData() {
             <td class="expense-amt">$${amt.toLocaleString()}</td>
             <td>${ex.payMethod ? `<span class="${payBadgeClass}">${ex.payMethod}</span>` : '—'}</td>
             <td class="expense-note">${ex.note || ''}</td>
+            <td class="expense-who">${ex.createdByName || '—'}</td>
             <td><button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${d.id}" title="刪除">×</button></td>
         </tr>`;
     });

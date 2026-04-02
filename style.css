@@ -105,11 +105,14 @@ nav {
 .status-badge { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9); padding: 6px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; color: var(--primary); }
 
 /* Modal 彈窗全圓角 */
-.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); overflow-y: auto; }
+.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
 .modal-content { 
     background: white; margin: 40px auto; padding: 45px; 
     width: 90%; max-width: 550px; border-radius: var(--radius-lg); position: relative; 
     box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+}
+@media (max-width: 600px) {
+    .modal-content { margin: 16px auto; padding: 28px 20px; width: 94%; }
 }
 .close { position: absolute; top: 25px; right: 25px; font-size: 32px; cursor: pointer; color: #ccc; line-height: 1; }
 .close:hover { color: var(--accent); }
@@ -428,3 +431,5 @@ input:focus { border-color: var(--primary); background: #fff; }
 .info-flight-airport { font-size: 1rem; font-weight: 700; color: var(--primary); }
 .info-flight-time { font-size: 0.88rem; color: var(--text-muted); font-weight: 400; }
 .info-flight-arrow { font-size: 1.4rem; color: var(--accent); flex-shrink: 0; }
+
+.expense-who { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; white-space: nowrap; }
