@@ -11,7 +11,7 @@ const closeAddModalBtn = document.getElementById('closeAddModal');
 init();
 
 async function init() {
-    getUserNickname(); // 要求輸入暱稱
+    getUserNickname(); 
     await fetchTrips();
     setupEventListeners();
 }
@@ -28,7 +28,7 @@ async function fetchTrips() {
 
 function renderTrips(trips) {
     if (trips.length === 0) {
-        tripGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 100px; color: var(--text-muted); font-weight:300; letter-spacing:2px;">NO ARCHIVES YET.</div>`;
+        tripGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 100px; color: var(--text-muted);">尚未有旅程，點擊右上角開始規劃。</div>`;
         return;
     }
     tripGrid.innerHTML = trips.map(trip => `
@@ -63,15 +63,12 @@ function setupEventListeners() {
         const data = Object.fromEntries(new FormData(addTripForm).entries());
         const user = getUserNickname();
         try {
+            const key = generateShareKey();
             const docRef = await addDoc(collection(db, "trips"), {
-                ...data,
-                shareKey: generateShareKey(),
-                totalExpense: 0,
-                createdByName: user,
-                createdAt: serverTimestamp()
+                ...data, shareKey: key, totalExpense: 0, createdByName: user, createdAt: serverTimestamp()
             });
-            showToast("JOURNEY ARCHIVED.");
-            location.href = `trip.html?id=${docRef.id}&key=${data.shareKey}`;
-        } catch (err) { showToast("FAILED", "error"); }
+            showToast("旅程建立成功");
+            location.href = `trip.html?id=${docRef.id}&key=${key}`;
+        } catch (err) { showToast("建立失敗", "error"); }
     };
 }

@@ -1,4 +1,4 @@
-/* --- VoyageArchive 精品雜誌設計系統 --- */
+/* --- VoyageArchive 精品旅遊雜誌設計系統 --- */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Noto+Sans+TC:wght@300;400;700;900&display=swap');
 
 :root {
@@ -8,8 +8,8 @@
     --text-main: #2C3E50;
     --text-muted: #95A5A6;
     --border-color: #F2F0E9;
-    --shadow-soft: 0 20px 40px rgba(26, 58, 95, 0.06);
-    --serif-font: 'Playfair Display', serif;
+    --shadow-soft: 0 10px 40px rgba(26, 58, 95, 0.05);
+    --serif-font: 'Playfair Display', 'Noto Sans TC', serif;
     --sans-font: 'Noto Sans TC', sans-serif;
 }
 
@@ -26,9 +26,9 @@ body {
 
 /* --- 導覽列 --- */
 nav { 
-    background: rgba(253, 252, 248, 0.9);
+    background: rgba(253, 252, 248, 0.95);
     backdrop-filter: blur(15px);
-    padding: 30px 0;
+    padding: 25px 0;
     position: sticky;
     top: 0;
     z-index: 1000;
@@ -40,47 +40,46 @@ nav {
     color: var(--primary); 
     text-decoration: none; 
     letter-spacing: 2px;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 900;
 }
-.nav-links { display: flex; align-items: center; gap: 40px; }
-.nav-links a { text-decoration: none; color: var(--text-main); font-weight: 500; font-size: 0.85rem; letter-spacing: 1px; text-transform: uppercase; transition: 0.3s; }
+.nav-links { display: flex; align-items: center; gap: 30px; }
+.nav-links a { text-decoration: none; color: var(--text-main); font-weight: 500; font-size: 0.9rem; transition: 0.3s; }
 .nav-links a:hover { color: var(--accent); }
 
 /* --- 首頁 Hero --- */
-.hero { padding: 120px 0 80px; text-align: center; }
+.hero { padding: 100px 0 60px; text-align: center; }
 .hero h1 { 
     font-family: var(--serif-font); 
-    font-size: 4.5rem; 
+    font-size: 4rem; 
     color: var(--primary); 
     font-style: italic;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     line-height: 1.1;
 }
-.hero p { color: var(--text-muted); font-size: 1.2rem; font-weight: 300; letter-spacing: 2px; }
+.hero p { color: var(--text-muted); font-size: 1.1rem; letter-spacing: 2px; font-weight: 300; }
 
-/* --- 統計數據區 --- */
+/* --- 統計區 --- */
 .stats-grid { 
     display: flex; 
     justify-content: center; 
-    gap: 80px; 
-    margin-bottom: 100px; 
+    gap: 60px; 
+    margin-bottom: 80px; 
     padding: 40px 0;
     border-top: 1px solid var(--border-color);
     border-bottom: 1px solid var(--border-color);
 }
 .stat-card { text-align: center; }
-.stat-value { font-family: var(--serif-font); font-size: 2.5rem; color: var(--primary); display: block; margin-bottom: 5px; }
-.stat-label { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+.stat-value { font-family: var(--serif-font); font-size: 2.2rem; color: var(--primary); display: block; margin-bottom: 5px; }
+.stat-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; }
 
-/* --- 旅程網格 --- */
+/* --- 旅程卡片網格 (Lunch 風格垂直比例) --- */
 .trip-grid { 
     display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); 
-    gap: 60px; 
-    padding-bottom: 120px;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
+    gap: 50px; 
+    padding-bottom: 100px;
 }
-.trip-card { cursor: pointer; transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1); }
+.trip-card { cursor: pointer; transition: 0.5s cubic-bezier(0.165, 0.84, 0.44, 1); }
 .trip-card:hover { transform: translateY(-15px); }
 
 .trip-image-wrap {
@@ -90,24 +89,23 @@ nav {
     overflow: hidden;
     margin-bottom: 25px;
     box-shadow: var(--shadow-soft);
-    position: relative;
 }
-.trip-cover { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(0.165, 0.84, 0.44, 1); }
+.trip-cover { width: 100%; height: 100%; object-fit: cover; transition: 1.2s cubic-bezier(0.165, 0.84, 0.44, 1); }
 .trip-card:hover .trip-cover { transform: scale(1.1); }
 
-.trip-info h3 { font-family: var(--serif-font); font-size: 1.8rem; color: var(--primary); margin-bottom: 8px; }
-.trip-meta { color: var(--accent); font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; display: block; }
-.trip-date { color: var(--text-muted); font-size: 0.9rem; font-weight: 300; }
+.trip-info h3 { font-family: var(--serif-font); font-size: 1.6rem; color: var(--primary); margin-bottom: 8px; }
+.trip-meta { color: var(--accent); font-size: 0.8rem; font-weight: 900; letter-spacing: 1px; margin-bottom: 5px; display: block; }
+.trip-date { color: var(--text-muted); font-size: 0.85rem; font-weight: 300; }
 
-/* --- Modal 彈窗核心 (解決 X 按鈕與填寫內容醜的問題) --- */
+/* --- Modal 彈窗樣式 (修正叉叉位置與醜陋欄位) --- */
 .modal { 
     display: none; 
     position: fixed; 
     z-index: 2000; 
     left: 0; top: 0; 
     width: 100%; height: 100%; 
-    background: rgba(26, 38, 52, 0.6); 
-    backdrop-filter: blur(12px); 
+    background: rgba(26, 38, 52, 0.4); 
+    backdrop-filter: blur(15px); 
     overflow-y: auto; 
 }
 .modal-content { 
@@ -115,20 +113,10 @@ nav {
     margin: 8vh auto; 
     padding: 60px; 
     width: 90%; 
-    max-width: 600px; 
-    border-radius: 8px; 
+    max-width: 550px; 
+    border-radius: 4px; 
     position: relative; 
-    box-shadow: 0 50px 100px rgba(0,0,0,0.1);
-}
-.modal-header { margin-bottom: 40px; }
-.modal-header h2 { 
-    font-family: var(--serif-font); 
-    font-size: 2.2rem; 
-    font-style: italic; 
-    color: var(--primary); 
-    border-bottom: 2px solid var(--primary);
-    display: inline-block;
-    padding-bottom: 10px;
+    box-shadow: 0 40px 100px rgba(0,0,0,0.1);
 }
 .close { 
     position: absolute;
@@ -139,15 +127,14 @@ nav {
     color: #ccc; 
     transition: 0.3s;
 }
-.close:hover { color: var(--accent); transform: rotate(90deg); }
+.close:hover { color: var(--accent); }
 
-.form-group { margin-bottom: 25px; }
+.form-group { margin-bottom: 30px; }
 .form-group label { 
     display: block; 
-    margin-bottom: 10px; 
-    font-weight: 700; 
+    margin-bottom: 12px; 
+    font-weight: 900; 
     font-size: 0.75rem; 
-    text-transform: uppercase; 
     letter-spacing: 1px;
     color: var(--primary); 
 }
@@ -165,66 +152,52 @@ input, select, textarea {
 }
 input:focus, select:focus { border-bottom-color: var(--accent); }
 
-/* --- 按鈕樣式 --- */
+/* --- 按鈕 --- */
 .btn { 
-    padding: 18px 35px; 
+    padding: 16px 35px; 
     border-radius: 0; 
     border: none; 
     font-weight: 700; 
     cursor: pointer; 
-    transition: 0.4s; 
+    transition: 0.3s; 
     font-size: 0.85rem;
-    text-transform: uppercase;
     letter-spacing: 2px;
 }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--accent); transform: translateY(-3px); }
 
-/* --- 內頁詳情版型 (trip.html) --- */
-.trip-hero { 
-    height: 550px; 
-    position: relative; 
-    overflow: hidden; 
-    margin-bottom: 80px; 
-}
+/* --- 內頁詳情 (trip.html) --- */
+.trip-hero { height: 500px; position: relative; overflow: hidden; margin-bottom: 60px; }
 .trip-hero img { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.7); }
-.hero-info { 
-    position: absolute; 
-    bottom: 100px; 
-    left: 50%; 
-    transform: translateX(-50%); 
-    text-align: center; 
-    color: white; 
-    width: 80%; 
-}
-.hero-info h1 { font-family: var(--serif-font); font-size: 4rem; margin-bottom: 15px; }
+.hero-info { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); text-align: center; color: white; width: 80%; }
+.hero-info h1 { font-family: var(--serif-font); font-size: 3.5rem; margin-bottom: 10px; font-weight: 900; }
 
-.trip-container { display: grid; grid-template-columns: 1fr 380px; gap: 60px; margin-bottom: 100px; }
-.card { 
-    background: white; 
-    padding: 40px; 
-    margin-bottom: 40px; 
-    box-shadow: var(--shadow-soft);
-}
-.card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 35px; border-bottom: 1px solid #f8f8f8; padding-bottom: 15px; }
-.card-header h2 { font-family: var(--serif-font); font-size: 2rem; font-style: italic; }
+.trip-container { display: grid; grid-template-columns: 1fr 350px; gap: 60px; margin-bottom: 100px; }
+.card { background: white; padding: 40px; margin-bottom: 40px; box-shadow: var(--shadow-soft); border-radius: 4px; }
+.card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 30px; border-bottom: 1px solid #f8f8f8; padding-bottom: 15px; }
+.card-header h2 { font-family: var(--serif-font); font-size: 1.8rem; font-style: italic; }
 
-/* --- 時間軸樣式 --- */
-.timeline-item { padding: 25px 0; border-bottom: 1px solid #fafafa; display: flex; gap: 30px; }
-.time-tag { font-family: var(--serif-font); color: var(--accent); font-weight: 700; min-width: 80px; }
-.activity-info h4 { font-size: 1.2rem; margin-bottom: 5px; }
-.activity-info p { color: var(--text-muted); font-size: 0.9rem; }
+/* --- 行程項目 --- */
+.timeline-item { 
+    padding: 20px 0; 
+    border-bottom: 1px solid #fafafa; 
+    display: flex; 
+    justify-content: space-between;
+    align-items: center;
+}
+.delete-btn { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.2rem; transition: 0.3s; padding: 5px; }
+.delete-btn:hover { color: #e74c3c; }
 
 /* --- Toast 提示 --- */
 .toast { 
     position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px); 
     background: var(--primary); color: white; padding: 15px 35px; 
-    font-size: 0.9rem; letter-spacing: 1px; transition: 0.5s; z-index: 5000;
+    transition: 0.5s; z-index: 5000; font-size: 0.9rem;
 }
 .toast.show { transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 1000px) {
     .trip-container { grid-template-columns: 1fr; }
-    .hero h1 { font-size: 3rem; }
-    .stats-grid { gap: 30px; flex-wrap: wrap; }
+    .hero h1 { font-size: 2.5rem; }
+    .stats-grid { flex-wrap: wrap; gap: 30px; }
 }
