@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // trips 主集合
+    // ============================================================
+    // 本版本採用 shareKey 連結共編機制，不使用登入驗證。
+    // 安全性由前端 shareKey 比對控管，非登入帳號控管。
+    // 任何知道 shareKey 的人均可讀取與編輯該旅程。
+    //
+    // ⚠️  注意事項：
+    //   - 此規則允許所有人讀寫，不適合存放個人敏感資料
+    //   - 若未來需要升級安全性，請參考 README 的升級指南
+    //   - 已透過 Firebase Console 限制存取來源網域以降低風險
+    // ============================================================
+
+    // trips 主文件：允許所有讀寫
+    match /trips/{tripId} {
+      allow read, write: if true;
+
+      // todos 子集合
+      match /todos/{todoId} {
+        allow read, write: if true;
+      }
+
+      // expenses 子集合
+      match /expenses/{expenseId} {
+        allow read, write: if true;
+      }
+
+      // itinerary 子集合（目前版本使用扁平結構）
+      match /itinerary/{itemId} {
+        allow read, write: if true;
+      }
+
+      // itineraryDays 子集合（未來升級用）
+      match /itineraryDays/{dayId} {
+        allow read, write: if true;
+
+        // 每日行程項目（巢狀子集合）
+        match /items/{itemId} {
+          allow read, write: if true;
+        }
+      }
+
+      // images 子集合
+      match /images/{imageId} {
+        allow read, write: if true;
+      }
+
+      // flights 子集合
+      match /flights/{flightId} {
+        allow read, write: if true;
+      }
+
+      // accommodations 子集合
+      match /accommodations/{accommodationId} {
+        allow read, write: if true;
+      }
+    }
+
+    // ============================================================
+    // optionSets 集合（可自訂選項系統，未來版本使用）
+    // ============================================================
+    match /optionSets/{optionId} {
+      allow read, write: if true;
+    }
+
+    // ============================================================
+    // settings 集合（系統設定，未來版本使用）
+    // ============================================================
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+  }
+}

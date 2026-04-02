@@ -1,0 +1,40 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ============================================================
+    // Firebase Storage 規則
+    // ============================================================
+    // 本版本採用 shareKey 連結共編機制，不使用登入驗證。
+    // Storage 規則無法直接驗證 shareKey（shareKey 存在 Firestore），
+    // 因此目前開放所有人讀寫，安全性由應用程式層管控。
+    //
+    // ⚠️  建議：
+    //   - 圖片請先在本地壓縮後再上傳，建議單張不超過 1MB
+    //   - 每筆旅程建議限制上傳圖片在 10 張以內
+    //   - 不建議存放隱私敏感圖片
+    //   - 若未來導入登入機制，可將下方規則改為 request.auth != null
+    // ============================================================
+
+    // trips 資料夾：旅程相關圖片
+    // 路徑規則：trips/{tripId}/{imageType}/{filename}
+    // 例如：trips/abc123/cover/cover.jpg
+    //       trips/abc123/gallery/photo1.jpg
+    match /trips/{tripId}/{allPaths=**} {
+      // 允許讀取（任何人可查看圖片）
+      allow read: if true;
+
+      // 允許上傳（限制單檔大小最大 5MB）
+      allow write: if request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+
+      // 允許刪除
+      allow delete: if true;
+    }
+
+    // 其他路徑：預設拒絕
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
