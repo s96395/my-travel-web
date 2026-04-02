@@ -1,10 +1,10 @@
-/* --- VoyageArchive 全站圓潤質感版 --- */
+/* --- VoyageArchive 全站圓潤還原版 --- */
 
-/* 強制全站字體為微軟正黑體加粗 */
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+/* 1. 強制全站字體為微軟正黑體加粗 */
+* { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
     font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif !important;
     font-weight: bold !important;
     -webkit-tap-highlight-color: transparent;
@@ -19,37 +19,32 @@
     --text-muted: #7F8C8D;
     --card-bg: #FFFFFF;
     --border-color: #ECE9E2;
-    /* 設定超大圓角 */
-    --radius-lg: 30px; 
-    --radius-md: 20px;
+    --radius-lg: 30px; /* 大圓角 */
+    --radius-md: 18px; /* 中圓角 */
     --shadow: 0 15px 35px rgba(26, 58, 95, 0.1);
 }
 
-body {
-    background-color: var(--bg-color);
-    color: var(--text-main);
-    line-height: 1.6;
-    overflow-x: hidden;
-}
-
+body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 
 /* 導覽列 */
-nav {
-    background: #fff;
-    border-bottom: 1px solid var(--border-color);
-    padding: 15px 0;
-    position: sticky;
-    top: 0;
+nav { 
+    background: #fff; 
+    border-bottom: 1px solid var(--border-color); 
+    padding: 15px 0; 
+    position: sticky; 
+    top: 0; 
     z-index: 1000;
 }
 .nav-content { display: flex; justify-content: space-between; align-items: center; }
-.logo { font-size: 1.5rem; font-weight: 900; color: var(--primary); text-decoration: none; letter-spacing: 1px; }
+.logo { font-size: 1.5rem; font-weight: 900; color: var(--primary); text-decoration: none; }
+.nav-links { display: flex; align-items: center; gap: 20px; }
+.nav-links a { text-decoration: none; color: var(--text-main); font-size: 0.95rem; }
 
-/* 首頁大圖 Hero */
-.hero {
-    height: 380px;
-    background: linear-gradient(rgba(26, 58, 95, 0.7), rgba(26, 58, 95, 0.7)), url('https://images.unsplash.com/photo-1488646953014-85cb44e25828');
+/* 2. 還原首頁大圖 Hero */
+.hero { 
+    height: 400px; 
+    background: linear-gradient(rgba(26,58,95,0.7), rgba(26,58,95,0.7)), url('https://images.unsplash.com/photo-1488646953014-85cb44e25828');
     background-size: cover;
     background-position: center;
     display: flex;
@@ -57,108 +52,78 @@ nav {
     justify-content: center;
     color: white;
     text-align: center;
-    padding-bottom: 60px;
+    padding-bottom: 80px;
 }
+.hero h1 { font-size: 3rem; margin-bottom: 15px; }
 
-/* 4 個統計方塊 (改為大圓角) */
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-top: -60px;
-    margin-bottom: 50px;
+/* 3. 還原 4 個白色圓角方塊 (浮動效果) */
+.stats-grid { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 20px; 
+    margin-top: -60px; /* 向上浮動 */
+    margin-bottom: 50px; 
 }
-.stat-card {
-    background: white;
-    padding: 30px 15px;
-    border-radius: var(--radius-md); /* 圓角方塊 */
-    box-shadow: var(--shadow);
-    text-align: center;
-    border: none;
+.stat-card { 
+    background: white; 
+    padding: 30px 15px; 
+    border-radius: var(--radius-md); 
+    box-shadow: var(--shadow); 
+    text-align: center; 
 }
 .stat-value { font-size: 2rem; color: var(--primary); display: block; margin-bottom: 5px; }
+.stat-label { font-size: 0.85rem; color: var(--text-muted); }
 
-/* 搜尋區 (圓角化) */
+/* 搜尋功能 (全圓角) */
 .filter-section input {
     width: 100%;
     padding: 16px 25px;
     border: 1px solid var(--border-color);
-    border-radius: 50px; /* 全圓角搜尋框 */
+    border-radius: 50px;
     font-size: 1rem;
     background: #fff;
     outline: none;
     box-shadow: var(--shadow);
 }
 
-/* 旅程卡片 (優化圖片比例為 16:9) */
+/* 4. 旅程卡片 (16:9 比例) */
 .trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 35px; padding-bottom: 80px; }
-.trip-card { 
-    background: white; 
-    border-radius: var(--radius-lg); 
-    overflow: hidden; 
-    box-shadow: var(--shadow); 
-    cursor: pointer; 
-    transition: 0.3s;
-}
+.trip-card { background: white; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; position: relative; transition: 0.3s; }
 .trip-card:hover { transform: translateY(-10px); }
 
-.trip-cover-wrap {
-    width: 100%;
-    aspect-ratio: 16 / 9; /* 修正圖片比例，不再是長方形 */
-    overflow: hidden;
-}
+.trip-cover-wrap { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; }
 .trip-cover { width: 100%; height: 100%; object-fit: cover; }
-
 .trip-info { padding: 25px; }
-.status-badge { 
-    position: absolute; top: 15px; right: 15px; 
-    background: rgba(255, 255, 255, 0.9); 
-    padding: 6px 15px; border-radius: 50px; 
-    font-size: 0.75rem; color: var(--primary); 
-}
+.status-badge { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9); padding: 6px 15px; border-radius: 50px; font-size: 0.75rem; color: var(--primary); }
 
-/* Modal 彈窗 (圓角化) */
-.modal-content {
-    background: white;
-    margin: 80px auto;
-    padding: 45px;
-    width: 90%;
-    max-width: 550px;
-    border-radius: var(--radius-lg); /* 大圓角彈窗 */
-    position: relative;
+/* 5. Modal 彈窗 (修正叉叉與填寫樣式) */
+.modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(8px); }
+.modal-content { 
+    background: white; margin: 80px auto; padding: 45px; 
+    width: 90%; max-width: 550px; border-radius: var(--radius-lg); position: relative; 
     box-shadow: 0 30px 60px rgba(0,0,0,0.2);
 }
-.close { position: absolute; top: 25px; right: 25px; font-size: 32px; cursor: pointer; color: #ccc; }
+.close { position: absolute; top: 25px; right: 25px; font-size: 32px; cursor: pointer; color: #ccc; line-height: 1; }
+.close:hover { color: var(--accent); }
 
-/* 按鈕 (全圓角) */
-.btn { 
-    padding: 14px 30px; 
-    border-radius: 50px; /* 膠囊型按鈕 */
-    border: none; 
-    cursor: pointer; 
-    transition: 0.3s; 
+/* 填寫欄位樣式 */
+.form-group { margin-bottom: 20px; }
+.form-group label { display: block; margin-bottom: 10px; font-size: 0.9rem; color: var(--primary); }
+input, select, textarea { 
+    width: 100%; padding: 12px 18px; border: 1px solid #f0f0f0; border-radius: 15px; 
+    background: #fcfcfc; outline: none; transition: 0.3s;
 }
+input:focus { border-color: var(--primary); background: #fff; }
+
+/* 按鈕 (圓角膠囊) */
+.btn { padding: 14px 30px; border-radius: 50px; border: none; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; justify-content: center; }
 .btn-primary { background: var(--primary); color: white; }
 
-/* 內頁卡片 (圓角化) */
-.card { 
-    background: white; 
-    border-radius: var(--radius-lg); 
-    padding: 35px; 
-    box-shadow: var(--shadow); 
-    margin-bottom: 30px; 
-}
-
-.itinerary-item { 
-    display: flex; 
-    justify-content: space-between; 
-    padding: 18px; 
-    background: #fcfcfc; 
-    border-radius: 15px; /* 圓角行程項目 */
-    margin-bottom: 12px; 
-    border-left: 6px solid var(--primary); 
-}
+/* 內頁小項目 (圓角化) */
+.card { background: white; border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; }
+.itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); }
 
 @media (max-width: 768px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: -40px; }
+    .hero h1 { font-size: 2rem; }
 }

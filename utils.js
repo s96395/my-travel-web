@@ -18,7 +18,11 @@ export function getUserNickname() {
 }
 
 export function showToast(message) {
-    alert(message); // 為了最穩定的顯示，我們先用 alert，確定邏輯通了再改回樣式
+    const toast = document.createElement('div');
+    toast.style.cssText = `position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:var(--primary); color:white; padding:12px 25px; border-radius:50px; z-index:9999; font-weight:bold; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:0.5s;`;
+    toast.innerText = message;
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
 }
 
 export async function copyToClipboard(text) {
@@ -26,7 +30,11 @@ export async function copyToClipboard(text) {
     input.value = text;
     document.body.appendChild(input);
     input.select();
-    document.execCommand('copy');
+    try {
+        document.execCommand('copy');
+        showToast("分享連結已成功複製！");
+    } catch (err) {
+        showToast("複製失敗，請手動選取網址");
+    }
     document.body.removeChild(input);
-    alert("分享連結已成功複製！");
 }
