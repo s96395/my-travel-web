@@ -38,7 +38,13 @@ function renderTrips(trips) {
         tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">尚未有旅程檔案，點擊右上角新增吧。</div>`;
         return;
     }
-    tripGrid.innerHTML = trips.map(trip => `
+    tripGrid.innerHTML = trips.map(trip => {
+        const tags = Array.isArray(trip.tags) ? trip.tags
+            : (trip.tags ? trip.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+        const tagsHtml = tags.length > 0
+            ? `<div class="trip-card-tags">${tags.map(t => `<span class="trip-card-tag">${t}</span>`).join('')}</div>`
+            : '';
+        return `
         <div class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'">
             <div class="trip-cover-wrap">
                 <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828'">
@@ -48,9 +54,11 @@ function renderTrips(trips) {
                 <h3>${trip.title}</h3>
                 <p style="color:var(--accent); font-size:0.9rem;">${trip.country} · ${trip.city || ''}</p>
                 <p style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
+                ${tagsHtml}
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function updateStats(trips) {
