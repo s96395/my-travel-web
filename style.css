@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap");
+
 /* --- VoyageArchive 最終完美還原版 --- */
 
 /* 全站字體設定 */
@@ -9,7 +11,9 @@
 }
 
 body, input, select, textarea, button {
-    font-family: "Microsoft JhengHei", "微軟正黑體", "PingFang TC", sans-serif;
+    font-family: "Noto Sans TC", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-weight: 500;
+    font-size: 16px;
 }
 
 :root {
@@ -27,7 +31,7 @@ body, input, select, textarea, button {
     --shadow: 0 15px 35px rgba(26, 58, 95, 0.12);
 }
 
-body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
+body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.7; overflow-x: hidden; font-size: 16px; }
 .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
 
 /* 導覽列 */
@@ -41,7 +45,7 @@ nav {
 }
 .nav-content { display: flex; justify-content: space-between; align-items: center; }
 .logo { font-size: 1.5rem; color: var(--primary); text-decoration: none; letter-spacing: 1px; }
-.nav-links a { text-decoration: none; color: var(--text-main); margin-left: 20px; font-size: 0.95rem; }
+.nav-links a { text-decoration: none; color: var(--text-main); margin-left: 20px; font-size: 1rem; font-weight: 500; }
 
 /* 還原首頁 Hero 視覺 */
 .hero { 
@@ -73,8 +77,8 @@ nav {
     box-shadow: var(--shadow); 
     text-align: center; 
 }
-.stat-value { font-size: 2rem; color: var(--primary); display: block; margin-bottom: 5px; }
-.stat-label { font-size: 0.85rem; color: var(--text-muted); }
+.stat-value { font-size: 2.2rem; color: var(--primary); display: block; margin-bottom: 5px; font-weight: 700; }
+.stat-label { font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
 
 /* 搜尋框全圓角 */
 .filter-section input {
@@ -95,7 +99,8 @@ nav {
 .trip-cover-wrap { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; }
 .trip-cover { width: 100%; height: 100%; object-fit: cover; }
 .trip-info { padding: 25px; }
-.status-badge { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9); padding: 6px 15px; border-radius: 50px; font-size: 0.75rem; color: var(--primary); }
+.trip-info h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 6px; }
+.status-badge { position: absolute; top: 15px; right: 15px; background: rgba(255,255,255,0.9); padding: 6px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; color: var(--primary); }
 
 /* Modal 彈窗全圓角 */
 .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); overflow-y: auto; }
@@ -109,10 +114,10 @@ nav {
 
 /* 填寫欄位圓角 */
 .form-group { margin-bottom: 20px; }
-.form-group label { display: block; margin-bottom: 10px; font-size: 0.9rem; color: var(--primary); }
+.form-group label { display: block; margin-bottom: 10px; font-size: 0.95rem; font-weight: 700; color: var(--primary); }
 input, select, textarea { 
-    width: 100%; padding: 12px 18px; border: 1px solid #f0f0f0; border-radius: 15px; 
-    background: #fcfcfc; outline: none; transition: 0.3s;
+    width: 100%; padding: 13px 18px; border: 1px solid #f0f0f0; border-radius: 15px; 
+    background: #fcfcfc; outline: none; transition: 0.3s; font-size: 1rem; font-weight: 500;
 }
 input:focus { border-color: var(--primary); background: #fff; }
 
@@ -122,7 +127,7 @@ input:focus { border-color: var(--primary); background: #fff; }
 
 /* 內頁卡片與行程圓化 */
 .card { background: white; border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; }
-.itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); }
+.itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); font-size: 1rem; }
 .delete-btn-sub { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.2rem; }
 
 @media (max-width: 768px) {
@@ -182,7 +187,7 @@ input:focus { border-color: var(--primary); background: #fff; }
 }
 .todo-checkbox.checked::after { content: '✓'; font-size: 11px; font-weight: 700; }
 
-.todo-text { flex: 1; font-size: 0.95rem; }
+.todo-text { flex: 1; font-size: 1rem; font-weight: 500; }
 .todo-meta { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; }
 .todo-delete { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.1rem; padding: 2px 6px; border-radius: 6px; transition: 0.2s; }
 .todo-delete:hover { color: #e74c3c; background: #fff0f0; }
@@ -194,10 +199,10 @@ input:focus { border-color: var(--primary); background: #fff; }
     color: var(--text-muted);
     padding: 5px 14px;
     border-radius: 50px;
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: 0.2s;
-    font-weight: 400;
+    font-weight: 600;
 }
 .todo-chip:hover { border-color: var(--primary); color: var(--primary); background: #f0f4f8; }
 
@@ -229,14 +234,14 @@ input:focus { border-color: var(--primary); background: #fff; }
     min-width: 100px;
 }
 .summary-label {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
     color: var(--text-muted);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
 .summary-value {
-    font-size: 0.95rem;
+    font-size: 1rem;
     color: var(--text-main);
     font-weight: 500;
 }
