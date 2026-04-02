@@ -11,7 +11,7 @@
     <nav>
         <div class="container nav-content">
             <a href="index.html" class="logo">VOYAGE ARCHIVE</a>
-            <div class="nav-links"><a href="index.html">My Journeys</a></div>
+            <div class="nav-links"><a href="index.html">返回我的旅程</a></div>
         </div>
     </nav>
 
@@ -26,34 +26,30 @@
 
         <div class="container trip-container">
             <div class="main-content">
-                <!-- 每日行程區區塊 -->
                 <section class="card">
                     <div class="card-header">
                         <h2 style="font-family: var(--serif-font); font-style: italic;">Itinerary</h2>
-                        <button class="btn btn-primary" id="addDayBtn">＋ 新增行程</button>
+                        <button class="btn btn-primary" id="addDayBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增行程</button>
                     </div>
                     <div id="itinerary-timeline"></div>
                 </section>
 
-                <!-- 相簿區塊 -->
                 <section class="card">
                     <div class="card-header">
                         <h2 style="font-family: var(--serif-font); font-style: italic;">Memories</h2>
-                        <button class="btn btn-primary" id="addImageBtn">＋ 照片網址</button>
+                        <button class="btn btn-primary" id="addImageBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 照片網址</button>
                     </div>
                     <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px;"></div>
                 </section>
             </div>
 
             <aside class="sidebar">
-                <!-- 共編資訊 -->
+                <!-- 找回複製分享連結按鈕 -->
                 <div class="card" style="background: var(--primary); color: white; text-align: center;">
-                    <h4 style="margin-bottom:10px; font-family: var(--serif-font); font-style: italic;">Collaborate</h4>
-                    <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">複製連結傳給旅伴，即可同步編輯行程。</p>
+                    <h4 style="margin-bottom:15px; font-family: var(--serif-font); font-style: italic;">Collaborate</h4>
                     <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
                 </div>
 
-                <!-- 支出統計 -->
                 <section class="card">
                     <div class="card-header"><h4 style="font-family: var(--serif-font); font-style: italic;">Financials</h4></div>
                     <canvas id="expenseChart" width="200" height="200"></canvas>
@@ -65,15 +61,17 @@
         </div>
     </div>
 
-    <!-- 通用彈窗 -->
+    <!-- 通用彈窗 (修正了 X 按鈕的位置與輸入框樣式) -->
     <div id="universalModal" class="modal">
         <div class="modal-content">
-            <h2 id="modalTitle" style="font-family: var(--serif-font); margin-bottom: 20px; font-style: italic;">標題</h2>
+            <span class="close" id="closeModal">&times;</span>
+            <div class="modal-header">
+                <h2 id="modalTitle">標題</h2>
+            </div>
             <form id="modalForm">
                 <div id="modalBody"></div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">儲存內容</button>
             </form>
-            <p onclick="document.getElementById('universalModal').style.display='none'" style="text-align:center; margin-top:15px; cursor:pointer; color:var(--text-muted); font-size: 0.9rem;">取消</p>
         </div>
     </div>
 

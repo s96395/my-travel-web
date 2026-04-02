@@ -7,22 +7,18 @@ const tripId = urlParams.get('id');
 const shareKey = urlParams.get('key');
 let chartInstance = null;
 
-if (tripId && shareKey) {
-    init();
-} else {
-    document.body.innerHTML = `<div style="text-align:center; padding:100px;"><h1>無權存取</h1><p>請檢查分享連結是否正確。</p><a href="index.html">回到首頁</a></div>`;
-}
+if (tripId) { init(); }
 
 async function init() {
     try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
-        if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
+        if (tripSnap.exists()) {
             renderHeader(tripSnap.data());
             setupEvents();
             loadData();
             document.getElementById('trip-details').style.display = 'block';
         }
-    } catch (err) { console.error("Initialization error:", err); }
+    } catch (err) { console.error(err); }
 }
 
 function renderHeader(data) {
@@ -41,24 +37,20 @@ function setupEvents() {
         modal.style.display = 'block';
     };
 
+    document.getElementById('closeModal').onclick = () => modal.style.display = 'none';
     document.getElementById('addDayBtn').onclick = () => open("New Itinerary Item", `
-        <div style="margin-bottom:15px;"><label>天數</label><input type="number" name="day" value="1" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
-        <div style="margin-bottom:15px;"><label>時間</label><input type="time" name="time" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
-        <div style="margin-bottom:15px;"><label>地點/活動</label><input type="text" name="activity" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
+        <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" required></div>
+        <div class="form-group"><label>時間</label><input type="time" name="time"></div>
+        <div class="form-group"><label>地點/活動</label><input type="text" name="activity" required></div>
     `, "itinerary");
 
     document.getElementById('addExpenseBtn').onclick = () => open("New Expense", `
-        <div style="margin-bottom:15px;"><label>項目名稱</label><input type="text" name="name" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
-        <div style="margin-bottom:15px;"><label>金額 (TWD)</label><input type="number" name="amount" required style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
-        <div style="margin-bottom:15px;"><label>分類</label><select name="category" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;">
-            <option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option>
-        </select></div>
+        <div class="form-group"><label>項目</label><input type="text" name="name" required></div>
+        <div class="form-group"><label>金額 (TWD)</label><input type="number" name="amount" required></div>
+        <div class="form-group"><label>分類</label><select name="category"><option value="餐飲">餐飲</option><option value="交通">交通</option><option value="住宿">住宿</option><option value="購物">購物</option><option value="其他">其他</option></select></div>
     `, "expenses");
 
-    document.getElementById('addImageBtn').onclick = () => open("New Memory Link", `
-        <div><label>照片網址</label><input type="url" name="url" required placeholder="貼上圖片網址" style="width:100%;padding:10px;border:1px solid #eee;border-radius:5px;"></div>
-    `, "images");
-
+    document.getElementById('addImageBtn').onclick = () => open("New Photo", `<div class="form-group"><label>圖片網址</label><input type="url" name="url" required></div>`, "images");
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
     modalForm.onsubmit = async (e) => {
@@ -68,12 +60,11 @@ function setupEvents() {
         if(data.amount) data.amount = Number(data.amount);
         if(data.day) data.day = Number(data.day);
         data.createdAt = serverTimestamp();
-        data.createdByName = getUserNickname();
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none';
             loadData();
-        } catch (err) { console.error("Save error:", err); }
+        } catch (err) { console.error(err); }
     };
 }
 
@@ -87,10 +78,10 @@ async function loadData() {
         if(lastDay !== item.day) { lastDay = item.day; htmlI += `<h3 style="margin: 30px 0 15px; font-family: var(--serif-font); border-bottom: 1px solid #eee; padding-bottom: 5px;">Day ${lastDay}</h3>`; }
         htmlI += `<div style="display:flex; justify-content:space-between; align-items:center; padding:15px; background:#fafafa; border-radius:12px; margin-bottom:12px; border-left: 4px solid var(--primary);">
                     <div><span style="font-weight:700; color:var(--primary); margin-right:15px;">${item.time || '--:--'}</span> ${item.activity}</div>
-                    <button onclick="deleteSubItem('itinerary', '${d.id}')" style="background:none; border:none; color:#ddd; cursor:pointer; font-size:1.2rem;">×</button>
+                    <button onclick="deleteSubItem('itinerary', '${d.id}')" style="background:none; border:none; color:#ddd; cursor:pointer;">×</button>
                   </div>`;
     });
-    document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc;'>點擊右上方新增第一筆行程</p>";
+    document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; padding:20px; text-align:center;'>尚未建立行程</p>";
 
     // 載入支出
     const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
@@ -112,10 +103,7 @@ async function loadData() {
     const sPh = await getDocs(collection(db, `trips/${tripId}/images`));
     let htmlPh = "";
     sPh.forEach(d => {
-        htmlPh += `<div style="position:relative; aspect-ratio:1; overflow:hidden; border-radius:12px; box-shadow: var(--shadow-soft);">
-                    <img src="${d.data().url}" style="width:100%; height:100%; object-fit:cover;">
-                    <button onclick="deleteSubItem('images', '${d.id}')" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.8); border:none; border-radius:50%; width:24px; height:24px; cursor:pointer; display:flex; align-items:center; justify-content:center;">×</button>
-                   </div>`;
+        htmlPh += `<div style="position:relative; aspect-ratio:1; overflow:hidden; border-radius:12px;"><img src="${d.data().url}" style="width:100%; height:100%; object-fit:cover;"><button onclick="deleteSubItem('images', '${d.id}')" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.8); border:none; border-radius:50%; width:24px; height:24px; cursor:pointer;">×</button></div>`;
     });
     document.getElementById('photo-grid').innerHTML = htmlPh;
 }
@@ -132,9 +120,6 @@ function renderChart(data) {
 }
 
 window.deleteSubItem = async (type, id) => {
-    if(!confirm("確定要刪除這筆紀錄嗎？")) return;
-    try {
-        await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
-        loadData();
-    } catch (err) { console.error("Delete error:", err); }
+    if(!confirm("確定要刪除紀錄嗎？")) return;
+    try { await deleteDoc(doc(db, `trips/${tripId}/${type}`, id)); loadData(); } catch (err) { console.error(err); }
 };
