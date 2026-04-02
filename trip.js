@@ -23,8 +23,10 @@ async function init() {
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
             renderHeader(tripSnap.data());
             setupEvents();
-            setupDeleteDelegation(); // 用 event delegation 取代 window.deleteSubItem
+            setupTodos();
+            setupDeleteDelegation();
             loadAllData();
+            loadTodos();
             document.getElementById('trip-details').style.display = 'block';
         } else {
             document.body.innerHTML = "<div style='text-align:center;padding:100px;'><h1>權限錯誤</h1><a href='index.html'>返回首頁</a></div>";
@@ -138,8 +140,10 @@ function setupEvents() {
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none';
+            modalForm.reset();
             showToast("已儲存並同步 ✓");
-            loadAllData();
+            if (type === 'todos') loadTodos();
+            else loadAllData();
         } catch (err) {
             showToast("儲存失敗", "error");
         }
