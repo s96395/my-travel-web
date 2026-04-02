@@ -24,6 +24,7 @@ async function init() {
             setupEvents();
             setupTodos();
             setupDeleteDelegation();
+            setupFlightHotel(tripSnap.data());
             loadAllData();
             loadTodos();
             document.getElementById('trip-details').style.display = 'block';
@@ -230,6 +231,32 @@ function setupEvents() {
         const type = modalForm.dataset.type;
         const data = Object.fromEntries(new FormData(modalForm).entries());
 
+        // 特殊處理：班機資訊
+        if (type === 'flight') {
+            const flight = Object.fromEntries(new FormData(modalForm).entries());
+            try {
+                await updateDoc(doc(db, 'trips', tripId), { flight, updatedAt: serverTimestamp() });
+                modal.style.display = 'none';
+                modalForm.reset();
+                renderFlightDisplay(flight);
+                showToast('班機資訊已儲存 ✓');
+            } catch (err) { showToast('儲存失敗', 'error'); }
+            return;
+        }
+
+        // 特殊處理：住宿資訊
+        if (type === 'hotel') {
+            const hotel = Object.fromEntries(new FormData(modalForm).entries());
+            try {
+                await updateDoc(doc(db, 'trips', tripId), { hotel, updatedAt: serverTimestamp() });
+                modal.style.display = 'none';
+                modalForm.reset();
+                renderHotelDisplay(hotel);
+                showToast('住宿資訊已儲存 ✓');
+            } catch (err) { showToast('儲存失敗', 'error'); }
+            return;
+        }
+
         // 特殊處理：更新旅程主文件
         if (type === 'tripInfo') {
             if (data.tags) {
@@ -268,6 +295,95 @@ function setupEvents() {
             showToast("儲存失敗", "error");
         }
     };
+}
+
+function setupFlightHotel(data) {
+    renderFlightDisplay(data.flight || {});
+    renderHotelDisplay(data.hotel || {});
+
+    const modal = document.getElementById('universalModal');
+    const modalForm = document.getElementById('modalForm');
+
+    document.getElementById('editFlightBtn').onclick = () => {
+        const f = data.flight || {};
+        document.getElementById('modalTitle').innerText = '班機資訊';
+        document.getElementById('modalBody').innerHTML = `
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>航空公司</label><input type="text" name="airline" value="${f.airline||''}" placeholder="例如：華航"></div>
+                <div class="form-group" style="flex:1"><label>訂位代號</label><input type="text" name="flightCode" value="${f.flightCode||''}" placeholder="例如：ABC123"></div>
+            </div>
+            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;text-transform:uppercase;letter-spacing:0.04em;">去程</p>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="depAirport" value="${f.depAirport||''}" placeholder="例如：桃園機場"></div>
+                <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="depTime" value="${f.depTime||''}"></div>
+                <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="arrTime" value="${f.arrTime||''}"></div>
+            </div>
+            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;text-transform:uppercase;letter-spacing:0.04em;">回程</p>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="retAirport" value="${f.retAirport||''}" placeholder="例如：那霸機場"></div>
+                <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="retDepTime" value="${f.retDepTime||''}"></div>
+                <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="retArrTime" value="${f.retArrTime||''}"></div>
+            </div>
+        `;
+        modalForm.dataset.type = 'flight';
+        modal.style.display = 'block';
+    };
+
+    document.getElementById('editHotelBtn').onclick = () => {
+        const h = data.hotel || {};
+        document.getElementById('modalTitle').innerText = '住宿資訊';
+        document.getElementById('modalBody').innerHTML = `
+            <div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" value="${h.hotelName||''}" placeholder="例如：Rembrandt Style Naha"></div>
+            <div class="form-group"><label>地址</label><input type="text" name="hotelAddr" value="${h.hotelAddr||''}" placeholder="飯店地址"></div>
+            <div class="form-group"><label>訂位代號</label><input type="text" name="hotelCode" value="${h.hotelCode||''}" placeholder="例如：XYZ789"></div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>Check-in 時間</label><input type="time" name="checkIn" value="${h.checkIn||''}"></div>
+                <div class="form-group" style="flex:1"><label>Check-out 時間</label><input type="time" name="checkOut" value="${h.checkOut||''}"></div>
+            </div>
+        `;
+        modalForm.dataset.type = 'hotel';
+        modal.style.display = 'block';
+    };
+}
+
+function renderFlightDisplay(f) {
+    const el = document.getElementById('flight-display');
+    const isEmpty = !f.airline && !f.depAirport && !f.retAirport;
+    if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫班機資訊</p>'; return; }
+    const fmt = t => t ? t.replace(':', '.') : '—';
+    el.innerHTML = `
+        <div class="info-grid">
+            ${f.airline ? `<div class="info-item"><span class="info-label">航空公司</span><span class="info-value">${f.airline}</span></div>` : ''}
+            ${f.flightCode ? `<div class="info-item"><span class="info-label">訂位代號</span><span class="info-value code">${f.flightCode}</span></div>` : ''}
+        </div>
+        <div class="info-flight-row">
+            <div class="info-flight-seg">
+                <span class="info-flight-label">去程</span>
+                <span class="info-flight-airport">${f.depAirport || '—'}</span>
+                <span class="info-flight-time">${fmt(f.depTime)} → ${fmt(f.arrTime)}</span>
+            </div>
+            <div class="info-flight-arrow">✈</div>
+            <div class="info-flight-seg">
+                <span class="info-flight-label">回程</span>
+                <span class="info-flight-airport">${f.retAirport || '—'}</span>
+                <span class="info-flight-time">${fmt(f.retDepTime)} → ${fmt(f.retArrTime)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function renderHotelDisplay(h) {
+    const el = document.getElementById('hotel-display');
+    const isEmpty = !h.hotelName && !h.hotelAddr;
+    if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫住宿資訊</p>'; return; }
+    el.innerHTML = `
+        <div class="info-grid">
+            ${h.hotelName ? `<div class="info-item"><span class="info-label">飯店</span><span class="info-value"><strong>${h.hotelName}</strong></span></div>` : ''}
+            ${h.hotelAddr ? `<div class="info-item"><span class="info-label">地址</span><span class="info-value">${h.hotelAddr}</span></div>` : ''}
+            ${h.hotelCode ? `<div class="info-item"><span class="info-label">訂位代號</span><span class="info-value code">${h.hotelCode}</span></div>` : ''}
+            ${(h.checkIn || h.checkOut) ? `<div class="info-item"><span class="info-label">Check-in / out</span><span class="info-value">${h.checkIn||'—'} / ${h.checkOut||'—'}</span></div>` : ''}
+        </div>
+    `;
 }
 
 async function loadAllData() {

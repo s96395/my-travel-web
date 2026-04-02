@@ -410,3 +410,21 @@ input:focus { border-color: var(--primary); background: #fff; }
         grid-template-columns: 1fr;
     }
 }
+
+/* ===== 班機 / 住宿資訊卡 ===== */
+.info-card-body { padding-top: 4px; }
+.info-empty { color: var(--text-muted); font-size: 0.9rem; font-weight: 400; text-align: center; padding: 20px 0; }
+
+.info-grid { display: flex; flex-wrap: wrap; gap: 6px 30px; margin-bottom: 20px; }
+.info-item { display: flex; flex-direction: column; gap: 3px; }
+.info-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.info-value { font-size: 0.95rem; color: var(--text-main); font-weight: 500; }
+.info-value.code { font-family: monospace; font-size: 1rem; color: var(--primary); letter-spacing: 0.08em; }
+
+/* 班機去回程區塊 */
+.info-flight-row { display: flex; align-items: center; gap: 20px; background: var(--secondary); border-radius: var(--radius-md); padding: 18px 24px; }
+.info-flight-seg { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.info-flight-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.info-flight-airport { font-size: 1rem; font-weight: 700; color: var(--primary); }
+.info-flight-time { font-size: 0.88rem; color: var(--text-muted); font-weight: 400; }
+.info-flight-arrow { font-size: 1.4rem; color: var(--accent); flex-shrink: 0; }
