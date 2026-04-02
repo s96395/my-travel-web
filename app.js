@@ -22,7 +22,7 @@ async function init() {
 
 async function fetchTrips() {
     try {
-        const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
+        const q = query(collection(db, "trips"), orderBy("startDate", "asc"));
         const snap = await getDocs(q);
         allTrips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderTrips(allTrips);
