@@ -3,79 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoyageArchive | 私人旅程檔案館</title>
+    <title>VoyageArchive | 我的旅程檔案</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <nav>
         <div class="container nav-content">
-            <a href="index.html" class="logo">VOYAGE ARCHIVE</a>
+            <a href="index.html" class="logo">VOYAGE<span>ARCHIVE</span></a>
             <div class="nav-links">
                 <a href="index.html">我的旅程</a>
-                <a href="history.html">歷史檔案</a>
-                <a href="#" id="openAddModal" style="color:var(--accent); font-weight:900;">＋ 新增旅程</a>
+                <a href="history.html">歷史存檔</a>
+                <button class="btn btn-primary" id="openAddModal">＋ 新增旅程</button>
             </div>
         </div>
     </nav>
 
-    <header class="hero container">
-        <p style="letter-spacing: 5px; font-size: 0.8rem; font-weight: 700; color: var(--accent);">COLLECTION</p>
-        <h1>探索，然後收藏。</h1>
-        <p style="max-width: 600px; margin: 20px auto 0;">每一段自由行，都值得以精品誌的規格永恆珍藏。</p>
+    <header class="hero">
+        <div class="container">
+            <h1>探索，然後收藏。</h1>
+            <p>將您的每一段回憶，轉化為永恆的數位檔案。</p>
+        </div>
     </header>
 
     <main class="container">
-        <!-- 數據統計 -->
         <section class="stats-grid">
-            <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">總旅程</span></div>
+            <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">總旅程數</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-planning">0</span><span class="stat-label">規劃中</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-completed">0</span><span class="stat-label">已完成</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-expense">$0</span><span class="stat-label">累計支出</span></div>
         </section>
 
-        <!-- 旅程列表 -->
+        <section class="filter-section">
+            <input type="text" id="searchInput" placeholder="搜尋國家、城市或名稱..." style="flex: 1;">
+        </section>
+
         <section class="trip-grid" id="tripGrid"></section>
     </main>
 
-    <!-- 新增彈窗 -->
     <div id="addTripModal" class="modal">
         <div class="modal-content">
             <span class="close" id="closeAddModal">&times;</span>
-            <div style="margin-bottom: 40px; border-bottom: 2px solid var(--primary); display: inline-block;">
-                <h2 style="font-family: var(--serif-font); font-style: italic; font-size: 2rem;">建立新旅程</h2>
-            </div>
+            <h2 style="margin-bottom: 25px;">建立新旅程</h2>
             <form id="addTripForm">
-                <div class="form-group">
-                    <label>旅程名稱</label>
-                    <input type="text" name="title" placeholder="例如：2026 沖繩初夏之旅" required>
+                <div class="form-group"><label>旅程名稱</label><input type="text" name="title" required></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>國家</label><input type="text" name="country" required></div>
+                    <div class="form-group" style="flex:1;"><label>城市</label><input type="text" name="city"></div>
                 </div>
-                
-                <div style="display:flex; gap:30px;">
-                    <div class="form-group" style="flex:1;"><label>國家</label><input type="text" name="country" required placeholder="日本"></div>
-                    <div class="form-group" style="flex:1;"><label>城市</label><input type="text" name="city" placeholder="那霸"></div>
+                <div style="display:flex; gap:10px;">
+                    <div class="form-group" style="flex:1;"><label>開始日期</label><input type="date" name="startDate" required></div>
+                    <div class="form-group" style="flex:1;"><label>結束日期</label><input type="date" name="endDate" required></div>
                 </div>
-
-                <div style="display:flex; gap:30px;">
-                    <div class="form-group" style="flex:1;"><label>出發日期</label><input type="date" name="startDate" required></div>
-                    <div class="form-group" style="flex:1;"><label>回程日期</label><input type="date" name="endDate" required></div>
-                </div>
-
-                <div class="form-group">
-                    <label>封面網址 (建議使用直式圖)</label>
-                    <input type="url" name="coverImageUrl" placeholder="貼上精品感圖片網址...">
-                </div>
-
-                <div class="form-group">
-                    <label>當前狀態</label>
-                    <select name="status">
-                        <option value="規劃中">規劃中</option>
-                        <option value="即將出發">即將出發</option>
-                        <option value="已完成">已完成</option>
-                    </select>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="width:100%; margin-top: 10px;">確認建立</button>
+                <div class="form-group"><label>封面圖片網址</label><input type="url" name="coverImageUrl"></div>
+                <div class="form-group"><label>旅程狀態</label><select name="status"><option value="規劃中">規劃中</option><option value="即將出發">即將出發</option><option value="已完成">已完成</option></select></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">建立旅程檔案</button>
             </form>
         </div>
     </div>
