@@ -1,7 +1,7 @@
 import { db } from './firebase-db.js';
 import { 
     doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, 
-    query, orderBy, serverTimestamp 
+    query, orderBy, serverTimestamp, writeBatch
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getUserNickname, showToast, formatDate, copyToClipboard } from './utils.js';
 
@@ -9,6 +9,11 @@ const urlParams = new URLSearchParams(window.location.search);
 const tripId = urlParams.get('id');
 const shareKey = urlParams.get('key');
 let chartInstance = null;
+
+const TODO_TEMPLATES = [
+    '訂機票', '訂住宿', '辦簽證', '換匯', '買 eSIM',
+    '保旅平險', '收行李', '確認護照效期', '列印訂位確認'
+];
 
 if (tripId && shareKey) { init(); }
 
@@ -36,6 +41,23 @@ function renderHeader(data) {
 // ✅ 修正：改用 event delegation，不需要掛 window
 function setupDeleteDelegation() {
     document.getElementById('trip-details').addEventListener('click', async (e) => {
+        // 勾選 todo
+        const toggleBtn = e.target.closest('[data-toggle-todo]');
+        if (toggleBtn) {
+            const todoId = toggleBtn.dataset.toggleTodo;
+            const isDone = toggleBtn.classList.contains('checked');
+            try {
+                await updateDoc(doc(db, `trips/${tripId}/todos`, todoId), {
+                    done: !isDone,
+                    updatedAt: serverTimestamp(),
+                    updatedByName: getUserNickname()
+                });
+                loadTodos();
+            } catch (err) { showToast('更新失敗', 'error'); }
+            return;
+        }
+
+        // 刪除（通用）
         const btn = e.target.closest('[data-delete-type]');
         if (!btn) return;
         const type = btn.dataset.deleteType;
@@ -43,7 +65,8 @@ function setupDeleteDelegation() {
         if (confirm("確定要刪除這筆紀錄嗎？")) {
             try {
                 await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
-                loadAllData();
+                if (type === 'todos') loadTodos();
+                else loadAllData();
             } catch (err) {
                 showToast("刪除失敗", "error");
             }
@@ -124,6 +147,7 @@ function setupEvents() {
 }
 
 async function loadAllData() {
+    loadTodos();
     // --- 行程 ---
     const qI = query(collection(db, `trips/${tripId}/itinerary`), orderBy("day"), orderBy("time"));
     const sI = await getDocs(qI);
@@ -175,6 +199,71 @@ async function loadAllData() {
                    </div>`;
     });
     document.getElementById('photo-grid').innerHTML = htmlPh || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400; padding:20px 0;'>尚無相片</p>";
+}
+
+
+// ===== 待辦清單功能 =====
+function setupTodos() {
+    // 渲染範本 chips
+    const chipsEl = document.getElementById('todo-template-chips');
+    if (!chipsEl) return;
+    chipsEl.innerHTML = TODO_TEMPLATES.map(t =>
+        `<span class="todo-chip" data-template="${t}">${t}</span>`
+    ).join('');
+    chipsEl.addEventListener('click', async (e) => {
+        const chip = e.target.closest('[data-template]');
+        if (!chip) return;
+        await addTodo(chip.dataset.template);
+    });
+
+    // 新增按鈕
+    document.getElementById('addTodoBtn').onclick = () => {
+        const text = prompt('新增待辦事項：');
+        if (text && text.trim()) addTodo(text.trim());
+    };
+}
+
+async function addTodo(text) {
+    try {
+        await addDoc(collection(db, `trips/${tripId}/todos`), {
+            text,
+            done: false,
+            order: Date.now(),
+            createdAt: serverTimestamp(),
+            createdByName: getUserNickname()
+        });
+        loadTodos();
+        showToast(`已新增「${text}」`);
+    } catch (err) {
+        showToast('新增失敗', 'error');
+    }
+}
+
+async function loadTodos() {
+    const snap = await getDocs(query(collection(db, `trips/${tripId}/todos`), orderBy('order')));
+    const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const total = todos.length;
+    const done = todos.filter(t => t.done).length;
+
+    // 進度條
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    document.getElementById('todo-progress-bar').style.width = pct + '%';
+    document.getElementById('todo-progress-text').innerText =
+        total === 0 ? '尚無待辦事項' : `已完成 ${done} / ${total} 項（${pct}%）`;
+
+    // 列表：未完成在前，已完成在後
+    const sorted = [...todos.filter(t => !t.done), ...todos.filter(t => t.done)];
+    document.getElementById('todo-list').innerHTML = sorted.length === 0
+        ? `<p style="color:var(--text-muted); text-align:center; padding:20px 0; font-weight:400;">點擊下方範本快速新增，或按「＋ 新增」自訂</p>`
+        : sorted.map(t => `
+            <div class="todo-item ${t.done ? 'done' : ''}" data-todo-id="${t.id}">
+                <div class="todo-checkbox ${t.done ? 'checked' : ''}" data-toggle-todo="${t.id}"></div>
+                <span class="todo-text">${t.text}</span>
+                ${t.createdByName ? `<span class="todo-meta">${t.createdByName}</span>` : ''}
+                <button class="todo-delete" data-delete-type="todos" data-delete-id="${t.id}" title="刪除">×</button>
+            </div>
+        `).join('');
 }
 
 function renderChart(data) {

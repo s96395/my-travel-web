@@ -25,6 +25,25 @@
 
         <div class="container" style="display: grid; grid-template-columns: 1fr 350px; gap: 30px; margin-top: 40px;">
             <div class="main-content">
+                <!-- 出發前準備清單 -->
+                <section class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2>出發前準備</h2>
+                            <p id="todo-progress-text" style="font-size:0.85rem; color:var(--text-muted); margin-top:4px; font-weight:400;">載入中...</p>
+                        </div>
+                        <button class="btn btn-primary" id="addTodoBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增</button>
+                    </div>
+                    <div class="todo-progress-bar-wrap">
+                        <div class="todo-progress-bar" id="todo-progress-bar"></div>
+                    </div>
+                    <div id="todo-list"></div>
+                    <div id="todo-templates" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; font-weight:400;">快速新增範本：</p>
+                        <div class="todo-template-chips" id="todo-template-chips"></div>
+                    </div>
+                </section>
+
                 <section class="card">
                     <div class="card-header"><h2>每日行程</h2><button class="btn btn-primary" id="addDayBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增項目</button></div>
                     <div id="itinerary-timeline"></div>
