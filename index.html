@@ -2,13 +2,12 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoyageArchive | 我的旅程作品集</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-    <meta name="theme-color" content="#1A3A5F">
 </head>
 <body>
 
@@ -61,8 +60,7 @@
         </section>
 
         <section class="trip-grid" id="tripGrid">
-            <div class="loading-placeholder">載入旅程中...</div>
-        </section>
+            </section>
     </main>
 
     <div id="addTripModal" class="modal">
@@ -77,30 +75,30 @@
                     <input type="text" name="title" placeholder="例如：2026 沖繩自駕初夏之旅" required>
                 </div>
                 
-                <div class="form-row" style="display: flex; gap: 10px;">
-                    <div class="form-group" style="flex: 1;">
-                        <label>國家</label>
-                        <input type="text" name="country" placeholder="日本" required>
+                <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 18px;">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;">國家</label>
+                        <input type="text" name="country" placeholder="日本" required style="width: 100%;">
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label>城市</label>
-                        <input type="text" name="city" placeholder="東京">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;">城市</label>
+                        <input type="text" name="city" placeholder="東京" style="width: 100%;">
                     </div>
                 </div>
 
-                <div class="form-row" style="display: flex; gap: 10px;">
-                    <div class="form-group" style="flex: 1;">
-                        <label>開始日期</label>
-                        <input type="date" name="startDate" required>
+                <div class="form-row" style="display: flex; gap: 10px; margin-bottom: 18px;">
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;">開始日期</label>
+                        <input type="date" name="startDate" required style="width: 100%;">
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label>結束日期</label>
-                        <input type="date" name="endDate" required>
+                    <div style="flex: 1;">
+                        <label style="display: block; font-size: 0.9rem; margin-bottom: 5px;">結束日期</label>
+                        <input type="date" name="endDate" required style="width: 100%;">
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label>封面圖片網址 (可用 Unsplash 連結)</label>
+                    <label>封面圖片網址</label>
                     <input type="url" name="coverImageUrl" placeholder="https://images.unsplash.com/...">
                 </div>
 
@@ -113,14 +111,10 @@
                     </select>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px; height: 50px; font-size: 1.1rem;">建立旅程</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">建立旅程</button>
             </form>
         </div>
     </div>
-
-    <footer style="text-align: center; padding: 40px 0; color: #7F8C8D; font-size: 0.8rem;">
-        <p>VoyageArchive © 2026 | 設計感旅程管理系統</p>
-    </footer>
 
     <script type="module" src="app.js"></script>
 </body>
