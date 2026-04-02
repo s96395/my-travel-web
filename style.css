@@ -37,6 +37,14 @@
     cursor: pointer;
 }
 
+/* 統計圖表樣式優化 */
+#expenseChart {
+    max-width: 220px;
+    max-height: 220px;
+    margin: 20px auto;
+    display: block;
+}
+
 .photo-item {
     position: relative;
     border-radius: 12px;
