@@ -1,11 +1,10 @@
 import { db } from './firebase-db.js';
 import { 
-    doc, getDoc, collection, getDocs, addDoc, deleteDoc, 
+    doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc,
     query, orderBy, serverTimestamp 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getUserNickname, showToast, formatDate, copyToClipboard } from './utils.js';
 
-// 取得 URL 參數
 const urlParams = new URLSearchParams(window.location.search);
 const tripId = urlParams.get('id');
 const shareKey = urlParams.get('key');
@@ -24,11 +23,10 @@ async function init() {
 
         if (tripSnap.exists()) {
             const data = tripSnap.data();
-            // 安全驗證
             if (data.shareKey === shareKey) {
                 renderTripHeader(data);
-                loadAllSubData();
-                setupEventListeners(); // 確保在這裡綁定按鈕
+                setupEventListeners(); // 綁定按鈕
+                loadAllSubData();      // 載入資料
                 document.getElementById('trip-details').style.display = 'block';
             } else {
                 document.getElementById('auth-error').style.display = 'block';
@@ -41,19 +39,17 @@ async function init() {
     }
 }
 
-// 渲染標題
 function renderTripHeader(data) {
     document.getElementById('trip-title').innerText = data.title;
     document.getElementById('trip-subtitle').innerText = `${data.country} · ${formatDate(data.startDate)} - ${formatDate(data.endDate)}`;
     document.getElementById('trip-cover').src = data.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 }
 
-// 綁定所有點擊事件
 function setupEventListeners() {
     const modal = document.getElementById('universalModal');
     const modalForm = document.getElementById('modalForm');
+    const closeBtn = document.querySelector('.close');
 
-    // 輔助函式：開啟 Modal
     const openForm = (title, html, type) => {
         document.getElementById('modalTitle').innerText = title;
         document.getElementById('modalBody').innerHTML = html;
@@ -61,25 +57,28 @@ function setupEventListeners() {
         modal.style.display = 'block';
     };
 
-    // 1. 新增天數行程
+    // 關閉 Modal
+    if(closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
+
+    // 行程
     document.getElementById('addDayBtn').onclick = () => {
         openForm("新增行程項目", `
             <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" required></div>
             <div class="form-group"><label>時間</label><input type="time" name="time"></div>
-            <div class="form-group"><label>行程內容</label><input type="text" name="activity" placeholder="例如：首里城巡禮" required></div>
+            <div class="form-group"><label>內容</label><input type="text" name="activity" required></div>
             <div class="form-group"><label>地點</label><input type="text" name="location"></div>
         `, "itinerary");
     };
 
-    // 2. 新增照片 (貼網址模式)
+    // 相簿
     document.getElementById('addImageBtn').onclick = () => {
         openForm("新增照片連結", `
-            <div class="form-group"><label>圖片網址 (URL)</label><input type="url" name="url" placeholder="https://..." required></div>
-            <div class="form-group"><label>說明</label><input type="text" name="note"></div>
+            <div class="form-group"><label>圖片網址</label><input type="url" name="url" placeholder="https://..." required></div>
+            <div class="form-group"><label>備註</label><input type="text" name="note"></div>
         `, "images");
     };
 
-    // 3. 新增支出
+    // 支出
     document.getElementById('addExpenseBtn').onclick = () => {
         openForm("新增支出", `
             <div class="form-group"><label>項目</label><input type="text" name="name" required></div>
@@ -95,15 +94,15 @@ function setupEventListeners() {
         `, "expenses");
     };
 
-    // 4. 新增航班
+    // 航班
     document.getElementById('addFlightBtn').onclick = () => {
         openForm("新增航班", `
             <div class="form-group"><label>航班編號</label><input type="text" name="flightNumber" required></div>
-            <div class="form-group"><label>機場</label><input type="text" name="route" placeholder="TPE -> NRT"></div>
+            <div class="form-group"><label>航線</label><input type="text" name="route" placeholder="TPE -> OKA"></div>
         `, "flights");
     };
 
-    // 5. 新增住宿
+    // 住宿
     document.getElementById('addHotelBtn').onclick = () => {
         openForm("新增住宿", `
             <div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" required></div>
@@ -111,31 +110,33 @@ function setupEventListeners() {
         `, "hotels");
     };
 
-    // 6. 複製連結
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
-    // 提交表單
     modalForm.onsubmit = async (e) => {
         e.preventDefault();
         const type = modalForm.dataset.type;
         const formData = new FormData(modalForm);
         const data = Object.fromEntries(formData.entries());
         
+        // 關鍵：修正資料類型
+        if(data.amount) data.amount = Number(data.amount);
+        if(data.day) data.day = Number(data.day);
+
         data.createdAt = serverTimestamp();
         data.createdByName = getUserNickname();
 
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none';
-            showToast("儲存成功！");
-            loadAllSubData(); // 重新整理列表
+            showToast("已儲存");
+            loadAllSubData();
         } catch (err) {
+            console.error(err);
             showToast("儲存失敗", "error");
         }
     };
 }
 
-// 載入所有子資料
 async function loadAllSubData() {
     loadItinerary();
     loadExpenses();
@@ -159,9 +160,11 @@ async function loadItinerary() {
         }
         container.innerHTML += `
             <div class="itinerary-item">
-                <strong>${item.time || '--:--'}</strong> ${item.activity}
-                <div style="font-size:0.8rem; color:gray;">${item.location || ''}</div>
-                <button class="delete-btn" onclick="deleteSubItem('itinerary', '${d.id}')">×</button>
+                <div class="itinerary-content">
+                    <strong>${item.time || '--:--'}</strong> ${item.activity}
+                    <div class="itinerary-loc">${item.location || ''}</div>
+                </div>
+                <button class="delete-btn-sub" onclick="deleteSubItem('itinerary', '${d.id}')">×</button>
             </div>
         `;
     });
@@ -173,12 +176,21 @@ async function loadExpenses() {
     const totalEl = document.getElementById('total-expense');
     let total = 0;
     list.innerHTML = "";
+    
     snap.forEach(d => {
         const ex = d.data();
         total += Number(ex.amount);
-        list.innerHTML += `<div class="info-mini-card">💸 ${ex.name}: $${ex.amount} <button onclick="deleteSubItem('expenses', '${d.id}')">×</button></div>`;
+        list.innerHTML += `
+            <div class="info-mini-card expense-item">
+                <span>💸 ${ex.name}: $${ex.amount}</span>
+                <button onclick="deleteSubItem('expenses', '${d.id}')" class="delete-btn-tiny">×</button>
+            </div>
+        `;
     });
     totalEl.innerText = `$${total.toLocaleString()}`;
+
+    // 同步到父文件以供首頁顯示
+    await updateDoc(doc(db, "trips", tripId), { totalExpense: total });
 }
 
 async function loadImages() {
@@ -186,7 +198,12 @@ async function loadImages() {
     const grid = document.getElementById('photo-grid');
     grid.innerHTML = "";
     snap.forEach(d => {
-        grid.innerHTML += `<div style="position:relative"><img src="${d.data().url}" style="width:100%; border-radius:10px;"><button class="delete-btn" onclick="deleteSubItem('images', '${d.id}')">×</button></div>`;
+        grid.innerHTML += `
+            <div class="photo-item">
+                <img src="${d.data().url}">
+                <button class="delete-btn-sub" onclick="deleteSubItem('images', '${d.id}')">×</button>
+            </div>
+        `;
     });
 }
 
@@ -196,7 +213,7 @@ async function loadFlights() {
     container.innerHTML = "";
     snap.forEach(d => {
         const f = d.data();
-        container.innerHTML += `<div class="info-mini-card">✈️ ${f.flightNumber} (${f.route}) <button onclick="deleteSubItem('flights', '${d.id}')">×</button></div>`;
+        container.innerHTML += `<div class="info-mini-card">✈️ ${f.flightNumber} (${f.route}) <button class="delete-btn-tiny" onclick="deleteSubItem('flights', '${d.id}')">×</button></div>`;
     });
 }
 
@@ -206,13 +223,12 @@ async function loadHotels() {
     container.innerHTML = "";
     snap.forEach(d => {
         const h = d.data();
-        container.innerHTML += `<div class="info-mini-card">🏨 ${h.hotelName} <button onclick="deleteSubItem('hotels', '${d.id}')">×</button></div>`;
+        container.innerHTML += `<div class="info-mini-card">🏨 ${h.hotelName} <button class="delete-btn-tiny" onclick="deleteSubItem('hotels', '${d.id}')">×</button></div>`;
     });
 }
 
-// 刪除功能
 window.deleteSubItem = async (type, id) => {
-    if (!confirm("確定刪除？")) return;
+    if (!confirm("確定要刪除嗎？")) return;
     await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
     showToast("已刪除");
     loadAllSubData();
