@@ -8,7 +8,6 @@ import { getUserNickname, showToast, formatDate, copyToClipboard } from './utils
 const urlParams = new URLSearchParams(window.location.search);
 const tripId = urlParams.get('id');
 const shareKey = urlParams.get('key');
-let chartInstance = null;
 
 const TODO_TEMPLATES = [
     '訂機票', '訂住宿', '辦簽證', '換匯', '買 eSIM',
@@ -397,38 +396,33 @@ async function loadTodos() {
 }
 
 function renderChart(data) {
-    const ctx = document.getElementById('expenseChart');
-    if (chartInstance) chartInstance.destroy();
-    const colors = ['#1A3A5F', '#E67E22', '#E6D5B8', '#95A5A6', '#2C3E50', '#8E44AD', '#16A085', '#C0392B'];
+    const el = document.getElementById('expense-bar-chart');
+    if (!el) return;
     const keys = Object.keys(data);
-    if (keys.length === 0) return;
-    chartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: keys,
-            datasets: [{
-                data: Object.values(data),
-                backgroundColor: colors,
-                borderWidth: 2,
-                borderColor: '#fff'
-            }]
-        },
-        options: {
-            cutout: '75%',
-            plugins: { legend: { display: false } }
-        }
-    });
-    // 渲染圖例
+    if (keys.length === 0) { el.innerHTML = ''; return; }
+
     const total = Object.values(data).reduce((a, b) => a + b, 0);
-    const legend = document.getElementById('expense-cat-legend');
-    if (legend) {
-        legend.innerHTML = keys.map((k, i) => `
-            <div class="expense-cat-legend-item">
-                <span class="expense-cat-legend-dot" style="background:${colors[i % colors.length]};"></span>
-                <span style="flex:1;">${k}</span>
-                <span style="font-weight:600;">$${data[k].toLocaleString()}</span>
-                <span style="color:var(--text-muted); margin-left:4px;">(${Math.round(data[k]/total*100)}%)</span>
-            </div>
-        `).join('');
-    }
+    const colors = ['#1A3A5F', '#E67E22', '#8E44AD', '#16A085', '#C0392B', '#2980B9', '#F39C12', '#95A5A6'];
+    // sort by amount desc
+    const sorted = keys.map((k, i) => ({ k, v: data[k], color: colors[i % colors.length] }))
+                       .sort((a, b) => b.v - a.v);
+
+    el.innerHTML = `
+        <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border-color);">
+            <p style="font-size:0.78rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">分類統計</p>
+            ${sorted.map(({ k, v, color }) => {
+                const pct = Math.round(v / total * 100);
+                return `
+                <div style="margin-bottom:14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                        <span style="font-size:0.88rem; font-weight:500; color:var(--text-main);">${k}</span>
+                        <span style="font-size:0.88rem; font-weight:600; color:var(--text-main);">$${v.toLocaleString()} <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">${pct}%</span></span>
+                    </div>
+                    <div style="width:100%; height:10px; background:#f0f0f0; border-radius:99px; overflow:hidden;">
+                        <div style="width:${pct}%; height:100%; background:${color}; border-radius:99px; transition:width 0.6s ease;"></div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>
+    `;
 }
