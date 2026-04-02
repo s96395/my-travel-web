@@ -376,3 +376,37 @@ input:focus { border-color: var(--primary); background: #fff; }
     border-radius: 50%;
     flex-shrink: 0;
 }
+
+/* ===== trip 頁面上方兩欄 ===== */
+.trip-top-grid {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 30px;
+    align-items: start;
+}
+
+/* ===== RWD ===== */
+@media (max-width: 768px) {
+    .trip-top-grid {
+        grid-template-columns: 1fr;
+    }
+    .trip-top-grid .sidebar {
+        /* 手機版側邊欄排在出發前準備下面 */
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+    .trip-top-grid .sidebar .card {
+        margin-bottom: 0;
+    }
+    .expense-table th, .expense-table td {
+        padding: 8px 8px;
+        font-size: 0.82rem;
+    }
+    .expense-note { display: none; } /* 手機隱藏備註欄 */
+}
+@media (max-width: 480px) {
+    .trip-top-grid .sidebar {
+        grid-template-columns: 1fr;
+    }
+}
