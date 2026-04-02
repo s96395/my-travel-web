@@ -34,50 +34,28 @@
             </div>
         </div>
 
-        <!-- 上方兩欄：出發前準備 + 側邊欄 -->
-        <div class="container trip-top-grid" style="margin-top: 30px;">
-            <div>
-                <!-- 出發前準備清單 -->
-                <section class="card">
-                    <div class="card-header">
-                        <div>
-                            <h2>出發前準備</h2>
-                            <p id="todo-progress-text" style="font-size:0.85rem; color:var(--text-muted); margin-top:4px; font-weight:400;">載入中...</p>
-                        </div>
-                        <button class="btn btn-primary" id="addTodoBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增</button>
-                    </div>
-                    <div class="todo-progress-bar-wrap">
-                        <div class="todo-progress-bar" id="todo-progress-bar"></div>
-                    </div>
-                    <div id="todo-list"></div>
-                    <div id="todo-templates" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; font-weight:400;">快速新增範本：</p>
-                        <div class="todo-template-chips" id="todo-template-chips"></div>
-                    </div>
-                </section>
-            </div>
+        <div class="container" style="margin-top: 30px;">
 
-            <aside class="sidebar">
-                <div class="card" style="background: var(--primary); color: white; text-align: center;">
-                    <h4 style="margin-bottom:10px;">旅伴共編</h4>
-                    <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享此網址即可一起規劃旅程</p>
-                    <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
-                </div>
-                <!-- 刪除旅程按鈕 -->
-                <section class="card" style="border: 1px solid #ffcccc; background: #fffafb;">
-                    <h4 style="color: #e74c3c; margin-bottom: 10px;">危險區域</h4>
-                    <button class="btn" id="deleteTripBtn" style="background:#e74c3c; color:white; width:100%; font-size:0.8rem;">刪除整趟旅程</button>
-                </section>
-            </aside>
-        </div>
-
-        <!-- 全寬區塊：每日行程、總支出、相簿 -->
-        <div class="container" style="margin-top: 0;">
+            <!-- 1. 出發前準備 -->
             <section class="card">
-                <div class="card-header"><h2>每日行程</h2><button class="btn btn-primary" id="addDayBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增項目</button></div>
-                <div id="itinerary-timeline"></div>
+                <div class="card-header">
+                    <div>
+                        <h2>出發前準備</h2>
+                        <p id="todo-progress-text" style="font-size:0.85rem; color:var(--text-muted); margin-top:4px; font-weight:400;">載入中...</p>
+                    </div>
+                    <button class="btn btn-primary" id="addTodoBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增</button>
+                </div>
+                <div class="todo-progress-bar-wrap">
+                    <div class="todo-progress-bar" id="todo-progress-bar"></div>
+                </div>
+                <div id="todo-list"></div>
+                <div id="todo-templates" style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color);">
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; font-weight:400;">快速新增範本：</p>
+                    <div class="todo-template-chips" id="todo-template-chips"></div>
+                </div>
             </section>
 
+            <!-- 2. 旅行總支出 -->
             <section class="card">
                 <div class="card-header">
                     <div>
@@ -111,10 +89,31 @@
                 <div id="expense-bar-chart" class="expense-bar-chart"></div>
             </section>
 
+            <!-- 3. 每日行程 -->
+            <section class="card">
+                <div class="card-header"><h2>每日行程</h2><button class="btn btn-primary" id="addDayBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增項目</button></div>
+                <div id="itinerary-timeline"></div>
+            </section>
+
+            <!-- 4. 旅程相簿 -->
             <section class="card">
                 <div class="card-header"><h2>旅程相簿</h2><button class="btn btn-primary" id="addImageBtn" style="padding: 8px 20px; font-size: 0.8rem;">＋ 新增網址</button></div>
                 <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;"></div>
             </section>
+
+            <!-- 5. 旅伴共編 -->
+            <div class="card" style="background: var(--primary); color: white; text-align: center;">
+                <h4 style="margin-bottom:10px;">旅伴共編</h4>
+                <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享此網址即可一起規劃旅程</p>
+                <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
+            </div>
+
+            <!-- 6. 危險區域 -->
+            <section class="card" style="border: 1px solid #ffcccc; background: #fffafb;">
+                <h4 style="color: #e74c3c; margin-bottom: 10px;">危險區域</h4>
+                <button class="btn" id="deleteTripBtn" style="background:#e74c3c; color:white; width:100%; font-size:0.8rem;">刪除整趟旅程</button>
+            </section>
+
         </div>
     </div>
 
