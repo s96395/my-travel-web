@@ -3,18 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>旅程詳情 | VoyageArchive</title>
+    <title>旅程規劃 | VoyageArchive</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <nav>
         <div class="container nav-content">
-            <a href="index.html" class="logo">VOYAGE ARCHIVE</a>
-            <div class="nav-links">
-                <a href="index.html">我的旅程</a>
-                <a href="#" id="copyLinkBtn" style="color:var(--accent); font-weight:900;">分享連結</a>
-            </div>
+            <a href="index.html" class="logo">VOYAGE<span>ARCHIVE</span></a>
+            <div class="nav-links"><a href="index.html">返回我的旅程</a></div>
         </div>
     </nav>
 
@@ -23,46 +20,46 @@
             <img id="trip-cover" src="">
             <div class="hero-info">
                 <h1 id="trip-title">載入中...</h1>
-                <p id="trip-subtitle" style="font-weight: 300; opacity: 0.8; letter-spacing: 2px;"></p>
+                <p id="trip-subtitle"></p>
             </div>
         </header>
 
         <div class="container trip-container">
             <div class="main-content">
-                <!-- 每日行程 -->
+                <!-- 每日行程區 -->
                 <section class="card">
-                    <div class="card-header">
-                        <h2>每日行程</h2>
-                        <button class="btn btn-primary" id="addDayBtn" style="padding: 10px 20px; font-size: 0.7rem;">＋ 新增項目</button>
-                    </div>
+                    <div class="card-header"><h2>每日行程</h2><button class="btn btn-primary" id="addDayBtn">＋ 新增項目</button></div>
                     <div id="itinerary-timeline"></div>
                 </section>
 
-                <!-- 旅程回憶 -->
+                <!-- 旅程相簿區 -->
                 <section class="card">
-                    <div class="card-header">
-                        <h2>旅程相簿</h2>
-                        <button class="btn btn-primary" id="addImageBtn" style="padding: 10px 20px; font-size: 0.7rem;">＋ 新增網址</button>
-                    </div>
-                    <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;"></div>
-                </section>
+                    <div class="card-header"><h2>旅程相簿</h2><button class="btn btn-primary" id="addImageBtn">＋ 新增網址</button></div>
+                    <div id="photo-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px;"></section>
             </div>
 
             <aside class="sidebar">
-                <!-- 分享與共編 -->
+                <!-- 旅伴分享 -->
                 <div class="card" style="background: var(--primary); color: white; text-align: center;">
-                    <h4 style="font-family: var(--serif-font); font-style: italic; margin-bottom: 10px;">旅伴共編</h4>
-                    <p style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 20px;">分享連結即可與旅伴同步編輯</p>
-                    <button class="btn" style="background:white; color:var(--primary); width:100%;" id="sidebarCopyBtn">複製連結</button>
+                    <h4 style="margin-bottom:10px;">旅伴共編</h4>
+                    <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享網址即可與旅伴同步編輯</p>
+                    <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
                 </div>
 
-                <!-- 預算統計 -->
+                <!-- 支出分析 -->
                 <section class="card">
-                    <div class="card-header"><h4>花費分析</h4></div>
+                    <div class="card-header"><h4>支出分析</h4></div>
                     <canvas id="expenseChart" width="250" height="250"></canvas>
-                    <div id="total-expense" style="text-align:center; margin-top:20px; font-family: var(--serif-font); font-size: 2rem; color: var(--primary);">$0</div>
-                    <div id="expense-list" style="margin-top:25px; border-top: 1px solid #f8f8f8; padding-top: 20px;"></div>
-                    <button class="btn btn-primary" id="addExpenseBtn" style="width:100%; margin-top: 20px; font-size: 0.7rem;">＋ 紀錄支出</button>
+                    <div id="total-expense" style="text-align:center; margin-top:20px; font-size:1.8rem; color:var(--primary);">$0</div>
+                    <div id="expense-list" style="margin-top:20px;"></div>
+                    <button class="btn btn-primary" id="addExpenseBtn" style="width:100%; margin-top: 15px;">＋ 新增支出</button>
+                </section>
+
+                <!-- 危險區域 (刪除按鈕) -->
+                <section class="card" style="border: 1px solid #ffcccc; background: #fffafb;">
+                    <h4 style="color: #e74c3c; margin-bottom: 10px;">危險區域</h4>
+                    <p style="font-size: 0.75rem; color: #999; margin-bottom: 15px;">刪除後此旅程所有規劃資料將無法恢復。</p>
+                    <button class="btn" id="deleteTripBtn" style="background:#e74c3c; color:white; width:100%; font-size:0.8rem; padding:10px;">刪除整趟旅程</button>
                 </section>
             </aside>
         </div>
@@ -72,13 +69,8 @@
     <div id="universalModal" class="modal">
         <div class="modal-content">
             <span class="close" id="closeModal">&times;</span>
-            <div style="margin-bottom: 35px; border-bottom: 2px solid var(--primary); display: inline-block;">
-                <h2 id="modalTitle" style="font-family: var(--serif-font); font-style: italic; font-size: 1.8rem;">編輯項目</h2>
-            </div>
-            <form id="modalForm">
-                <div id="modalBody"></div>
-                <button type="submit" class="btn btn-primary" style="width:100%; margin-top: 30px;">儲存並同步</button>
-            </form>
+            <h2 id="modalTitle" style="margin-bottom: 25px;">編輯項目</h2>
+            <form id="modalForm"><div id="modalBody"></div><button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 25px;">儲存變更</button></form>
         </div>
     </div>
 
