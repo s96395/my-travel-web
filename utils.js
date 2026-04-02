@@ -17,9 +17,10 @@ export function getUserNickname() {
     return name;
 }
 
-export function showToast(message) {
+export function showToast(message, type = 'success') {
+    const bg = type === 'error' ? '#e74c3c' : 'var(--primary)';
     const toast = document.createElement('div');
-    toast.style.cssText = `position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:var(--primary); color:white; padding:12px 25px; border-radius:50px; z-index:9999; font-weight:bold; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:0.5s;`;
+    toast.style.cssText = `position:fixed; bottom:30px; left:50%; transform:translateX(-50%); background:${bg}; color:white; padding:12px 25px; border-radius:50px; z-index:9999; font-weight:bold; box-shadow:0 5px 15px rgba(0,0,0,0.2); transition:opacity 0.5s;`;
     toast.innerText = message;
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);

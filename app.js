@@ -9,6 +9,9 @@ const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
 
+// 資料存在記憶體，搜尋不用重打 API
+let allTrips = [];
+
 init();
 
 async function init() {
@@ -21,10 +24,13 @@ async function fetchTrips() {
     try {
         const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
-        const trips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderTrips(trips);
-        updateStats(trips);
-    } catch (err) { console.error(err); }
+        allTrips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderTrips(allTrips);
+        updateStats(allTrips);
+    } catch (err) {
+        console.error(err);
+        showToast("載入失敗，請重新整理", "error");
+    }
 }
 
 function renderTrips(trips) {
@@ -35,13 +41,13 @@ function renderTrips(trips) {
     tripGrid.innerHTML = trips.map(trip => `
         <div class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'">
             <div class="trip-cover-wrap">
-                <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover">
+                <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828'">
             </div>
             <div class="status-badge">${trip.status}</div>
             <div class="trip-info">
                 <h3>${trip.title}</h3>
                 <p style="color:var(--accent); font-size:0.9rem;">${trip.country} · ${trip.city || ''}</p>
-                <p style="color:var(--text-muted); font-size:0.85rem;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
+                <p style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
             </div>
         </div>
     `).join('');
@@ -58,20 +64,35 @@ function updateStats(trips) {
 function setupEventListeners() {
     openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
-    window.onclick = (e) => { if(e.target == addTripModal) addTripModal.style.display = 'none'; }
+    window.onclick = (e) => { if (e.target == addTripModal) addTripModal.style.display = 'none'; };
+
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(addTripForm).entries());
         const key = generateShareKey();
         try {
             const docRef = await addDoc(collection(db, "trips"), {
-                ...data, shareKey: key, totalExpense: 0, createdByName: getUserNickname(), createdAt: serverTimestamp()
+                ...data, shareKey: key, totalExpense: 0,
+                createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
             location.href = `trip.html?id=${docRef.id}&key=${key}`;
-        } catch (err) { showToast("建立失敗", "error"); }
+        } catch (err) {
+            showToast("建立失敗，請稍後再試", "error");
+        }
     };
+
+    // 搜尋：前端 filter，不重打 API
     searchInput.oninput = () => {
-        const term = searchInput.value.toLowerCase();
-        fetchTrips().then(() => { /* 已處理搜尋邏輯或在前端過濾 */ });
+        const term = searchInput.value.toLowerCase().trim();
+        if (!term) {
+            renderTrips(allTrips);
+            return;
+        }
+        const filtered = allTrips.filter(t =>
+            (t.title || '').toLowerCase().includes(term) ||
+            (t.country || '').toLowerCase().includes(term) ||
+            (t.city || '').toLowerCase().includes(term)
+        );
+        renderTrips(filtered);
     };
 }
