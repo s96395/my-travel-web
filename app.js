@@ -22,7 +22,7 @@ async function init() {
 
 async function fetchTrips() {
     try {
-        const q = query(collection(db, "trips"), orderBy("startDate", "asc"));
+        const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
         allTrips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         renderTrips(allTrips);
@@ -100,7 +100,7 @@ function updateStats(trips) {
     }
 }
 
-function toggleExpenseBreakdown() {
+window.toggleExpenseBreakdown = function() {
     const bd = document.getElementById('stat-expense-breakdown');
     if (!bd) return;
     bd.style.display = bd.style.display === 'none' ? 'block' : 'none';
