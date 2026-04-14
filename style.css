@@ -433,3 +433,16 @@ input:focus { border-color: var(--primary); background: #fff; }
 .info-flight-arrow { font-size: 1.4rem; color: var(--accent); flex-shrink: 0; }
 
 .expense-who { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; white-space: nowrap; }
+
+/* 可點擊的統計卡 */
+.stat-card-clickable { cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; }
+.stat-card-clickable:hover { box-shadow: 0 8px 30px rgba(26,58,95,0.15); transform: translateY(-3px); }
+
+/* 編輯按鈕 */
+.edit-btn-sub {
+    background: none; border: 1px solid var(--border-color);
+    color: var(--text-muted); cursor: pointer; border-radius: 6px;
+    width: 26px; height: 26px; font-size: 0.85rem; line-height: 1;
+    transition: 0.2s;
+}
+.edit-btn-sub:hover { background: var(--primary); color: white; border-color: var(--primary); }

@@ -65,8 +65,45 @@ function updateStats(trips) {
     document.getElementById('stat-total').innerText = trips.length;
     document.getElementById('stat-planning').innerText = trips.filter(t => t.status === '規劃中').length;
     document.getElementById('stat-completed').innerText = trips.filter(t => t.status === '已完成').length;
-    const total = trips.reduce((sum, t) => sum + (Number(t.totalExpense) || 0), 0);
-    document.getElementById('stat-expense').innerText = `$${total.toLocaleString()}`;
+
+    // 按年度累計支出
+    const byYear = {};
+    trips.forEach(t => {
+        const year = t.startDate ? t.startDate.substring(0, 4) : '未知';
+        byYear[year] = (byYear[year] || 0) + (Number(t.totalExpense) || 0);
+    });
+
+    const years = Object.keys(byYear).sort((a, b) => b - a); // 新到舊
+    const latestYear = years[0];
+    const latestTotal = latestYear ? byYear[latestYear] : 0;
+
+    document.getElementById('stat-expense').innerText = `$${latestTotal.toLocaleString()}`;
+
+    // 更新小標顯示最新年度
+    const label = document.querySelector('#stat-expense-card .stat-label');
+    if (label) label.innerHTML = `${latestYear || ''} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
+
+    // 年度明細
+    const breakdown = document.getElementById('stat-expense-breakdown');
+    if (breakdown) {
+        breakdown.innerHTML = years.map(y => `
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
+                <span style="font-weight:500;">${y} 年</span>
+                <span style="font-weight:600;">$${byYear[y].toLocaleString()}</span>
+            </div>
+        `).join('') + `
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-top:6px; padding-top:6px; border-top:1px solid rgba(26,58,95,0.15); color:var(--primary);">
+                <span style="font-weight:600;">全部合計</span>
+                <span style="font-weight:700;">$${trips.reduce((s, t) => s + (Number(t.totalExpense)||0), 0).toLocaleString()}</span>
+            </div>
+        `;
+    }
+}
+
+function toggleExpenseBreakdown() {
+    const bd = document.getElementById('stat-expense-breakdown');
+    if (!bd) return;
+    bd.style.display = bd.style.display === 'none' ? 'block' : 'none';
 }
 
 function setupEventListeners() {

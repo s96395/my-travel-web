@@ -11,7 +11,7 @@ export function formatDate(dateString) {
 export function getUserNickname() {
     let name = localStorage.getItem('travel_user_name');
     if (!name) {
-        name = prompt("歡迎使用 VoyageArchive！請輸入您的暱稱：") || "旅人";
+        name = prompt("歡迎使用沈迷旅行！請輸入您的暱稱：") || "旅人";
         localStorage.setItem('travel_user_name', name);
     }
     return name;

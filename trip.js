@@ -95,6 +95,49 @@ function renderSummaryCard(data) {
 // ✅ 修正：改用 event delegation，不需要掛 window
 function setupDeleteDelegation() {
     document.getElementById('trip-details').addEventListener('click', async (e) => {
+        // 編輯
+        const editBtn = e.target.closest('[data-edit-type]');
+        if (editBtn) {
+            const type = editBtn.dataset.editType;
+            const id = editBtn.dataset.editId;
+            const modal = document.getElementById('universalModal');
+            const modalForm = document.getElementById('modalForm');
+
+            if (type === 'itinerary') {
+                document.getElementById('modalTitle').innerText = '編輯行程';
+                document.getElementById('modalBody').innerHTML = `
+                    <input type="hidden" name="_editId" value="${id}">
+                    <div class="form-group"><label>第幾天</label><input type="number" name="day" value="${editBtn.dataset.editDay}" min="1" required></div>
+                    <div class="form-group"><label>時間</label><input type="time" name="time" value="${editBtn.dataset.editTime}"></div>
+                    <div class="form-group"><label>活動內容</label><input type="text" name="activity" value="${editBtn.dataset.editActivity}" required></div>
+                    <div class="form-group"><label>地點</label><input type="text" name="location" value="${editBtn.dataset.editLocation}"></div>
+                `;
+                modalForm.dataset.type = 'edit-itinerary';
+                modal.style.display = 'block';
+            }
+
+            if (type === 'expenses') {
+                const catOptions = ['交通','住宿','餐飲','景點','購物','保險/簽證','電信費','其他']
+                    .map(c => `<option value="${c}" ${c === editBtn.dataset.editCategory ? 'selected' : ''}>${c}</option>`).join('');
+                const payOptions = ['刷卡','現金','行動支付','其他']
+                    .map(p => `<option value="${p}" ${p === editBtn.dataset.editPaymethod ? 'selected' : ''}>${p}</option>`).join('');
+                document.getElementById('modalTitle').innerText = '編輯支出';
+                document.getElementById('modalBody').innerHTML = `
+                    <input type="hidden" name="_editId" value="${id}">
+                    <div class="form-group"><label>項目名稱</label><input type="text" name="name" value="${editBtn.dataset.editName}" required></div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1"><label>金額 (TWD)</label><input type="number" name="amount" value="${editBtn.dataset.editAmount}" required min="0"></div>
+                        <div class="form-group" style="flex:1"><label>分類</label><select name="category">${catOptions}</select></div>
+                    </div>
+                    <div class="form-group"><label>付款方式</label><select name="payMethod">${payOptions}</select></div>
+                    <div class="form-group"><label>備註</label><input type="text" name="note" value="${editBtn.dataset.editNote}"></div>
+                `;
+                modalForm.dataset.type = 'edit-expenses';
+                modal.style.display = 'block';
+            }
+            return;
+        }
+
         // 勾選 todo
         const toggleBtn = e.target.closest('[data-toggle-todo]');
         if (toggleBtn) {
@@ -230,6 +273,38 @@ function setupEvents() {
         e.preventDefault();
         const type = modalForm.dataset.type;
         const data = Object.fromEntries(new FormData(modalForm).entries());
+
+        // 編輯行程
+        if (type === 'edit-itinerary') {
+            const id = data._editId;
+            delete data._editId;
+            if (data.day) data.day = Number(data.day);
+            data.updatedAt = serverTimestamp();
+            try {
+                await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data);
+                modal.style.display = 'none';
+                modalForm.reset();
+                showToast('行程已更新 ✓');
+                loadAllData();
+            } catch (err) { showToast('儲存失敗', 'error'); }
+            return;
+        }
+
+        // 編輯支出
+        if (type === 'edit-expenses') {
+            const id = data._editId;
+            delete data._editId;
+            if (data.amount) data.amount = Number(data.amount);
+            data.updatedAt = serverTimestamp();
+            try {
+                await updateDoc(doc(db, `trips/${tripId}/expenses`, id), data);
+                modal.style.display = 'none';
+                modalForm.reset();
+                showToast('支出已更新 ✓');
+                loadAllData();
+            } catch (err) { showToast('儲存失敗', 'error'); }
+            return;
+        }
 
         // 特殊處理：班機資訊
         if (type === 'flight') {
@@ -398,10 +473,12 @@ async function loadAllData() {
             lastDay = item.day;
             htmlI += `<h3 style="margin-top:25px; margin-bottom:10px; border-left:6px solid var(--primary); padding-left:15px;">Day ${lastDay}</h3>`;
         }
-        // ✅ 修正：改用 data-* 屬性，不用 inline onclick
         htmlI += `<div class="itinerary-item">
                     <div><span style="color:var(--accent);">${item.time || '--:--'}</span> <strong>${item.activity}</strong>${item.location ? `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;"> · ${item.location}</span>` : ''}</div>
-                    <button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${d.id}" title="刪除">×</button>
+                    <div style="display:flex;gap:6px;">
+                        <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${d.id}" data-edit-day="${item.day}" data-edit-time="${item.time||''}" data-edit-activity="${item.activity}" data-edit-location="${item.location||''}" title="編輯">✎</button>
+                        <button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${d.id}" title="刪除">×</button>
+                    </div>
                   </div>`;
     });
     document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; text-align:center; padding:30px 0;'>尚未建立行程</p>";
@@ -421,7 +498,10 @@ async function loadAllData() {
             <td>${ex.payMethod ? `<span class="${payBadgeClass}">${ex.payMethod}</span>` : '—'}</td>
             <td class="expense-note">${ex.note || ''}</td>
             <td class="expense-who">${ex.createdByName || '—'}</td>
-            <td><button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${d.id}" title="刪除">×</button></td>
+            <td style="white-space:nowrap;">
+                <button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${d.id}" data-edit-name="${ex.name}" data-edit-amount="${ex.amount}" data-edit-category="${ex.category||''}" data-edit-paymethod="${ex.payMethod||''}" data-edit-note="${ex.note||''}" title="編輯">✎</button>
+                <button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${d.id}" title="刪除">×</button>
+            </td>
         </tr>`;
     });
     document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VoyageArchive | 我的旅程檔案</title>
+    <title>沈迷旅行 | 我的旅程檔案</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -30,7 +30,11 @@
             <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">總旅程數</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-planning">0</span><span class="stat-label">規劃中</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-completed">0</span><span class="stat-label">已完成</span></div>
-            <div class="stat-card"><span class="stat-value" id="stat-expense">$0</span><span class="stat-label">累計支出</span></div>
+            <div class="stat-card stat-card-clickable" id="stat-expense-card" onclick="toggleExpenseBreakdown()">
+                <span class="stat-value" id="stat-expense">$0</span>
+                <span class="stat-label">累計支出 <span style="font-size:0.7em; opacity:0.6;">▼</span></span>
+                <div id="stat-expense-breakdown" style="display:none; margin-top:12px; border-top:1px solid rgba(26,58,95,0.1); padding-top:10px; text-align:left;"></div>
+            </div>
         </section>
 
         <!-- 搜尋 -->
