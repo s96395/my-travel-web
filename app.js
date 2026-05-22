@@ -9,8 +9,8 @@ const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
 
-// 資料存在記憶體，搜尋不用重打 API
 let allTrips = [];
+let activeTypeFilter = 'all';
 
 init();
 
@@ -33,6 +33,8 @@ async function fetchTrips() {
     }
 }
 
+const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
+
 function renderTrips(trips) {
     if (trips.length === 0) {
         tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">尚未有旅程檔案，點擊右上角新增吧。</div>`;
@@ -44,16 +46,27 @@ function renderTrips(trips) {
         const tagsHtml = tags.length > 0
             ? `<div class="trip-card-tags">${tags.map(t => `<span class="trip-card-tag">${t}</span>`).join('')}</div>`
             : '';
+        const typeIcon = TYPE_ICON[trip.tripType] || '';
+        const typeBadge = trip.tripType
+            ? `<span class="trip-type-badge trip-type-badge--${trip.tripType}">${typeIcon} ${trip.tripType}</span>`
+            : '';
+        // 潛旅顯示累計氣瓶
+        const tankBadge = (trip.tripType === '潛旅' && trip.totalTanks)
+            ? `<span class="trip-tank-badge">🫧 ${trip.totalTanks} 瓶</span>`
+            : '';
+
         return `
         <div class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'">
             <div class="trip-cover-wrap">
                 <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828'">
             </div>
             <div class="status-badge">${trip.status}</div>
+            ${typeBadge}
             <div class="trip-info">
                 <h3>${trip.title}</h3>
                 <p style="color:var(--accent); font-size:0.9rem;">${trip.country} · ${trip.city || ''}</p>
                 <p style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
+                ${tankBadge}
                 ${tagsHtml}
             </div>
         </div>
@@ -64,26 +77,19 @@ function renderTrips(trips) {
 function updateStats(trips) {
     document.getElementById('stat-total').innerText = trips.length;
     document.getElementById('stat-planning').innerText = trips.filter(t => t.status === '規劃中').length;
-    document.getElementById('stat-completed').innerText = trips.filter(t => t.status === '已完成').length;
 
-    // 按年度累計支出
+    // === 年度支出 ===
     const byYear = {};
     trips.forEach(t => {
         const year = t.startDate ? t.startDate.substring(0, 4) : '未知';
         byYear[year] = (byYear[year] || 0) + (Number(t.totalExpense) || 0);
     });
-
-    const years = Object.keys(byYear).sort((a, b) => b - a); // 新到舊
+    const years = Object.keys(byYear).sort((a, b) => b - a);
     const latestYear = years[0];
     const latestTotal = latestYear ? byYear[latestYear] : 0;
-
     document.getElementById('stat-expense').innerText = `$${latestTotal.toLocaleString()}`;
-
-    // 更新小標顯示最新年度
-    const label = document.querySelector('#stat-expense-card .stat-label');
-    if (label) label.innerHTML = `${latestYear || ''} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
-
-    // 年度明細
+    const expLabel = document.querySelector('#stat-expense-card .stat-label');
+    if (expLabel) expLabel.innerHTML = `${latestYear || ''} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
     const breakdown = document.getElementById('stat-expense-breakdown');
     if (breakdown) {
         breakdown.innerHTML = years.map(y => `
@@ -98,6 +104,33 @@ function updateStats(trips) {
             </div>
         `;
     }
+
+    // === 累計氣瓶數（依地點分類） ===
+    const diveTrips = trips.filter(t => t.tripType === '潛旅');
+    const totalTanks = diveTrips.reduce((s, t) => s + (Number(t.totalTanks) || 0), 0);
+    document.getElementById('stat-tanks').innerText = `🤿 ${totalTanks}`;
+
+    // 依地點（city）分組
+    const tankByLocation = {};
+    diveTrips.forEach(t => {
+        const loc = t.city || t.country || '未知';
+        tankByLocation[loc] = (tankByLocation[loc] || 0) + (Number(t.totalTanks) || 0);
+    });
+    const tankBreakdown = document.getElementById('stat-tank-breakdown');
+    if (tankBreakdown) {
+        const sorted = Object.entries(tankByLocation).sort((a, b) => b[1] - a[1]);
+        tankBreakdown.innerHTML = sorted.map(([loc, cnt]) => `
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
+                <span style="font-weight:500;">📍 ${loc}</span>
+                <span style="font-weight:600;">🫧 ${cnt} 瓶</span>
+            </div>
+        `).join('') + (sorted.length > 0 ? `
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-top:6px; padding-top:6px; border-top:1px solid rgba(26,58,95,0.15); color:var(--primary);">
+                <span style="font-weight:600;">累計總瓶數</span>
+                <span style="font-weight:700;">🤿 ${totalTanks} 瓶</span>
+            </div>
+        ` : '<p style="font-size:0.82rem; color:var(--text-muted);">尚無潛旅紀錄</p>');
+    }
 }
 
 window.toggleExpenseBreakdown = function() {
@@ -106,10 +139,42 @@ window.toggleExpenseBreakdown = function() {
     bd.style.display = bd.style.display === 'none' ? 'block' : 'none';
 }
 
+window.toggleTankBreakdown = function() {
+    const bd = document.getElementById('stat-tank-breakdown');
+    if (!bd) return;
+    bd.style.display = bd.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyFilters() {
+    const term = searchInput.value.toLowerCase().trim();
+    let filtered = allTrips;
+    if (activeTypeFilter !== 'all') {
+        filtered = filtered.filter(t => t.tripType === activeTypeFilter);
+    }
+    if (term) {
+        filtered = filtered.filter(t =>
+            (t.title || '').toLowerCase().includes(term) ||
+            (t.country || '').toLowerCase().includes(term) ||
+            (t.city || '').toLowerCase().includes(term)
+        );
+    }
+    renderTrips(filtered);
+}
+
 function setupEventListeners() {
     openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
     window.onclick = (e) => { if (e.target == addTripModal) addTripModal.style.display = 'none'; };
+
+    // 類型篩選 tabs
+    document.getElementById('typeFilterTabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('[data-type]');
+        if (!tab) return;
+        document.querySelectorAll('.type-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        activeTypeFilter = tab.dataset.type;
+        applyFilters();
+    });
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
@@ -117,7 +182,7 @@ function setupEventListeners() {
         const key = generateShareKey();
         try {
             const docRef = await addDoc(collection(db, "trips"), {
-                ...data, shareKey: key, totalExpense: 0,
+                ...data, shareKey: key, totalExpense: 0, totalTanks: 0,
                 createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
             location.href = `trip.html?id=${docRef.id}&key=${key}`;
@@ -126,18 +191,5 @@ function setupEventListeners() {
         }
     };
 
-    // 搜尋：前端 filter，不重打 API
-    searchInput.oninput = () => {
-        const term = searchInput.value.toLowerCase().trim();
-        if (!term) {
-            renderTrips(allTrips);
-            return;
-        }
-        const filtered = allTrips.filter(t =>
-            (t.title || '').toLowerCase().includes(term) ||
-            (t.country || '').toLowerCase().includes(term) ||
-            (t.city || '').toLowerCase().includes(term)
-        );
-        renderTrips(filtered);
-    };
+    searchInput.oninput = applyFilters;
 }

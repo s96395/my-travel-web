@@ -12,7 +12,7 @@
         <div class="container nav-content">
             <a href="index.html" class="logo">沈迷旅行<span style="font-size:0.6em; font-weight:400; opacity:0.7; margin-left:8px;">Addicted to YSHEN Travel</span></a>
             <div class="nav-links">
-                            <button class="btn btn-primary" id="openAddModal" style="margin-left:10px;">＋ 新增旅程</button>
+                <button class="btn btn-primary" id="openAddModal" style="margin-left:10px;">＋ 新增旅程</button>
             </div>
         </div>
     </nav>
@@ -25,11 +25,15 @@
     </header>
 
     <main class="container">
-        <!-- 4 個白色圓角方塊 -->
+        <!-- 統計方塊 -->
         <section class="stats-grid">
             <div class="stat-card"><span class="stat-value" id="stat-total">0</span><span class="stat-label">總旅程數</span></div>
             <div class="stat-card"><span class="stat-value" id="stat-planning">0</span><span class="stat-label">規劃中</span></div>
-            <div class="stat-card"><span class="stat-value" id="stat-completed">0</span><span class="stat-label">已完成</span></div>
+            <div class="stat-card stat-card-clickable" id="stat-tank-card" onclick="toggleTankBreakdown()">
+                <span class="stat-value" id="stat-tanks">🤿 0</span>
+                <span class="stat-label">累計氣瓶數 <span style="font-size:0.7em; opacity:0.6;">▼</span></span>
+                <div id="stat-tank-breakdown" style="display:none; margin-top:12px; border-top:1px solid rgba(26,58,95,0.1); padding-top:10px; text-align:left;"></div>
+            </div>
             <div class="stat-card stat-card-clickable" id="stat-expense-card" onclick="toggleExpenseBreakdown()">
                 <span class="stat-value" id="stat-expense">$0</span>
                 <span class="stat-label">累計支出 <span style="font-size:0.7em; opacity:0.6;">▼</span></span>
@@ -37,9 +41,15 @@
             </div>
         </section>
 
-        <!-- 搜尋 -->
+        <!-- 搜尋 + 類型篩選 -->
         <section class="filter-section" style="margin-bottom: 40px;">
             <input type="text" id="searchInput" placeholder="搜尋目的地、國家或旅程標題...">
+            <div class="type-filter-tabs" id="typeFilterTabs">
+                <button class="type-tab active" data-type="all">全部</button>
+                <button class="type-tab" data-type="自由行">🎒 自由行</button>
+                <button class="type-tab" data-type="跟團">🚌 跟團</button>
+                <button class="type-tab" data-type="潛旅">🤿 潛旅</button>
+            </div>
         </section>
 
         <!-- 旅程網格 -->
@@ -53,6 +63,20 @@
             <h2 style="margin-bottom: 30px; color: var(--primary);">建立新旅程</h2>
             <form id="addTripForm">
                 <div class="form-group"><label>旅程名稱</label><input type="text" name="title" placeholder="例如：2026 沖繩初夏之旅" required></div>
+
+                <!-- 旅程類型 -->
+                <div class="form-group">
+                    <label>旅程類型</label>
+                    <div class="trip-type-selector">
+                        <input type="radio" name="tripType" id="type-free" value="自由行" checked>
+                        <label for="type-free" class="trip-type-option">🎒 自由行</label>
+                        <input type="radio" name="tripType" id="type-tour" value="跟團">
+                        <label for="type-tour" class="trip-type-option">🚌 跟團</label>
+                        <input type="radio" name="tripType" id="type-dive" value="潛旅">
+                        <label for="type-dive" class="trip-type-option">🤿 潛旅</label>
+                    </div>
+                </div>
+
                 <div style="display:flex; gap:15px;">
                     <div class="form-group" style="flex:1;"><label>國家</label><input type="text" name="country" required placeholder="日本"></div>
                     <div class="form-group" style="flex:1;"><label>城市</label><input type="text" name="city" placeholder="那霸"></div>
@@ -65,7 +89,9 @@
                 <div class="form-group">
                     <label>當前狀態</label>
                     <select name="status">
-                        <option value="規劃中">規劃中</option><option value="即將出發">即將出發</option><option value="已完成">已完成</option>
+                        <option value="規劃中">規劃中</option>
+                        <option value="即將出發">即將出發</option>
+                        <option value="已完成">已完成</option>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%; height: 55px; font-size: 1.1rem;">確認建立</button>

@@ -9,10 +9,14 @@ const urlParams = new URLSearchParams(window.location.search);
 const tripId = urlParams.get('id');
 const shareKey = urlParams.get('key');
 
-const TODO_TEMPLATES = [
-    '訂機票', '訂住宿', '辦簽證', '換匯', '買 eSIM',
-    '保旅平險', '收行李', '確認護照效期', '列印訂位確認'
-];
+// 待辦範本依旅程類型不同
+const TODO_TEMPLATES = {
+    '自由行': ['訂機票', '訂住宿', '辦簽證', '換匯', '買 eSIM', '保旅平險', '收行李', '確認護照效期', '列印訂位確認'],
+    '跟團':   ['確認行程單', '繳清團費', '辦簽證', '換匯', '買 eSIM', '保旅平險', '收行李', '確認護照效期', '備好現金小費'],
+    '潛旅':   ['訂機票', '訂住宿', '確認潛水執照', '準備潛水裝備', '買 eSIM', '保旅平險+潛水險', '收行李', '確認護照效期', '準備防曬'],
+};
+
+let currentTripData = null;
 
 if (tripId && shareKey) { init(); }
 
@@ -20,18 +24,36 @@ async function init() {
     try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
-            renderHeader(tripSnap.data());
-            setupEvents();
-            setupTodos();
+            currentTripData = tripSnap.data();
+            renderHeader(currentTripData);
+            applyTripTypeUI(currentTripData.tripType);
+            setupEvents(currentTripData);
+            setupTodos(currentTripData.tripType);
             setupDeleteDelegation();
-            setupFlightHotel(tripSnap.data());
+            setupFlightHotel(currentTripData);
             loadAllData();
             loadTodos();
+            if (currentTripData.tripType === '潛旅') loadDiveLogs();
+            if (currentTripData.tripType === '跟團') setupTourSection(currentTripData);
             document.getElementById('trip-details').style.display = 'block';
         } else {
             document.body.innerHTML = "<div style='text-align:center;padding:100px;'><h1>權限錯誤</h1><a href='index.html'>返回首頁</a></div>";
         }
     } catch (err) { console.error(err); }
+}
+
+// ===== 依類型顯示/隱藏區塊 =====
+function applyTripTypeUI(tripType) {
+    const sectionTour = document.getElementById('section-tour');
+    const sectionDive = document.getElementById('section-dive');
+    const sectionHotel = document.getElementById('section-hotel');
+
+    if (tripType === '跟團') {
+        sectionTour.style.display = 'block';
+        sectionHotel.style.display = 'none'; // 跟團通常住宿在行程內
+    } else if (tripType === '潛旅') {
+        sectionDive.style.display = 'block';
+    }
 }
 
 function renderHeader(data) {
@@ -42,17 +64,19 @@ function renderHeader(data) {
 }
 
 function renderSummaryCard(data) {
-    const statusMap = {
-        '規劃中': 'planning', '即將出發': 'upcoming',
-        '已完成': 'completed', '已封存': 'archived'
-    };
+    const statusMap = { '規劃中': 'planning', '即將出發': 'upcoming', '已完成': 'completed', '已封存': 'archived' };
     const days = data.days || (data.startDate && data.endDate
-        ? Math.ceil((new Date(data.endDate) - new Date(data.startDate)) / 86400000) + 1
-        : '—');
+        ? Math.ceil((new Date(data.endDate) - new Date(data.startDate)) / 86400000) + 1 : '—');
     const tags = Array.isArray(data.tags) ? data.tags
         : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
+    const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
+    const typeIcon = data.tripType ? `${TYPE_ICON[data.tripType] || ''} ${data.tripType}` : '—';
 
     document.getElementById('trip-summary-display').innerHTML = `
+        <div class="summary-item">
+            <span class="summary-label">旅程類型</span>
+            <span class="summary-value"><span class="status-pill planning">${typeIcon}</span></span>
+        </div>
         <div class="summary-item">
             <span class="summary-label">國家 / 城市</span>
             <span class="summary-value">${data.country || '—'}${data.city ? ' · ' + data.city : ''}</span>
@@ -79,6 +103,11 @@ function renderSummaryCard(data) {
                 <span class="status-pill ${statusMap[data.status] || 'planning'}">${data.status || '規劃中'}</span>
             </span>
         </div>
+        ${data.tripType === '潛旅' ? `
+        <div class="summary-item">
+            <span class="summary-label">本趟氣瓶</span>
+            <span class="summary-value" style="color:var(--ocean); font-weight:700;">🫧 ${data.totalTanks || 0} 瓶</span>
+        </div>` : ''}
         ${data.note ? `
         <div class="summary-item" style="flex-basis: 100%;">
             <span class="summary-label">備註</span>
@@ -92,7 +121,105 @@ function renderSummaryCard(data) {
     `;
 }
 
-// ✅ 修正：改用 event delegation，不需要掛 window
+// ===== 潛水日誌 =====
+async function loadDiveLogs() {
+    const snap = await getDocs(query(collection(db, `trips/${tripId}/diveLogs`), orderBy('diveDate'), orderBy('diveNumber')));
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const totalTanks = logs.reduce((s, l) => s + (Number(l.tanks) || 1), 0);
+
+    document.getElementById('dive-tank-summary').innerText = `本趟累計：${totalTanks} 瓶`;
+
+    const listEl = document.getElementById('dive-log-list');
+    if (logs.length === 0) {
+        listEl.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:30px 0; font-weight:400;">尚無潛水記錄，點擊「＋ 新增潛水」開始記錄吧！</p>`;
+        return;
+    }
+
+    // 依日期分組
+    const byDate = {};
+    logs.forEach(l => {
+        const d = l.diveDate || '未知日期';
+        if (!byDate[d]) byDate[d] = [];
+        byDate[d].push(l);
+    });
+
+    listEl.innerHTML = Object.entries(byDate).map(([date, dives]) => {
+        const dayTanks = dives.reduce((s, l) => s + (Number(l.tanks) || 1), 0);
+        return `
+        <div class="dive-day-group">
+            <div class="dive-day-header">
+                <span>${date}</span>
+                <span class="dive-day-tanks">🫧 ${dayTanks} 瓶</span>
+            </div>
+            ${dives.map(l => `
+            <div class="dive-log-item">
+                <div class="dive-log-num">Dive #${l.diveNumber || '?'}</div>
+                <div class="dive-log-info">
+                    <div class="dive-log-site">${l.diveSite || '未知潛點'}</div>
+                    <div class="dive-log-meta">
+                        ${l.maxDepth ? `⬇️ 最深 ${l.maxDepth}m` : ''}
+                        ${l.duration ? `⏱ ${l.duration} 分鐘` : ''}
+                        ${l.visibility ? `👁 能見度 ${l.visibility}m` : ''}
+                        ${l.tanks ? `🫧 ${l.tanks} 瓶` : '🫧 1 瓶'}
+                    </div>
+                    ${l.note ? `<div class="dive-log-note">📝 ${l.note}</div>` : ''}
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${l.id}"
+                        data-edit-divedate="${l.diveDate||''}" data-edit-divenumber="${l.diveNumber||''}"
+                        data-edit-divesite="${l.diveSite||''}" data-edit-maxdepth="${l.maxDepth||''}"
+                        data-edit-duration="${l.duration||''}" data-edit-visibility="${l.visibility||''}"
+                        data-edit-tanks="${l.tanks||1}" data-edit-note="${l.note||''}" title="編輯">✎</button>
+                    <button class="delete-btn-sub" data-delete-type="diveLogs" data-delete-id="${l.id}" title="刪除">×</button>
+                </div>
+            </div>`).join('')}
+        </div>`;
+    }).join('');
+
+    // 同步總瓶數回主文件
+    await updateDoc(doc(db, "trips", tripId), { totalTanks });
+}
+
+// ===== 跟團資訊 =====
+function setupTourSection(data) {
+    renderTourDisplay(data.tour || {});
+    document.getElementById('editTourBtn').onclick = () => {
+        const t = data.tour || {};
+        openModal('跟團資訊', `
+            <div class="form-group"><label>旅行社 / 團名</label><input type="text" name="tourCompany" value="${t.tourCompany||''}" placeholder="例如：雄獅旅遊 東京賞楓5日團"></div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>導遊姓名</label><input type="text" name="guideId" value="${t.guideId||''}" placeholder="例如：陳大明"></div>
+                <div class="form-group" style="flex:1"><label>導遊電話</label><input type="text" name="guidePhone" value="${t.guidePhone||''}" placeholder="0912-345-678"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>團費 (TWD)</label><input type="number" name="tourFee" value="${t.tourFee||''}" placeholder="0" min="0"></div>
+                <div class="form-group" style="flex:1"><label>已繳金額</label><input type="number" name="paidFee" value="${t.paidFee||''}" placeholder="0" min="0"></div>
+            </div>
+            <div class="form-group"><label>集合資訊</label><input type="text" name="meetingPoint" value="${t.meetingPoint||''}" placeholder="例如：桃園機場第二航廈 中華航空櫃台前"></div>
+            <div class="form-group"><label>行程說明 / 注意事項</label><textarea name="tourNote" rows="3" style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:10px;font-size:0.95rem;resize:vertical;">${t.tourNote||''}</textarea></div>
+        `, 'tour');
+    };
+}
+
+function renderTourDisplay(t) {
+    const el = document.getElementById('tour-display');
+    if (!el) return;
+    const isEmpty = !t.tourCompany && !t.guideId;
+    if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫跟團資訊</p>'; return; }
+    const paid = Number(t.paidFee) || 0;
+    const fee = Number(t.tourFee) || 0;
+    const remaining = fee - paid;
+    el.innerHTML = `
+        <div class="info-grid">
+            ${t.tourCompany ? `<div class="info-item"><span class="info-label">旅行社 / 團名</span><span class="info-value"><strong>${t.tourCompany}</strong></span></div>` : ''}
+            ${t.guideId ? `<div class="info-item"><span class="info-label">導遊</span><span class="info-value">${t.guideId}${t.guidePhone ? ' · ' + t.guidePhone : ''}</span></div>` : ''}
+            ${fee ? `<div class="info-item"><span class="info-label">團費</span><span class="info-value">$${fee.toLocaleString()}${remaining > 0 ? ` <span style="color:#e74c3c; font-size:0.85em;">（尚欠 $${remaining.toLocaleString()}）</span>` : ' <span style="color:#27ae60; font-size:0.85em;">✓ 已付清</span>'}</span></div>` : ''}
+            ${t.meetingPoint ? `<div class="info-item" style="flex-basis:100%"><span class="info-label">集合地點</span><span class="info-value">${t.meetingPoint}</span></div>` : ''}
+            ${t.tourNote ? `<div class="info-item" style="flex-basis:100%"><span class="info-label">備註</span><span class="info-value" style="font-weight:400; color:var(--text-muted); white-space:pre-line;">${t.tourNote}</span></div>` : ''}
+        </div>
+    `;
+}
+
 function setupDeleteDelegation() {
     document.getElementById('trip-details').addEventListener('click', async (e) => {
         // 編輯
@@ -104,16 +231,13 @@ function setupDeleteDelegation() {
             const modalForm = document.getElementById('modalForm');
 
             if (type === 'itinerary') {
-                document.getElementById('modalTitle').innerText = '編輯行程';
-                document.getElementById('modalBody').innerHTML = `
+                openModal('編輯行程', `
                     <input type="hidden" name="_editId" value="${id}">
                     <div class="form-group"><label>第幾天</label><input type="number" name="day" value="${editBtn.dataset.editDay}" min="1" required></div>
                     <div class="form-group"><label>時間</label><input type="time" name="time" value="${editBtn.dataset.editTime}"></div>
                     <div class="form-group"><label>活動內容</label><input type="text" name="activity" value="${editBtn.dataset.editActivity}" required></div>
                     <div class="form-group"><label>地點</label><input type="text" name="location" value="${editBtn.dataset.editLocation}"></div>
-                `;
-                modalForm.dataset.type = 'edit-itinerary';
-                modal.style.display = 'block';
+                `, 'edit-itinerary');
             }
 
             if (type === 'expenses') {
@@ -121,8 +245,7 @@ function setupDeleteDelegation() {
                     .map(c => `<option value="${c}" ${c === editBtn.dataset.editCategory ? 'selected' : ''}>${c}</option>`).join('');
                 const payOptions = ['刷卡','現金','行動支付','其他']
                     .map(p => `<option value="${p}" ${p === editBtn.dataset.editPaymethod ? 'selected' : ''}>${p}</option>`).join('');
-                document.getElementById('modalTitle').innerText = '編輯支出';
-                document.getElementById('modalBody').innerHTML = `
+                openModal('編輯支出', `
                     <input type="hidden" name="_editId" value="${id}">
                     <div class="form-group"><label>項目名稱</label><input type="text" name="name" value="${editBtn.dataset.editName}" required></div>
                     <div style="display:flex;gap:12px;">
@@ -131,9 +254,27 @@ function setupDeleteDelegation() {
                     </div>
                     <div class="form-group"><label>付款方式</label><select name="payMethod">${payOptions}</select></div>
                     <div class="form-group"><label>備註</label><input type="text" name="note" value="${editBtn.dataset.editNote}"></div>
-                `;
-                modalForm.dataset.type = 'edit-expenses';
-                modal.style.display = 'block';
+                `, 'edit-expenses');
+            }
+
+            if (type === 'diveLogs') {
+                openModal('編輯潛水紀錄', `
+                    <input type="hidden" name="_editId" value="${id}">
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1"><label>潛水日期</label><input type="date" name="diveDate" value="${editBtn.dataset.editDivedate}" required></div>
+                        <div class="form-group" style="flex:1"><label>第幾支 (累計)</label><input type="number" name="diveNumber" value="${editBtn.dataset.editDivenumber}" min="1" required></div>
+                    </div>
+                    <div class="form-group"><label>潛點名稱</label><input type="text" name="diveSite" value="${editBtn.dataset.editDivesite}" required placeholder="例如：北礁"></div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1"><label>最大深度 (m)</label><input type="number" name="maxDepth" value="${editBtn.dataset.editMaxdepth}" min="0" step="0.1"></div>
+                        <div class="form-group" style="flex:1"><label>潛水時間 (分鐘)</label><input type="number" name="duration" value="${editBtn.dataset.editDuration}" min="0"></div>
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1"><label>能見度 (m)</label><input type="number" name="visibility" value="${editBtn.dataset.editVisibility}" min="0"></div>
+                        <div class="form-group" style="flex:1"><label>使用氣瓶數</label><input type="number" name="tanks" value="${editBtn.dataset.editTanks||1}" min="1" required></div>
+                    </div>
+                    <div class="form-group"><label>備註</label><input type="text" name="note" value="${editBtn.dataset.editNote}" placeholder="海況、海洋生物..."></div>
+                `, 'edit-diveLogs');
             }
             return;
         }
@@ -145,16 +286,14 @@ function setupDeleteDelegation() {
             const isDone = toggleBtn.classList.contains('checked');
             try {
                 await updateDoc(doc(db, `trips/${tripId}/todos`, todoId), {
-                    done: !isDone,
-                    updatedAt: serverTimestamp(),
-                    updatedByName: getUserNickname()
+                    done: !isDone, updatedAt: serverTimestamp(), updatedByName: getUserNickname()
                 });
                 loadTodos();
             } catch (err) { showToast('更新失敗', 'error'); }
             return;
         }
 
-        // 刪除（通用）
+        // 刪除
         const btn = e.target.closest('[data-delete-type]');
         if (!btn) return;
         const type = btn.dataset.deleteType;
@@ -163,66 +302,80 @@ function setupDeleteDelegation() {
             try {
                 await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
                 if (type === 'todos') loadTodos();
+                else if (type === 'diveLogs') loadDiveLogs();
                 else loadAllData();
-            } catch (err) {
-                showToast("刪除失敗", "error");
-            }
+            } catch (err) { showToast("刪除失敗", "error"); }
         }
     });
 }
 
-function setupEvents() {
+function openModal(title, body, type) {
+    document.getElementById('modalTitle').innerText = title;
+    document.getElementById('modalBody').innerHTML = body;
+    document.getElementById('modalForm').dataset.type = type;
+    document.getElementById('universalModal').style.display = 'block';
+}
+
+function setupEvents(data) {
     const modal = document.getElementById('universalModal');
     const modalForm = document.getElementById('modalForm');
-
-    const open = (title, body, type) => {
-        document.getElementById('modalTitle').innerText = title;
-        document.getElementById('modalBody').innerHTML = body;
-        modalForm.dataset.type = type;
-        modal.style.display = 'block';
-    };
 
     document.getElementById('closeModal').onclick = () => modal.style.display = 'none';
     window.onclick = (e) => { if (e.target == modal) modal.style.display = 'none'; };
 
-    document.getElementById('addDayBtn').onclick = () => open("新增行程", `
+    document.getElementById('addDayBtn').onclick = () => openModal("新增行程", `
         <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" min="1" required></div>
         <div class="form-group"><label>時間</label><input type="time" name="time"></div>
         <div class="form-group"><label>活動內容</label><input type="text" name="activity" required placeholder="例如：參觀首里城"></div>
         <div class="form-group"><label>地點</label><input type="text" name="location"></div>
     `, "itinerary");
 
-    document.getElementById('addExpenseBtn').onclick = () => open("新增支出", `
+    document.getElementById('addExpenseBtn').onclick = () => openModal("新增支出", `
         <div class="form-group"><label>項目名稱</label><input type="text" name="name" required placeholder="例如：機票"></div>
         <div style="display:flex;gap:12px;">
             <div class="form-group" style="flex:1"><label>金額 (TWD)</label><input type="number" name="amount" required min="0"></div>
             <div class="form-group" style="flex:1"><label>分類</label>
                 <select name="category">
-                    <option value="交通">交通</option>
-                    <option value="住宿">住宿</option>
-                    <option value="餐飲">餐飲</option>
-                    <option value="景點">景點</option>
-                    <option value="購物">購物</option>
-                    <option value="保險/簽證">保險/簽證</option>
-                    <option value="電信費">電信費</option>
-                    <option value="其他">其他</option>
+                    <option value="交通">交通</option><option value="住宿">住宿</option>
+                    <option value="餐飲">餐飲</option><option value="景點">景點</option>
+                    <option value="購物">購物</option><option value="保險/簽證">保險/簽證</option>
+                    <option value="潛水費用">潛水費用</option><option value="電信費">電信費</option><option value="其他">其他</option>
                 </select>
             </div>
         </div>
         <div class="form-group"><label>付款方式</label>
             <select name="payMethod">
-                <option value="刷卡">刷卡</option>
-                <option value="現金">現金</option>
-                <option value="行動支付">行動支付</option>
-                <option value="其他">其他</option>
+                <option value="刷卡">刷卡</option><option value="現金">現金</option>
+                <option value="行動支付">行動支付</option><option value="其他">其他</option>
             </select>
         </div>
         <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="例如：一人 $8790，媽媽先轉帳"></div>
     `, "expenses");
 
-    document.getElementById('addImageBtn').onclick = () => open("新增相片", `
+    document.getElementById('addImageBtn').onclick = () => openModal("新增相片", `
         <div class="form-group"><label>圖片網址 (URL)</label><input type="url" name="url" required placeholder="https://..."></div>
     `, "images");
+
+    // 潛水日誌新增按鈕
+    const addDiveBtn = document.getElementById('addDiveBtn');
+    if (addDiveBtn) {
+        addDiveBtn.onclick = () => openModal("新增潛水紀錄", `
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>潛水日期</label><input type="date" name="diveDate" required></div>
+                <div class="form-group" style="flex:1"><label>第幾支 (累計)</label><input type="number" name="diveNumber" min="1" required placeholder="例如：42"></div>
+            </div>
+            <div class="form-group"><label>潛點名稱</label><input type="text" name="diveSite" required placeholder="例如：北礁、東北角"></div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>最大深度 (m)</label><input type="number" name="maxDepth" min="0" step="0.1" placeholder="18"></div>
+                <div class="form-group" style="flex:1"><label>潛水時間 (分鐘)</label><input type="number" name="duration" min="0" placeholder="55"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>能見度 (m)</label><input type="number" name="visibility" min="0" placeholder="15"></div>
+                <div class="form-group" style="flex:1"><label>使用氣瓶數</label><input type="number" name="tanks" value="1" min="1" required></div>
+            </div>
+            <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="海況、看到的海洋生物..."></div>
+        `, "diveLogs");
+    }
 
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
@@ -230,10 +383,19 @@ function setupEvents() {
     document.getElementById('editTripInfoBtn').onclick = async () => {
         const snap = await getDoc(doc(db, 'trips', tripId));
         const d = snap.data();
-        const tags = Array.isArray(d.tags) ? d.tags.join(', ')
-            : (d.tags || '');
-        open('編輯旅程資料', `
+        const tags = Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || '');
+        const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
+        openModal('編輯旅程資料', `
             <div class="form-group"><label>旅程名稱</label><input type="text" name="title" value="${d.title || ''}" required></div>
+            <div class="form-group">
+                <label>旅程類型</label>
+                <div class="trip-type-selector">
+                    ${['自由行','跟團','潛旅'].map(t => `
+                        <input type="radio" name="tripType" id="edit-type-${t}" value="${t}" ${d.tripType===t?'checked':''}>
+                        <label for="edit-type-${t}" class="trip-type-option">${TYPE_ICON[t]} ${t}</label>
+                    `).join('')}
+                </div>
+            </div>
             <div style="display:flex;gap:12px;">
                 <div class="form-group" style="flex:1"><label>國家</label><input type="text" name="country" value="${d.country || ''}"></div>
                 <div class="form-group" style="flex:1"><label>城市</label><input type="text" name="city" value="${d.city || ''}"></div>
@@ -263,9 +425,7 @@ function setupEvents() {
                 await deleteDoc(doc(db, "trips", tripId));
                 showToast("旅程已刪除");
                 setTimeout(() => { window.location.href = 'index.html'; }, 1000);
-            } catch (err) {
-                showToast("刪除失敗", "error");
-            }
+            } catch (err) { showToast("刪除失敗", "error"); }
         }
     };
 
@@ -274,101 +434,86 @@ function setupEvents() {
         const type = modalForm.dataset.type;
         const data = Object.fromEntries(new FormData(modalForm).entries());
 
-        // 編輯行程
         if (type === 'edit-itinerary') {
-            const id = data._editId;
-            delete data._editId;
+            const id = data._editId; delete data._editId;
             if (data.day) data.day = Number(data.day);
             data.updatedAt = serverTimestamp();
-            try {
-                await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data);
-                modal.style.display = 'none';
-                modalForm.reset();
-                showToast('行程已更新 ✓');
-                loadAllData();
-            } catch (err) { showToast('儲存失敗', 'error'); }
+            try { await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('行程已更新 ✓'); loadAllData(); } catch { showToast('儲存失敗', 'error'); }
             return;
         }
 
-        // 編輯支出
         if (type === 'edit-expenses') {
-            const id = data._editId;
-            delete data._editId;
+            const id = data._editId; delete data._editId;
             if (data.amount) data.amount = Number(data.amount);
             data.updatedAt = serverTimestamp();
-            try {
-                await updateDoc(doc(db, `trips/${tripId}/expenses`, id), data);
-                modal.style.display = 'none';
-                modalForm.reset();
-                showToast('支出已更新 ✓');
-                loadAllData();
-            } catch (err) { showToast('儲存失敗', 'error'); }
+            try { await updateDoc(doc(db, `trips/${tripId}/expenses`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('支出已更新 ✓'); loadAllData(); } catch { showToast('儲存失敗', 'error'); }
             return;
         }
 
-        // 特殊處理：班機資訊
+        if (type === 'edit-diveLogs') {
+            const id = data._editId; delete data._editId;
+            if (data.diveNumber) data.diveNumber = Number(data.diveNumber);
+            if (data.maxDepth) data.maxDepth = Number(data.maxDepth);
+            if (data.duration) data.duration = Number(data.duration);
+            if (data.visibility) data.visibility = Number(data.visibility);
+            if (data.tanks) data.tanks = Number(data.tanks);
+            data.updatedAt = serverTimestamp();
+            try { await updateDoc(doc(db, `trips/${tripId}/diveLogs`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('潛水紀錄已更新 ✓'); loadDiveLogs(); } catch { showToast('儲存失敗', 'error'); }
+            return;
+        }
+
         if (type === 'flight') {
-            const flight = Object.fromEntries(new FormData(modalForm).entries());
-            try {
-                await updateDoc(doc(db, 'trips', tripId), { flight, updatedAt: serverTimestamp() });
-                modal.style.display = 'none';
-                modalForm.reset();
-                renderFlightDisplay(flight);
-                showToast('班機資訊已儲存 ✓');
-            } catch (err) { showToast('儲存失敗', 'error'); }
+            try { await updateDoc(doc(db, 'trips', tripId), { flight: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderFlightDisplay(data); showToast('班機資訊已儲存 ✓'); } catch { showToast('儲存失敗', 'error'); }
             return;
         }
 
-        // 特殊處理：住宿資訊
         if (type === 'hotel') {
-            const hotel = Object.fromEntries(new FormData(modalForm).entries());
-            try {
-                await updateDoc(doc(db, 'trips', tripId), { hotel, updatedAt: serverTimestamp() });
-                modal.style.display = 'none';
-                modalForm.reset();
-                renderHotelDisplay(hotel);
-                showToast('住宿資訊已儲存 ✓');
-            } catch (err) { showToast('儲存失敗', 'error'); }
+            try { await updateDoc(doc(db, 'trips', tripId), { hotel: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderHotelDisplay(data); showToast('住宿資訊已儲存 ✓'); } catch { showToast('儲存失敗', 'error'); }
             return;
         }
 
-        // 特殊處理：更新旅程主文件
+        if (type === 'tour') {
+            if (data.tourFee) data.tourFee = Number(data.tourFee);
+            if (data.paidFee) data.paidFee = Number(data.paidFee);
+            try { await updateDoc(doc(db, 'trips', tripId), { tour: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderTourDisplay(data); showToast('跟團資訊已儲存 ✓'); } catch { showToast('儲存失敗', 'error'); }
+            return;
+        }
+
         if (type === 'tripInfo') {
-            if (data.tags) {
-                data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
-            } else {
-                data.tags = [];
-            }
+            if (data.tags) data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
+            else data.tags = [];
             data.updatedAt = serverTimestamp();
             data.updatedByName = getUserNickname();
             try {
                 await updateDoc(doc(db, 'trips', tripId), data);
-                modal.style.display = 'none';
-                modalForm.reset();
+                modal.style.display = 'none'; modalForm.reset();
                 showToast("旅程資料已更新 ✓");
-                // 重新渲染摘要卡與 Hero
                 const snap = await getDoc(doc(db, 'trips', tripId));
-                renderHeader(snap.data());
-            } catch (err) {
-                showToast("儲存失敗", "error");
-            }
+                currentTripData = snap.data();
+                renderHeader(currentTripData);
+                applyTripTypeUI(currentTripData.tripType);
+            } catch { showToast("儲存失敗", "error"); }
             return;
         }
 
+        // 新增（通用）
         if (data.amount) data.amount = Number(data.amount);
         if (data.day) data.day = Number(data.day);
+        if (data.diveNumber) data.diveNumber = Number(data.diveNumber);
+        if (data.maxDepth) data.maxDepth = Number(data.maxDepth);
+        if (data.duration) data.duration = Number(data.duration);
+        if (data.visibility) data.visibility = Number(data.visibility);
+        if (data.tanks) data.tanks = Number(data.tanks);
         data.createdAt = serverTimestamp();
         data.createdByName = getUserNickname();
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
-            modal.style.display = 'none';
-            modalForm.reset();
+            modal.style.display = 'none'; modalForm.reset();
             showToast("已儲存並同步 ✓");
             if (type === 'todos') loadTodos();
+            else if (type === 'diveLogs') loadDiveLogs();
             else loadAllData();
-        } catch (err) {
-            showToast("儲存失敗", "error");
-        }
+        } catch { showToast("儲存失敗", "error"); }
     };
 }
 
@@ -376,38 +521,31 @@ function setupFlightHotel(data) {
     renderFlightDisplay(data.flight || {});
     renderHotelDisplay(data.hotel || {});
 
-    const modal = document.getElementById('universalModal');
-    const modalForm = document.getElementById('modalForm');
-
     document.getElementById('editFlightBtn').onclick = () => {
         const f = data.flight || {};
-        document.getElementById('modalTitle').innerText = '班機資訊';
-        document.getElementById('modalBody').innerHTML = `
+        openModal('班機資訊', `
             <div style="display:flex;gap:12px;">
                 <div class="form-group" style="flex:1"><label>航空公司</label><input type="text" name="airline" value="${f.airline||''}" placeholder="例如：華航"></div>
                 <div class="form-group" style="flex:1"><label>訂位代號</label><input type="text" name="flightCode" value="${f.flightCode||''}" placeholder="例如：ABC123"></div>
             </div>
-            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;text-transform:uppercase;letter-spacing:0.04em;">去程</p>
+            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;">去程</p>
             <div style="display:flex;gap:12px;">
                 <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="depAirport" value="${f.depAirport||''}" placeholder="例如：桃園機場"></div>
                 <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="depTime" value="${f.depTime||''}"></div>
                 <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="arrTime" value="${f.arrTime||''}"></div>
             </div>
-            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;text-transform:uppercase;letter-spacing:0.04em;">回程</p>
+            <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;">回程</p>
             <div style="display:flex;gap:12px;">
                 <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="retAirport" value="${f.retAirport||''}" placeholder="例如：那霸機場"></div>
                 <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="retDepTime" value="${f.retDepTime||''}"></div>
                 <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="retArrTime" value="${f.retArrTime||''}"></div>
             </div>
-        `;
-        modalForm.dataset.type = 'flight';
-        modal.style.display = 'block';
+        `, 'flight');
     };
 
     document.getElementById('editHotelBtn').onclick = () => {
         const h = data.hotel || {};
-        document.getElementById('modalTitle').innerText = '住宿資訊';
-        document.getElementById('modalBody').innerHTML = `
+        openModal('住宿資訊', `
             <div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" value="${h.hotelName||''}" placeholder="例如：Rembrandt Style Naha"></div>
             <div class="form-group"><label>地址</label><input type="text" name="hotelAddr" value="${h.hotelAddr||''}" placeholder="飯店地址"></div>
             <div class="form-group"><label>訂位代號</label><input type="text" name="hotelCode" value="${h.hotelCode||''}" placeholder="例如：XYZ789"></div>
@@ -415,9 +553,7 @@ function setupFlightHotel(data) {
                 <div class="form-group" style="flex:1"><label>Check-in 時間</label><input type="time" name="checkIn" value="${h.checkIn||''}"></div>
                 <div class="form-group" style="flex:1"><label>Check-out 時間</label><input type="time" name="checkOut" value="${h.checkOut||''}"></div>
             </div>
-        `;
-        modalForm.dataset.type = 'hotel';
-        modal.style.display = 'block';
+        `, 'hotel');
     };
 }
 
@@ -449,6 +585,7 @@ function renderFlightDisplay(f) {
 
 function renderHotelDisplay(h) {
     const el = document.getElementById('hotel-display');
+    if (!el) return;
     const isEmpty = !h.hotelName && !h.hotelAddr;
     if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫住宿資訊</p>'; return; }
     el.innerHTML = `
@@ -462,8 +599,7 @@ function renderHotelDisplay(h) {
 }
 
 async function loadAllData() {
-    loadTodos();
-    // --- 行程 ---
+    // 行程
     const qI = query(collection(db, `trips/${tripId}/itinerary`), orderBy("day"), orderBy("time"));
     const sI = await getDocs(qI);
     let htmlI = ""; let lastDay = null;
@@ -483,13 +619,12 @@ async function loadAllData() {
     });
     document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; text-align:center; padding:30px 0;'>尚未建立行程</p>";
 
-    // --- 支出 ---
+    // 支出
     const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
     let total = 0; const cats = {}; let htmlE = "";
     sE.forEach(d => {
         const ex = d.data(); const amt = Number(ex.amount) || 0;
-        total += amt;
-        cats[ex.category] = (cats[ex.category] || 0) + amt;
+        total += amt; cats[ex.category] = (cats[ex.category] || 0) + amt;
         const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
         htmlE += `<tr>
             <td class="expense-name">${ex.name}</td>
@@ -510,15 +645,12 @@ async function loadAllData() {
     document.getElementById('expense-list').innerHTML = htmlE ||
         `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px; font-weight:400;">尚無支出紀錄</td></tr>`;
     renderChart(cats);
-
-    // 同步總支出回 trips 主文件
     await updateDoc(doc(db, "trips", tripId), { totalExpense: total });
 
-    // --- 相片 ---
+    // 相片
     const sPh = await getDocs(collection(db, `trips/${tripId}/images`));
     let htmlPh = "";
     sPh.forEach(d => {
-        // ✅ 修正：改用 data-* 屬性
         htmlPh += `<div style="position:relative; aspect-ratio:1; border-radius:15px; overflow:hidden;">
                     <img src="${d.data().url}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'">
                     <button data-delete-type="images" data-delete-id="${d.id}" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:1rem;" title="刪除">×</button>
@@ -527,13 +659,11 @@ async function loadAllData() {
     document.getElementById('photo-grid').innerHTML = htmlPh || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400; padding:20px 0;'>尚無相片</p>";
 }
 
-
-// ===== 待辦清單功能 =====
-function setupTodos() {
-    // 渲染範本 chips
+function setupTodos(tripType) {
+    const templates = TODO_TEMPLATES[tripType] || TODO_TEMPLATES['自由行'];
     const chipsEl = document.getElementById('todo-template-chips');
     if (!chipsEl) return;
-    chipsEl.innerHTML = TODO_TEMPLATES.map(t =>
+    chipsEl.innerHTML = templates.map(t =>
         `<span class="todo-chip" data-template="${t}">${t}</span>`
     ).join('');
     chipsEl.addEventListener('click', async (e) => {
@@ -541,8 +671,6 @@ function setupTodos() {
         if (!chip) return;
         await addTodo(chip.dataset.template);
     });
-
-    // 新增按鈕
     document.getElementById('addTodoBtn').onclick = () => {
         const text = prompt('新增待辦事項：');
         if (text && text.trim()) addTodo(text.trim());
@@ -552,33 +680,23 @@ function setupTodos() {
 async function addTodo(text) {
     try {
         await addDoc(collection(db, `trips/${tripId}/todos`), {
-            text,
-            done: false,
-            order: Date.now(),
-            createdAt: serverTimestamp(),
-            createdByName: getUserNickname()
+            text, done: false, order: Date.now(),
+            createdAt: serverTimestamp(), createdByName: getUserNickname()
         });
         loadTodos();
         showToast(`已新增「${text}」`);
-    } catch (err) {
-        showToast('新增失敗', 'error');
-    }
+    } catch (err) { showToast('新增失敗', 'error'); }
 }
 
 async function loadTodos() {
     const snap = await getDocs(query(collection(db, `trips/${tripId}/todos`), orderBy('order')));
     const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
     const total = todos.length;
     const done = todos.filter(t => t.done).length;
-
-    // 進度條
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
     document.getElementById('todo-progress-bar').style.width = pct + '%';
     document.getElementById('todo-progress-text').innerText =
         total === 0 ? '尚無待辦事項' : `已完成 ${done} / ${total} 項（${pct}%）`;
-
-    // 列表：未完成在前，已完成在後
     const sorted = [...todos.filter(t => !t.done), ...todos.filter(t => t.done)];
     document.getElementById('todo-list').innerHTML = sorted.length === 0
         ? `<p style="color:var(--text-muted); text-align:center; padding:20px 0; font-weight:400;">點擊下方範本快速新增，或按「＋ 新增」自訂</p>`
@@ -597,23 +715,18 @@ function renderChart(data) {
     if (!el) return;
     const keys = Object.keys(data);
     if (keys.length === 0) { el.innerHTML = ''; return; }
-
     const total = Object.values(data).reduce((a, b) => a + b, 0);
     const colors = ['#1A3A5F', '#E67E22', '#8E44AD', '#16A085', '#C0392B', '#2980B9', '#F39C12', '#95A5A6'];
-    // sort by amount desc
-    const sorted = keys.map((k, i) => ({ k, v: data[k], color: colors[i % colors.length] }))
-                       .sort((a, b) => b.v - a.v);
-
+    const sorted = keys.map((k, i) => ({ k, v: data[k], color: colors[i % colors.length] })).sort((a, b) => b.v - a.v);
     el.innerHTML = `
         <div style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border-color);">
             <p style="font-size:0.78rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:16px;">分類統計</p>
             ${sorted.map(({ k, v, color }) => {
                 const pct = Math.round(v / total * 100);
-                return `
-                <div style="margin-bottom:14px;">
+                return `<div style="margin-bottom:14px;">
                     <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-                        <span style="font-size:0.88rem; font-weight:500; color:var(--text-main);">${k}</span>
-                        <span style="font-size:0.88rem; font-weight:600; color:var(--text-main);">$${v.toLocaleString()} <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">${pct}%</span></span>
+                        <span style="font-size:0.88rem; font-weight:500;">${k}</span>
+                        <span style="font-size:0.88rem; font-weight:600;">$${v.toLocaleString()} <span style="font-weight:400; color:var(--text-muted); font-size:0.78rem;">${pct}%</span></span>
                     </div>
                     <div style="width:100%; height:10px; background:#f0f0f0; border-radius:99px; overflow:hidden;">
                         <div style="width:${pct}%; height:100%; background:${color}; border-radius:99px; transition:width 0.6s ease;"></div>
