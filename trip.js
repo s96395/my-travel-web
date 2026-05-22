@@ -178,8 +178,12 @@ async function loadDiveLogs() {
         </div>`;
     }).join('');
 
-    // 同步總瓶數回主文件
+    // 同步總瓶數回主文件，並即時更新摘要卡
     await updateDoc(doc(db, "trips", tripId), { totalTanks });
+    if (currentTripData) {
+        currentTripData.totalTanks = totalTanks;
+        renderSummaryCard(currentTripData);
+    }
 }
 
 // ===== 跟團資訊 =====

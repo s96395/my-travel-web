@@ -624,3 +624,50 @@ input:focus { border-color: var(--primary); background: #fff; }
     .type-tab { padding: 7px 14px; font-size: 0.82rem; }
     .dive-log-meta { gap: 8px; }
 }
+
+/* ===== 年份分組 ===== */
+.year-group { margin-bottom: 50px; }
+
+.year-group-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--border-color);
+}
+.year-group-title {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.02em;
+}
+.year-group-count {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: #f0f0f0;
+    padding: 3px 10px;
+    border-radius: 50px;
+}
+.year-group-expense {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-left: auto;
+}
+.year-group-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px;
+}
+
+/* trip-grid 改為 block，讓 year-group 自己排 */
+.trip-grid {
+    display: block !important;
+}
+
+@media (max-width: 600px) {
+    .year-group-title { font-size: 1.3rem; }
+    .year-group-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+}
