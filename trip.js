@@ -123,7 +123,7 @@ function renderSummaryCard(data) {
 
 // ===== 潛水日誌 =====
 async function loadDiveLogs() {
-    const snap = await getDocs(query(collection(db, `trips/${tripId}/diveLogs`), orderBy('diveDate'), orderBy('diveNumber')));
+    const snap = await getDocs(query(collection(db, `trips/${tripId}/diveLogs`), orderBy('diveDate'), orderBy('createdAt')));
     const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     const totalTanks = logs.reduce((s, l) => s + (Number(l.tanks) || 1), 0);
 
@@ -132,10 +132,11 @@ async function loadDiveLogs() {
     const listEl = document.getElementById('dive-log-list');
     if (logs.length === 0) {
         listEl.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:30px 0; font-weight:400;">尚無潛水記錄，點擊「＋ 新增潛水」開始記錄吧！</p>`;
+        await updateDoc(doc(db, "trips", tripId), { totalTanks: 0 });
         return;
     }
 
-    // 依日期分組
+    // 依日期分組，自動給流水序號
     const byDate = {};
     logs.forEach(l => {
         const d = l.diveDate || '未知日期';
@@ -143,36 +144,42 @@ async function loadDiveLogs() {
         byDate[d].push(l);
     });
 
+    let globalSeq = 1; // 跨天累計序號
     listEl.innerHTML = Object.entries(byDate).map(([date, dives]) => {
         const dayTanks = dives.reduce((s, l) => s + (Number(l.tanks) || 1), 0);
+        const divesHtml = dives.map(l => {
+            const seq = globalSeq++;
+            return `
+            <div class="dive-log-item">
+                <div class="dive-log-num">Dive #${seq}</div>
+                <div class="dive-log-info">
+                    <div class="dive-log-site">${l.diveSite || '未知潛點'}</div>
+                    <div class="dive-log-meta">
+                        ${l.maxDepth ? `⬇️ ${l.maxDepth}m` : ''}
+                        ${l.duration ? `⏱ ${l.duration} 分` : ''}
+                        ${l.visibility ? `👁 能見 ${l.visibility}m` : ''}
+                        🫧 ${l.tanks || 1} 瓶
+                    </div>
+                    ${l.note ? `<div class="dive-log-note">📝 ${l.note}</div>` : ''}
+                </div>
+                <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${l.id}"
+                        data-edit-divedate="${l.diveDate||''}"
+                        data-edit-divesite="${l.diveSite||''}" data-edit-maxdepth="${l.maxDepth||''}"
+                        data-edit-duration="${l.duration||''}" data-edit-visibility="${l.visibility||''}"
+                        data-edit-tanks="${l.tanks||1}" data-edit-note="${l.note||''}" title="編輯">✎</button>
+                    <button class="delete-btn-sub" data-delete-type="diveLogs" data-delete-id="${l.id}" title="刪除">×</button>
+                </div>
+            </div>`;
+        }).join('');
+
         return `
         <div class="dive-day-group">
             <div class="dive-day-header">
                 <span>${date}</span>
                 <span class="dive-day-tanks">🫧 ${dayTanks} 瓶</span>
             </div>
-            ${dives.map(l => `
-            <div class="dive-log-item">
-                <div class="dive-log-num">Dive #${l.diveNumber || '?'}</div>
-                <div class="dive-log-info">
-                    <div class="dive-log-site">${l.diveSite || '未知潛點'}</div>
-                    <div class="dive-log-meta">
-                        ${l.maxDepth ? `⬇️ 最深 ${l.maxDepth}m` : ''}
-                        ${l.duration ? `⏱ ${l.duration} 分鐘` : ''}
-                        ${l.visibility ? `👁 能見度 ${l.visibility}m` : ''}
-                        ${l.tanks ? `🫧 ${l.tanks} 瓶` : '🫧 1 瓶'}
-                    </div>
-                    ${l.note ? `<div class="dive-log-note">📝 ${l.note}</div>` : ''}
-                </div>
-                <div style="display:flex; gap:6px; align-items:center;">
-                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${l.id}"
-                        data-edit-divedate="${l.diveDate||''}" data-edit-divenumber="${l.diveNumber||''}"
-                        data-edit-divesite="${l.diveSite||''}" data-edit-maxdepth="${l.maxDepth||''}"
-                        data-edit-duration="${l.duration||''}" data-edit-visibility="${l.visibility||''}"
-                        data-edit-tanks="${l.tanks||1}" data-edit-note="${l.note||''}" title="編輯">✎</button>
-                    <button class="delete-btn-sub" data-delete-type="diveLogs" data-delete-id="${l.id}" title="刪除">×</button>
-                </div>
-            </div>`).join('')}
+            ${divesHtml}
         </div>`;
     }).join('');
 
@@ -260,10 +267,7 @@ function setupDeleteDelegation() {
             if (type === 'diveLogs') {
                 openModal('編輯潛水紀錄', `
                     <input type="hidden" name="_editId" value="${id}">
-                    <div style="display:flex;gap:12px;">
-                        <div class="form-group" style="flex:1"><label>潛水日期</label><input type="date" name="diveDate" value="${editBtn.dataset.editDivedate}" required></div>
-                        <div class="form-group" style="flex:1"><label>第幾支 (累計)</label><input type="number" name="diveNumber" value="${editBtn.dataset.editDivenumber}" min="1" required></div>
-                    </div>
+                    <div class="form-group"><label>潛水日期</label><input type="date" name="diveDate" value="${editBtn.dataset.editDivedate}" required></div>
                     <div class="form-group"><label>潛點名稱</label><input type="text" name="diveSite" value="${editBtn.dataset.editDivesite}" required placeholder="例如：北礁"></div>
                     <div style="display:flex;gap:12px;">
                         <div class="form-group" style="flex:1"><label>最大深度 (m)</label><input type="number" name="maxDepth" value="${editBtn.dataset.editMaxdepth}" min="0" step="0.1"></div>
@@ -356,26 +360,24 @@ function setupEvents(data) {
         <div class="form-group"><label>圖片網址 (URL)</label><input type="url" name="url" required placeholder="https://..."></div>
     `, "images");
 
-    // 潛水日誌新增按鈕
-    const addDiveBtn = document.getElementById('addDiveBtn');
-    if (addDiveBtn) {
-        addDiveBtn.onclick = () => openModal("新增潛水紀錄", `
-            <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:1"><label>潛水日期</label><input type="date" name="diveDate" required></div>
-                <div class="form-group" style="flex:1"><label>第幾支 (累計)</label><input type="number" name="diveNumber" min="1" required placeholder="例如：42"></div>
-            </div>
-            <div class="form-group"><label>潛點名稱</label><input type="text" name="diveSite" required placeholder="例如：北礁、東北角"></div>
-            <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:1"><label>最大深度 (m)</label><input type="number" name="maxDepth" min="0" step="0.1" placeholder="18"></div>
-                <div class="form-group" style="flex:1"><label>潛水時間 (分鐘)</label><input type="number" name="duration" min="0" placeholder="55"></div>
-            </div>
-            <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:1"><label>能見度 (m)</label><input type="number" name="visibility" min="0" placeholder="15"></div>
-                <div class="form-group" style="flex:1"><label>使用氣瓶數</label><input type="number" name="tanks" value="1" min="1" required></div>
-            </div>
-            <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="海況、看到的海洋生物..."></div>
-        `, "diveLogs");
-    }
+    // 潛水日誌新增按鈕（用 event delegation 避免 null 問題）
+    document.getElementById('trip-details').addEventListener('click', (e) => {
+        if (e.target.id === 'addDiveBtn' || e.target.closest('#addDiveBtn')) {
+            openModal("新增潛水紀錄", `
+                <div class="form-group"><label>潛水日期</label><input type="date" name="diveDate" required></div>
+                <div class="form-group"><label>潛點名稱</label><input type="text" name="diveSite" required placeholder="例如：北礁、東北角"></div>
+                <div style="display:flex;gap:12px;">
+                    <div class="form-group" style="flex:1"><label>最大深度 (m)</label><input type="number" name="maxDepth" min="0" step="0.1" placeholder="18"></div>
+                    <div class="form-group" style="flex:1"><label>潛水時間 (分鐘)</label><input type="number" name="duration" min="0" placeholder="55"></div>
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <div class="form-group" style="flex:1"><label>能見度 (m)</label><input type="number" name="visibility" min="0" placeholder="15"></div>
+                    <div class="form-group" style="flex:1"><label>使用氣瓶數</label><input type="number" name="tanks" value="1" min="1" required></div>
+                </div>
+                <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="海況、看到的海洋生物..."></div>
+            `, "diveLogs");
+        }
+    }, { once: false });
 
     document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
 
@@ -429,7 +431,10 @@ function setupEvents(data) {
         }
     };
 
-    modalForm.onsubmit = async (e) => {
+    // 用 AbortController 確保只綁一次
+    if (modalForm._submitController) modalForm._submitController.abort();
+    modalForm._submitController = new AbortController();
+    modalForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const type = modalForm.dataset.type;
         const data = Object.fromEntries(new FormData(modalForm).entries());
@@ -452,7 +457,6 @@ function setupEvents(data) {
 
         if (type === 'edit-diveLogs') {
             const id = data._editId; delete data._editId;
-            if (data.diveNumber) data.diveNumber = Number(data.diveNumber);
             if (data.maxDepth) data.maxDepth = Number(data.maxDepth);
             if (data.duration) data.duration = Number(data.duration);
             if (data.visibility) data.visibility = Number(data.visibility);
@@ -499,7 +503,6 @@ function setupEvents(data) {
         // 新增（通用）
         if (data.amount) data.amount = Number(data.amount);
         if (data.day) data.day = Number(data.day);
-        if (data.diveNumber) data.diveNumber = Number(data.diveNumber);
         if (data.maxDepth) data.maxDepth = Number(data.maxDepth);
         if (data.duration) data.duration = Number(data.duration);
         if (data.visibility) data.visibility = Number(data.visibility);
@@ -513,8 +516,8 @@ function setupEvents(data) {
             if (type === 'todos') loadTodos();
             else if (type === 'diveLogs') loadDiveLogs();
             else loadAllData();
-        } catch { showToast("儲存失敗", "error"); }
-    };
+        } catch (err) { console.error(err); showToast("儲存失敗：" + (err.message || err), "error"); }
+    }, { signal: modalForm._submitController.signal });
 }
 
 function setupFlightHotel(data) {
