@@ -41,18 +41,12 @@ function renderTrips(trips) {
         return;
     }
     tripGrid.innerHTML = trips.map(trip => {
-        const tags = Array.isArray(trip.tags) ? trip.tags
-            : (trip.tags ? trip.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
-        const tagsHtml = tags.length > 0
-            ? `<div class="trip-card-tags">${tags.map(t => `<span class="trip-card-tag">${t}</span>`).join('')}</div>`
-            : '';
         const typeIcon = TYPE_ICON[trip.tripType] || '';
         const typeBadge = trip.tripType
-            ? `<span class="trip-type-badge trip-type-badge--${trip.tripType}">${typeIcon} ${trip.tripType}</span>`
+            ? `<span class="trip-card-tag trip-type-badge--${trip.tripType}">${typeIcon} ${trip.tripType}</span>`
             : '';
-        // 潛旅顯示累計氣瓶
         const tankBadge = (trip.tripType === '潛旅' && trip.totalTanks)
-            ? `<span class="trip-tank-badge">🫧 ${trip.totalTanks} 瓶</span>`
+            ? `<span class="trip-card-tag" style="background:rgba(0,150,199,0.12); color:#0096C7;">🫧 ${trip.totalTanks} 瓶</span>`
             : '';
 
         return `
@@ -61,13 +55,11 @@ function renderTrips(trips) {
                 <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828'">
             </div>
             <div class="status-badge">${trip.status}</div>
-            ${typeBadge}
             <div class="trip-info">
                 <h3>${trip.title}</h3>
                 <p style="color:var(--accent); font-size:0.9rem;">${trip.country} · ${trip.city || ''}</p>
                 <p style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
-                ${tankBadge}
-                ${tagsHtml}
+                <div class="trip-card-tags">${typeBadge}${tankBadge}</div>
             </div>
         </div>
     `;

@@ -113,11 +113,6 @@ function renderSummaryCard(data) {
             <span class="summary-label">備註</span>
             <span class="summary-value" style="font-weight:400; color:var(--text-muted);">${data.note}</span>
         </div>` : ''}
-        ${tags.length > 0 ? `
-        <div class="summary-item" style="flex-basis: 100%;">
-            <span class="summary-label">標籤</span>
-            <div class="summary-tags">${tags.map(t => `<span class="summary-tag">${t}</span>`).join('')}</div>
-        </div>` : ''}
     `;
 }
 
@@ -416,7 +411,6 @@ function setupEvents(data) {
                 </select>
             </div>
             <div class="form-group"><label>封面圖網址</label><input type="url" name="coverImageUrl" value="${d.coverImageUrl || ''}" placeholder="https://..."></div>
-            <div class="form-group"><label>標籤（用逗號分隔）</label><input type="text" name="tags" value="${tags}" placeholder="自由行, 美食, 親子"></div>
             <div class="form-group"><label>備註</label><textarea name="note" rows="3" style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:10px;font-size:0.95rem;resize:vertical;">${d.note || ''}</textarea></div>
         `, 'tripInfo');
     };
@@ -484,8 +478,6 @@ function setupEvents(data) {
         }
 
         if (type === 'tripInfo') {
-            if (data.tags) data.tags = data.tags.split(',').map(t => t.trim()).filter(Boolean);
-            else data.tags = [];
             data.updatedAt = serverTimestamp();
             data.updatedByName = getUserNickname();
             try {
