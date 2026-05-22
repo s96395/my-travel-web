@@ -49,6 +49,11 @@ service cloud.firestore {
         allow read, write: if true;
       }
 
+      // diveLogs 子集合（潛旅模式）
+      match /diveLogs/{diveId} {
+        allow read, write: if true;
+      }
+
       // flights 子集合
       match /flights/{flightId} {
         allow read, write: if true;
