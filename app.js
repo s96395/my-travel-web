@@ -16,11 +16,12 @@ const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85c
 
 let allTrips = [];
 let activeTypeFilter = 'all';
+let currentUser = null;
 
 init();
 
 async function init() {
-    await requireLoginBeforeLoad();
+    currentUser = await requireLoginBeforeLoad();
     await fetchTrips();
     setupEventListeners();
 }
@@ -29,7 +30,9 @@ async function fetchTrips() {
     try {
         const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
-        allTrips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        allTrips = snap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(canAccessTrip);
         renderTrips(allTrips);
         updateStats(allTrips);
     } catch (err) {
@@ -217,6 +220,13 @@ function toggle(id) {
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
+function canAccessTrip(trip) {
+    const uid = currentUser?.uid;
+    if (!uid) return false;
+
+    return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
+}
+
 function applyFilters() {
     const term = searchInput.value.toLowerCase().trim();
     let filtered = allTrips;
@@ -269,6 +279,7 @@ function setupEventListeners() {
         try {
             const docRef = await addDoc(collection(db, "trips"), {
                 ...data, shareKey: key, totalExpense: 0, totalTanks: 0,
+                ownerId: currentUser.uid, ownerName: getUserNickname(), memberIds: [currentUser.uid],
                 createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
             location.href = `trip.html?id=${encodeURIComponent(docRef.id)}&key=${encodeURIComponent(key)}`;
