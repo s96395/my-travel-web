@@ -21,6 +21,7 @@ const TODO_TEMPLATES = {
 };
 
 let currentTripData = null;
+let currentUser = null;
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 
 if (tripId && shareKey) {
@@ -30,12 +31,16 @@ if (tripId && shareKey) {
 }
 
 async function init() {
-    await requireLoginBeforeLoad();
+    currentUser = await requireLoginBeforeLoad();
 
     try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
             currentTripData = tripSnap.data();
+            if (!canAccessTrip(currentTripData)) {
+                renderAccessError('你沒有此旅程的存取權限。');
+                return;
+            }
             renderHeader(currentTripData);
             applyTripTypeUI(currentTripData.tripType);
             setupEvents(currentTripData);
@@ -54,6 +59,13 @@ async function init() {
         console.error('[loadTrip]', err);
         renderAccessError(getErrorMessage('loadTrip', err));
     }
+}
+
+function canAccessTrip(trip) {
+    const uid = currentUser?.uid;
+    if (!uid) return false;
+
+    return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
 
 function renderAccessError(message) {

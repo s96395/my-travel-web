@@ -13,12 +13,13 @@ const historySearch = document.getElementById('historySearch');
 const yearFilter = document.getElementById('yearFilter');
 
 let archivedTrips = [];
+let currentUser = null;
 
 /**
  * 初始化歷史頁面
  */
 async function init() {
-    await requireLoginBeforeLoad();
+    currentUser = await requireLoginBeforeLoad();
     await fetchHistoryTrips();
     setupFilters();
 }
@@ -41,6 +42,8 @@ async function fetchHistoryTrips() {
 
         querySnapshot.forEach((doc) => {
             const data = { id: doc.id, ...doc.data() };
+            if (!canAccessTrip(data)) return;
+
             archivedTrips.push(data);
 
             // 提取年份供篩選使用
@@ -57,6 +60,13 @@ async function fetchHistoryTrips() {
         historyGrid.innerHTML = `<div class="empty-state">${getErrorMessage('loadHistory', error)}</div>`;
         showErrorToast('loadHistory', error);
     }
+}
+
+function canAccessTrip(trip) {
+    const uid = currentUser?.uid;
+    if (!uid) return false;
+
+    return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
 
 /**
