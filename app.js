@@ -35,10 +35,10 @@ async function fetchTrips() {
         const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
         allTrips = snap.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .filter(canAccessTrip);
-        renderTrips(allTrips);
-        updateStats(allTrips);
+            .map(doc => ({ id: doc.id, ...doc.data() }));
+        const visibleTrips = getVisibleTrips();
+        renderTrips(visibleTrips);
+        updateStats(visibleTrips);
     } catch (err) {
         showErrorToast('loadTrips', err);
     }
@@ -228,18 +228,26 @@ function isSystemOwner(user = currentUser) {
     return (user?.email || '').trim().toLowerCase() === SYSTEM_OWNER_EMAIL;
 }
 
+function hasTripPermissionFields(trip) {
+    return Boolean(trip.ownerId) || (Array.isArray(trip.memberIds) && trip.memberIds.length > 0);
+}
+
 function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
 
-    if (isSystemOwner()) return true;
+    if (isSystemOwner() && !hasTripPermissionFields(trip)) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
 
+function getVisibleTrips() {
+    return allTrips.filter(canAccessTrip);
+}
+
 function applyFilters() {
     const term = searchInput.value.toLowerCase().trim();
-    let filtered = allTrips;
+    let filtered = getVisibleTrips();
     if (activeTypeFilter !== 'all') {
         filtered = filtered.filter(t => t.tripType === activeTypeFilter);
     }
