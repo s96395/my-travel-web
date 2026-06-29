@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "ht
 import {
     generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
-    escapeHtml, safeUrl
+    escapeHtml, safeUrl, requireLoginBeforeLoad
 } from './utils.js';
 
 const tripGrid = document.getElementById('tripGrid');
@@ -20,6 +20,7 @@ let activeTypeFilter = 'all';
 init();
 
 async function init() {
+    await requireLoginBeforeLoad();
     await fetchTrips();
     setupEventListeners();
 }
