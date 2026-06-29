@@ -6,7 +6,7 @@ import {
 import {
     getUserNickname, showToast, showErrorToast, getErrorMessage, formatDate, copyToClipboard,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
-    escapeHtml, safeUrl, safeCssUrl
+    escapeHtml, safeUrl, safeCssUrl, requireLoginBeforeLoad
 } from './utils.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -30,6 +30,8 @@ if (tripId && shareKey) {
 }
 
 async function init() {
+    await requireLoginBeforeLoad();
+
     try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
