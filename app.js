@@ -20,7 +20,6 @@ let activeTypeFilter = 'all';
 init();
 
 async function init() {
-    getUserNickname();
     await fetchTrips();
     setupEventListeners();
 }
