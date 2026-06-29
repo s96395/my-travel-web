@@ -26,6 +26,160 @@ export function showToast(message, type = 'success') {
     setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 500); }, 3000);
 }
 
+const ERROR_MESSAGES = {
+    default: '操作失敗，請稍後再試。',
+    loadTrips: '旅程列表載入失敗，請稍後再試。',
+    createTrip: '旅程建立失敗，請稍後再試。',
+    loadHistory: '歷史紀錄載入失敗，請稍後再試。',
+    loadTrip: '旅程載入失敗，請稍後再試。',
+    updateTodo: '待辦更新失敗，請稍後再試。',
+    deleteRecord: '紀錄刪除失敗，請稍後再試。',
+    deleteTrip: '旅程刪除失敗，請稍後再試。',
+    saveRecord: '資料儲存失敗，請稍後再試。',
+    addTodo: '待辦新增失敗，請稍後再試。',
+};
+
+const FIREBASE_ERROR_MESSAGES = {
+    'permission-denied': '沒有操作權限，請確認連結或 Firebase 權限設定。',
+    unavailable: '目前無法連線到 Firebase，請檢查網路後再試。',
+    'failed-precondition': '資料庫索引尚未建立或查詢條件不符合目前設定。',
+    'not-found': '找不到指定資料，請重新整理後再試。',
+};
+
+export function getErrorMessage(context = 'default', error) {
+    return FIREBASE_ERROR_MESSAGES[error?.code] || ERROR_MESSAGES[context] || ERROR_MESSAGES.default;
+}
+
+export function showErrorToast(context, error) {
+    console.error(`[${context}]`, error);
+    showToast(getErrorMessage(context, error), 'error');
+}
+
+export const TRIP_TYPE_OPTIONS = ['自由行', '跟團', '潛旅'];
+export const TRIP_STATUS_OPTIONS = ['規劃中', '即將出發', '已完成', '已封存'];
+
+const DEFAULT_TEXT_LIMIT = 200;
+const TEXT_FIELD_LIMITS = {
+    title: 100,
+    country: 80,
+    city: 80,
+    companions: 200,
+    note: 1000,
+    activity: 120,
+    location: 120,
+    name: 120,
+    category: 40,
+    payMethod: 40,
+    diveSite: 120,
+    tourCompany: 120,
+    guideId: 80,
+    guidePhone: 40,
+    meetingPoint: 200,
+    tourNote: 1000,
+    airline: 80,
+    flightCode: 40,
+    depAirport: 120,
+    retAirport: 120,
+    hotelName: 120,
+    hotelAddr: 200,
+    hotelCode: 60,
+    coverImageUrl: 2048,
+    url: 2048,
+};
+
+const FIELD_LABELS = {
+    tripType: '旅程類型',
+    status: '旅程狀態',
+};
+
+export function normalizeFormData(data) {
+    return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+            key,
+            typeof value === 'string' ? value.trim() : value,
+        ])
+    );
+}
+
+export function validateFormData(data, rules = {}) {
+    const textError = validateTextLength(data, rules.textFields);
+    if (textError) return textError;
+
+    if (rules.dateRange && data.startDate && data.endDate && data.startDate > data.endDate) {
+        return '開始日期不可晚於結束日期。';
+    }
+
+    for (const field of rules.nonNegativeFields || []) {
+        if (data[field] !== undefined && data[field] !== '' && Number(data[field]) < 0) {
+            return '金額不可小於 0。';
+        }
+    }
+
+    for (const [field, options] of Object.entries(rules.enumFields || {})) {
+        if (!data[field] || !options.includes(data[field])) {
+            return `${FIELD_LABELS[field] || field} 必須是既有選項。`;
+        }
+    }
+
+    for (const field of rules.urlFields || []) {
+        if (data[field] && !isValidHttpUrl(data[field])) {
+            return 'URL 必須是合法的 http/https 網址。';
+        }
+    }
+
+    return '';
+}
+
+function validateTextLength(data, fields) {
+    const entries = fields
+        ? Object.entries(fields)
+        : Object.keys(data).map(field => [field, TEXT_FIELD_LIMITS[field] || DEFAULT_TEXT_LIMIT]);
+
+    for (const [field, limit] of entries) {
+        const value = data[field];
+        if (typeof value === 'string' && value.length > limit) {
+            return `文字欄位不可超過 ${limit} 字。`;
+        }
+    }
+
+    return '';
+}
+
+function isValidHttpUrl(value) {
+    try {
+        const url = new URL(value);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+export function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+export function safeUrl(value, fallback = '') {
+    if (!value) return fallback;
+    try {
+        const url = new URL(value, window.location.href);
+        if (url.protocol === 'http:' || url.protocol === 'https:') {
+            return url.href;
+        }
+    } catch {
+        // Fall through to fallback.
+    }
+    return fallback;
+}
+
+export function safeCssUrl(value, fallback = '') {
+    return `url(${JSON.stringify(safeUrl(value, fallback))})`;
+}
+
 export async function copyToClipboard(text) {
     const input = document.createElement('textarea');
     input.value = text;
