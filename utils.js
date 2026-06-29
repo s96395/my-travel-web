@@ -30,13 +30,9 @@ export function getCurrentUserProfile() {
 
 export function getUserNickname() {
     if (currentUserProfile?.nickname) return currentUserProfile.nickname;
+    if (currentAuthUser?.displayName) return currentAuthUser.displayName;
 
-    let name = localStorage.getItem('travel_user_name');
-    if (!name) {
-        name = prompt("歡迎使用沈迷旅行！請輸入您的暱稱：") || "旅人";
-        localStorage.setItem('travel_user_name', name);
-    }
-    return name;
+    return localStorage.getItem('travel_user_name') || '旅人';
 }
 
 export function initAuthUI() {
@@ -82,9 +78,10 @@ async function createOrUpdateUserProfile(user) {
 
     if (snap.exists()) {
         const existing = snap.data();
+        const existingNickname = (existing.nickname || '').trim();
         const profile = {
             ...baseProfile,
-            nickname: existing.nickname || user.displayName || '旅人',
+            nickname: existingNickname || askNickname(user.displayName),
         };
         await setDoc(userRef, profile, { merge: true });
         return { ...existing, ...profile };
