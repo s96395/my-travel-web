@@ -45,7 +45,11 @@ nav {
 }
 .nav-content { display: flex; justify-content: space-between; align-items: center; }
 .logo { font-size: 1.5rem; color: var(--primary); text-decoration: none; letter-spacing: 1px; }
+.nav-links { display: flex; align-items: center; gap: 12px; }
 .nav-links a { text-decoration: none; color: var(--text-main); margin-left: 20px; font-size: 1rem; font-weight: 500; }
+.auth-area { display: flex; align-items: center; gap: 8px; }
+.auth-nickname { color: var(--primary); font-size: 0.88rem; font-weight: 700; }
+.auth-login-btn, .auth-logout-btn { padding: 7px 14px; font-size: 0.82rem; }
 
 /* 還原首頁 Hero 視覺 */
 .hero { 
