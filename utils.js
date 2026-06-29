@@ -1,3 +1,11 @@
+import { auth, db } from './firebase-db.js';
+import {
+    GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import {
+    doc, getDoc, setDoc, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
 export function generateShareKey() {
     return Math.random().toString(36).substring(2, 10);
 }
@@ -8,13 +16,156 @@ export function formatDate(dateString) {
     return date.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }
 
+let currentAuthUser = null;
+let currentUserProfile = null;
+let authInitialized = false;
+
+export function getCurrentAuthUser() {
+    return currentAuthUser;
+}
+
+export function getCurrentUserProfile() {
+    return currentUserProfile;
+}
+
 export function getUserNickname() {
+    if (currentUserProfile?.nickname) return currentUserProfile.nickname;
+
     let name = localStorage.getItem('travel_user_name');
     if (!name) {
         name = prompt("歡迎使用沈迷旅行！請輸入您的暱稱：") || "旅人";
         localStorage.setItem('travel_user_name', name);
     }
     return name;
+}
+
+export function initAuthUI() {
+    if (authInitialized) return;
+    authInitialized = true;
+
+    ensureAuthArea();
+
+    onAuthStateChanged(auth, async (user) => {
+        currentAuthUser = user;
+
+        if (!user) {
+            currentUserProfile = null;
+            renderLoggedOut();
+            return;
+        }
+
+        try {
+            currentUserProfile = await createOrUpdateUserProfile(user);
+            renderLoggedIn(currentUserProfile);
+        } catch (error) {
+            console.error('[authProfile]', error);
+            currentUserProfile = {
+                uid: user.uid,
+                nickname: user.displayName || '旅人',
+                photoURL: user.photoURL || '',
+            };
+            renderLoggedIn(currentUserProfile);
+            showToast('登入成功，但使用者資料暫時無法同步。', 'error');
+        }
+    });
+}
+
+async function createOrUpdateUserProfile(user) {
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+    const baseProfile = {
+        uid: user.uid,
+        email: user.email || '',
+        photoURL: user.photoURL || '',
+        updatedAt: serverTimestamp(),
+    };
+
+    if (snap.exists()) {
+        const existing = snap.data();
+        const profile = {
+            ...baseProfile,
+            nickname: existing.nickname || user.displayName || '旅人',
+        };
+        await setDoc(userRef, profile, { merge: true });
+        return { ...existing, ...profile };
+    }
+
+    const nickname = askNickname(user.displayName);
+    const profile = {
+        ...baseProfile,
+        nickname,
+        createdAt: serverTimestamp(),
+    };
+    await setDoc(userRef, profile, { merge: true });
+    return profile;
+}
+
+function askNickname(defaultName = '') {
+    const fallback = defaultName || '旅人';
+    const input = prompt('請輸入你想在旅程中顯示的暱稱：', fallback);
+    const nickname = (input || fallback).trim();
+    return nickname.slice(0, 40) || '旅人';
+}
+
+function ensureAuthArea() {
+    if (document.getElementById('authArea')) return document.getElementById('authArea');
+
+    const navLinks = document.querySelector('.nav-links');
+    if (!navLinks) return null;
+
+    const authArea = document.createElement('div');
+    authArea.id = 'authArea';
+    authArea.className = 'auth-area';
+    navLinks.appendChild(authArea);
+    return authArea;
+}
+
+function renderLoggedOut() {
+    const authArea = ensureAuthArea();
+    if (!authArea) return;
+
+    authArea.innerHTML = `<button class="btn btn-outline auth-login-btn" type="button">Google 登入</button>`;
+    authArea.querySelector('.auth-login-btn').onclick = signInWithGoogle;
+}
+
+function renderLoggedIn(profile) {
+    const authArea = ensureAuthArea();
+    if (!authArea) return;
+
+    const photo = profile.photoURL
+        ? `<img class="auth-avatar" src="${escapeHtml(safeUrl(profile.photoURL, ''))}" alt="">`
+        : `<span class="auth-avatar auth-avatar-fallback">${escapeHtml((profile.nickname || '旅人').slice(0, 1))}</span>`;
+
+    authArea.innerHTML = `
+        <span class="auth-user">
+            ${photo}
+            <span class="auth-name">${escapeHtml(profile.nickname || '旅人')}</span>
+        </span>
+        <button class="btn btn-outline auth-logout-btn" type="button">登出</button>
+    `;
+    authArea.querySelector('.auth-logout-btn').onclick = async () => {
+        try {
+            await signOut(auth);
+            showToast('已登出');
+        } catch (error) {
+            console.error('[logout]', error);
+            showToast('登出失敗，請稍後再試。', 'error');
+        }
+    };
+}
+
+async function signInWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    try {
+        await signInWithPopup(auth, provider);
+        showToast('登入成功');
+    } catch (error) {
+        console.error('[login]', error);
+        if (error?.code === 'auth/popup-closed-by-user') return;
+        showToast('登入失敗，請稍後再試。', 'error');
+    }
 }
 
 export function showToast(message, type = 'success') {
@@ -192,4 +343,10 @@ export async function copyToClipboard(text) {
         showToast("複製失敗，請手動選取網址");
     }
     document.body.removeChild(input);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAuthUI);
+} else {
+    initAuthUI();
 }
