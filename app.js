@@ -13,7 +13,7 @@ const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
-const ADMIN_EMAIL = 's96395@gmail.com';
+const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
 const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者邀請。';
 
 let allTrips = [];
@@ -224,13 +224,15 @@ function toggle(id) {
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-function isAdminUser(user = currentUser) {
-    return (user?.email || '').toLowerCase() === ADMIN_EMAIL;
+function isSystemOwner(user = currentUser) {
+    return (user?.email || '').trim().toLowerCase() === SYSTEM_OWNER_EMAIL;
 }
 
 function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
+
+    if (isSystemOwner()) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
@@ -252,9 +254,9 @@ function applyFilters() {
 }
 
 function setupEventListeners() {
-    openAddModalBtn.hidden = !isAdminUser();
+    openAddModalBtn.hidden = !isSystemOwner();
     openAddModalBtn.onclick = () => {
-        if (!isAdminUser()) {
+        if (!isSystemOwner()) {
             showToast('只有系統管理者可以建立旅程。', 'error');
             return;
         }
@@ -276,7 +278,7 @@ function setupEventListeners() {
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
-        if (!isAdminUser()) {
+        if (!isSystemOwner()) {
             showToast('只有系統管理者可以建立旅程。', 'error');
             addTripModal.style.display = 'none';
             return;
