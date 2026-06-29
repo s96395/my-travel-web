@@ -6,7 +6,7 @@ import {
     orderBy, 
     where 
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { formatDate, showToast } from './utils.js';
+import { escapeHtml, formatDate, getErrorMessage, initAuthUI, safeUrl, showErrorToast } from './utils.js';
 
 const historyGrid = document.getElementById('historyGrid');
 const historySearch = document.getElementById('historySearch');
@@ -18,6 +18,7 @@ let archivedTrips = [];
  * 初始化歷史頁面
  */
 async function init() {
+    initAuthUI();
     await fetchHistoryTrips();
     setupFilters();
 }
@@ -53,8 +54,8 @@ async function fetchHistoryTrips() {
         populateYearFilter(Array.from(years).sort((a, b) => b - a));
         
     } catch (error) {
-        console.error("Error fetching history:", error);
-        historyGrid.innerHTML = `<div class="empty-state">目前還沒有歷史紀錄。</div>`;
+        historyGrid.innerHTML = `<div class="empty-state">${getErrorMessage('loadHistory', error)}</div>`;
+        showErrorToast('loadHistory', error);
     }
 }
 
@@ -68,15 +69,15 @@ function renderHistory(trips) {
     }
 
     historyGrid.innerHTML = trips.map(trip => `
-        <div class="trip-card" onclick="window.location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'" style="opacity: 0.9;">
-            <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800'}" class="trip-cover" style="filter: grayscale(20%);">
-            <div class="status-badge" style="background: var(--primary); color: white;">${trip.status}</div>
+        <div class="trip-card" onclick="window.location.href='trip.html?id=${encodeURIComponent(trip.id)}&key=${encodeURIComponent(trip.shareKey || '')}'" style="opacity: 0.9;">
+            <img src="${escapeHtml(safeUrl(trip.coverImageUrl, 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800'))}" class="trip-cover" style="filter: grayscale(20%);">
+            <div class="status-badge" style="background: var(--primary); color: white;">${escapeHtml(trip.status)}</div>
             <div class="trip-info">
                 <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">
                     ${new Date(trip.startDate).getFullYear()} ARCHIVE
                 </span>
-                <h3 style="margin-top: 5px;">${trip.title}</h3>
-                <p class="trip-meta">${trip.country} · ${trip.city || ''}</p>
+                <h3 style="margin-top: 5px;">${escapeHtml(trip.title)}</h3>
+                <p class="trip-meta">${escapeHtml(trip.country)} · ${escapeHtml(trip.city || '')}</p>
                 <p class="trip-date">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
             </div>
         </div>
