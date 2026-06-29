@@ -1,6 +1,10 @@
 import { db } from './firebase-db.js';
 import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { generateShareKey, getUserNickname, showToast, formatDate } from './utils.js';
+import {
+    generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
+    normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
+    escapeHtml, safeUrl
+} from './utils.js';
 
 const tripGrid = document.getElementById('tripGrid');
 const addTripForm = document.getElementById('addTripForm');
@@ -8,6 +12,7 @@ const addTripModal = document.getElementById('addTripModal');
 const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
+const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 
 let allTrips = [];
 let activeTypeFilter = 'all';
@@ -28,8 +33,7 @@ async function fetchTrips() {
         renderTrips(allTrips);
         updateStats(allTrips);
     } catch (err) {
-        console.error(err);
-        showToast("載入失敗，請重新整理", "error");
+        showErrorToast('loadTrips', err);
     }
 }
 
@@ -57,21 +61,24 @@ function renderTrips(trips) {
 
         const cards = yearTrips.map(trip => {
             const typeIcon = TYPE_ICON[trip.tripType] || '';
+            const typeClass = TRIP_TYPE_OPTIONS.includes(trip.tripType) ? trip.tripType : '';
             const typeBadge = trip.tripType
-                ? `<span class="trip-card-tag trip-type-badge--${trip.tripType}">${typeIcon} ${trip.tripType}</span>`
+                ? `<span class="trip-card-tag trip-type-badge--${typeClass}">${typeIcon} ${escapeHtml(trip.tripType)}</span>`
                 : '';
             const tankBadge = (trip.tripType === '潛旅' && trip.totalTanks)
                 ? `<span class="trip-card-tag" style="background:rgba(0,150,199,0.12); color:#0096C7;">🫧 ${trip.totalTanks} 瓶</span>`
                 : '';
+            const tripUrl = `trip.html?id=${encodeURIComponent(trip.id)}&key=${encodeURIComponent(trip.shareKey || '')}`;
+            const coverImageUrl = escapeHtml(safeUrl(trip.coverImageUrl, DEFAULT_COVER_IMAGE));
             return `
-            <div class="trip-card" onclick="location.href='trip.html?id=${trip.id}&key=${trip.shareKey}'">
+            <div class="trip-card" onclick="location.href='${tripUrl}'">
                 <div class="trip-cover-wrap">
-                    <img src="${trip.coverImageUrl || 'https://images.unsplash.com/photo-1488646953014-85cb44e25828'}" class="trip-cover" onerror="this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828'">
+                    <img src="${coverImageUrl}" class="trip-cover" onerror="this.src='${DEFAULT_COVER_IMAGE}'">
                 </div>
-                <div class="status-badge">${trip.status}</div>
+                <div class="status-badge">${escapeHtml(trip.status)}</div>
                 <div class="trip-info">
-                    <h3>${trip.title}</h3>
-                    <p style="color:var(--accent); font-size:0.9rem;">${trip.country} · ${trip.city || ''}</p>
+                    <h3>${escapeHtml(trip.title)}</h3>
+                    <p style="color:var(--accent); font-size:0.9rem;">${escapeHtml(trip.country)} · ${escapeHtml(trip.city || '')}</p>
                     <p style="color:var(--text-muted); font-size:0.85rem; font-weight:400;">${formatDate(trip.startDate)} - ${formatDate(trip.endDate)}</p>
                     <div class="trip-card-tags">${typeBadge}${tankBadge}</div>
                 </div>
@@ -106,7 +113,7 @@ function updateStats(trips) {
         const sorted = Object.entries(countByCountry).sort((a, b) => b[1] - a[1]);
         countryBreakdown.innerHTML = sorted.map(([country, cnt]) => `
             <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
-                <span style="font-weight:500;">🗺️ ${country}</span>
+                <span style="font-weight:500;">🗺️ ${escapeHtml(country)}</span>
                 <span style="font-weight:600;">${cnt} 趟</span>
             </div>
         `).join('') || '<p style="font-size:0.82rem; color:var(--text-muted);">尚無已完成的旅程</p>';
@@ -123,13 +130,13 @@ function updateStats(trips) {
     const latestTotal = latestYear ? byYear[latestYear] : 0;
     document.getElementById('stat-expense').innerText = `$${latestTotal.toLocaleString()}`;
     const expLabel = document.querySelector('#stat-expense-card .stat-label');
-    if (expLabel) expLabel.innerHTML = `${latestYear || ''} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
+    if (expLabel) expLabel.innerHTML = `${escapeHtml(latestYear || '')} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
     const expBreakdown = document.getElementById('stat-expense-breakdown');
     if (expBreakdown) {
         const allTotal = trips.reduce((s, t) => s + (Number(t.totalExpense) || 0), 0);
         expBreakdown.innerHTML = years.map(y => `
             <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
-                <span style="font-weight:500;">${y} 年</span>
+                <span style="font-weight:500;">${escapeHtml(y)} 年</span>
                 <span style="font-weight:600;">$${byYear[y].toLocaleString()}</span>
             </div>
         `).join('') + `
@@ -188,7 +195,7 @@ function updateStats(trips) {
         const sorted = Object.entries(tankByLocation).sort((a, b) => b[1] - a[1]);
         tankBreakdown.innerHTML = sorted.map(([loc, cnt]) => `
             <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
-                <span style="font-weight:500;">📍 ${loc}</span>
+                <span style="font-weight:500;">📍 ${escapeHtml(loc)}</span>
                 <span style="font-weight:600;">🫧 ${cnt} 瓶</span>
             </div>
         `).join('') + (sorted.length > 0 ? `
@@ -229,7 +236,9 @@ function applyFilters() {
 function setupEventListeners() {
     openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
-    window.onclick = (e) => { if (e.target == addTripModal) addTripModal.style.display = 'none'; };
+    window.addEventListener('click', (e) => {
+        if (e.target === addTripModal) addTripModal.style.display = 'none';
+    });
 
     document.getElementById('typeFilterTabs').addEventListener('click', (e) => {
         const tab = e.target.closest('[data-type]');
@@ -242,16 +251,29 @@ function setupEventListeners() {
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
-        const data = Object.fromEntries(new FormData(addTripForm).entries());
+        const data = normalizeFormData(Object.fromEntries(new FormData(addTripForm).entries()));
+        const validationError = validateFormData(data, {
+            dateRange: true,
+            enumFields: {
+                tripType: TRIP_TYPE_OPTIONS,
+                status: TRIP_STATUS_OPTIONS,
+            },
+            urlFields: ['coverImageUrl'],
+        });
+        if (validationError) {
+            showToast(validationError, 'error');
+            return;
+        }
+
         const key = generateShareKey();
         try {
             const docRef = await addDoc(collection(db, "trips"), {
                 ...data, shareKey: key, totalExpense: 0, totalTanks: 0,
                 createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
-            location.href = `trip.html?id=${docRef.id}&key=${key}`;
+            location.href = `trip.html?id=${encodeURIComponent(docRef.id)}&key=${encodeURIComponent(key)}`;
         } catch (err) {
-            showToast("建立失敗，請稍後再試", "error");
+            showErrorToast('createTrip', err);
         }
     };
 
