@@ -13,10 +13,14 @@ const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
+const ADMIN_EMAIL = 's96395@gmail.com';
+const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者邀請。';
 
 let allTrips = [];
 let activeTypeFilter = 'all';
 let currentUser = null;
+
+if (openAddModalBtn) openAddModalBtn.hidden = true;
 
 init();
 
@@ -45,7 +49,7 @@ const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
 // ===== 依年份分組渲染 =====
 function renderTrips(trips) {
     if (trips.length === 0) {
-        tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">尚未有旅程檔案，點擊右上角新增吧。</div>`;
+        tripGrid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:100px; color:#aaa;">${EMPTY_TRIPS_MESSAGE}</div>`;
         return;
     }
 
@@ -220,6 +224,10 @@ function toggle(id) {
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
+function isAdminUser(user = currentUser) {
+    return (user?.email || '').toLowerCase() === ADMIN_EMAIL;
+}
+
 function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
@@ -244,7 +252,14 @@ function applyFilters() {
 }
 
 function setupEventListeners() {
-    openAddModalBtn.onclick = () => addTripModal.style.display = 'block';
+    openAddModalBtn.hidden = !isAdminUser();
+    openAddModalBtn.onclick = () => {
+        if (!isAdminUser()) {
+            showToast('只有系統管理者可以建立旅程。', 'error');
+            return;
+        }
+        addTripModal.style.display = 'block';
+    };
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
     window.addEventListener('click', (e) => {
         if (e.target === addTripModal) addTripModal.style.display = 'none';
@@ -261,6 +276,12 @@ function setupEventListeners() {
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
+        if (!isAdminUser()) {
+            showToast('只有系統管理者可以建立旅程。', 'error');
+            addTripModal.style.display = 'none';
+            return;
+        }
+
         const data = normalizeFormData(Object.fromEntries(new FormData(addTripForm).entries()));
         const validationError = validateFormData(data, {
             dateRange: true,
