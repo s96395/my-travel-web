@@ -3,7 +3,7 @@ import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "ht
 import {
     generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
-    escapeHtml, safeUrl
+    escapeHtml, safeUrl, requireLoginBeforeLoad, canAccessTrip
 } from './utils.js';
 
 const tripGrid = document.getElementById('tripGrid');
@@ -16,10 +16,12 @@ const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85c
 
 let allTrips = [];
 let activeTypeFilter = 'all';
+let currentUser = null;
 
 init();
 
 async function init() {
+    currentUser = await requireLoginBeforeLoad();
     await fetchTrips();
     setupEventListeners();
 }
@@ -28,7 +30,9 @@ async function fetchTrips() {
     try {
         const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
         const snap = await getDocs(q);
-        allTrips = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        allTrips = snap.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(trip => canAccessTrip(currentUser, trip));
         renderTrips(allTrips);
         updateStats(allTrips);
     } catch (err) {
@@ -268,6 +272,7 @@ function setupEventListeners() {
         try {
             const docRef = await addDoc(collection(db, "trips"), {
                 ...data, shareKey: key, totalExpense: 0, totalTanks: 0,
+                ownerId: currentUser.uid, memberIds: [currentUser.uid],
                 createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
             location.href = `trip.html?id=${encodeURIComponent(docRef.id)}&key=${encodeURIComponent(key)}`;

@@ -1,23 +1,25 @@
 import { db } from './firebase-db.js';
-import { 
-    collection, 
-    getDocs, 
-    query, 
-    orderBy, 
-    where 
+import {
+    collection,
+    getDocs,
+    query,
+    orderBy,
+    where
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { escapeHtml, formatDate, getErrorMessage, safeUrl, showErrorToast } from './utils.js';
+import { canAccessTrip, escapeHtml, formatDate, getErrorMessage, requireLoginBeforeLoad, safeUrl, showErrorToast } from './utils.js';
 
 const historyGrid = document.getElementById('historyGrid');
 const historySearch = document.getElementById('historySearch');
 const yearFilter = document.getElementById('yearFilter');
 
 let archivedTrips = [];
+let currentUser = null;
 
 /**
  * 初始化歷史頁面
  */
 async function init() {
+    currentUser = await requireLoginBeforeLoad();
     await fetchHistoryTrips();
     setupFilters();
 }
@@ -29,19 +31,21 @@ async function fetchHistoryTrips() {
     try {
         // 只抓取「已完成」與「已封存」的資料
         const q = query(
-            collection(db, "trips"), 
+            collection(db, "trips"),
             where("status", "in", ["已完成", "已封存"]),
             orderBy("startDate", "desc")
         );
-        
+
         const querySnapshot = await getDocs(q);
         archivedTrips = [];
         const years = new Set();
 
         querySnapshot.forEach((doc) => {
             const data = { id: doc.id, ...doc.data() };
+            if (!canAccessTrip(currentUser, data)) return;
+
             archivedTrips.push(data);
-            
+
             // 提取年份供篩選使用
             if (data.startDate) {
                 const year = new Date(data.startDate).getFullYear();
@@ -51,7 +55,7 @@ async function fetchHistoryTrips() {
 
         renderHistory(archivedTrips);
         populateYearFilter(Array.from(years).sort((a, b) => b - a));
-        
+
     } catch (error) {
         historyGrid.innerHTML = `<div class="empty-state">${getErrorMessage('loadHistory', error)}</div>`;
         showErrorToast('loadHistory', error);
@@ -104,11 +108,11 @@ function setupFilters() {
         const selectedYear = yearFilter.value;
 
         const filtered = archivedTrips.filter(trip => {
-            const matchTerm = trip.title.toLowerCase().includes(term) || 
+            const matchTerm = trip.title.toLowerCase().includes(term) ||
                               trip.country.toLowerCase().includes(term);
             const tripYear = new Date(trip.startDate).getFullYear().toString();
             const matchYear = selectedYear === 'all' || tripYear === selectedYear;
-            
+
             return matchTerm && matchYear;
         });
         renderHistory(filtered);

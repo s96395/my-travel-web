@@ -19,6 +19,7 @@ export function formatDate(dateString) {
 let currentAuthUser = null;
 let currentUserProfile = null;
 let authInitialized = false;
+let loginGateEnabled = false;
 
 export function getCurrentAuthUser() {
     return currentAuthUser;
@@ -47,12 +48,14 @@ export function initAuthUI() {
         if (!user) {
             currentUserProfile = null;
             renderLoggedOut();
+            if (loginGateEnabled) showLoginGate();
             return;
         }
 
         try {
             currentUserProfile = await createOrUpdateUserProfile(user);
             renderLoggedIn(currentUserProfile);
+            if (loginGateEnabled) hideLoginGate();
         } catch (error) {
             console.error('[authProfile]', error);
             currentUserProfile = {
@@ -61,6 +64,7 @@ export function initAuthUI() {
                 photoURL: user.photoURL || '',
             };
             renderLoggedIn(currentUserProfile);
+            if (loginGateEnabled) hideLoginGate();
             showToast('登入成功，但使用者資料暫時無法同步。', 'error');
         }
     });
@@ -163,6 +167,81 @@ async function signInWithGoogle() {
         if (error?.code === 'auth/popup-closed-by-user') return;
         showToast('登入失敗，請稍後再試。', 'error');
     }
+}
+
+
+export function requireLoginBeforeLoad() {
+    loginGateEnabled = true;
+    initAuthUI();
+    showLoginGate();
+
+    return new Promise((resolve) => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            currentAuthUser = user;
+
+            if (!user) {
+                showLoginGate();
+                return;
+            }
+
+            hideLoginGate();
+            unsubscribe();
+            resolve(user);
+        });
+    });
+}
+
+function showLoginGate() {
+    hideProtectedPageContent();
+
+    let gate = document.getElementById('loginGate');
+    if (!gate) {
+        gate = document.createElement('main');
+        gate.id = 'loginGate';
+        gate.style.cssText = 'min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:var(--bg);';
+        gate.innerHTML = `
+            <div style="width:min(420px, 100%);text-align:center;background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:42px 28px;">
+                <h1 style="color:var(--primary);margin-bottom:12px;">請先登入</h1>
+                <p style="color:var(--text-muted);margin-bottom:24px;">登入後即可查看你的旅程資料。</p>
+                <button class="btn btn-primary login-gate-btn" style="width:100%;justify-content:center;" type="button">使用 Google 登入</button>
+            </div>
+        `;
+        document.body.appendChild(gate);
+    }
+
+    gate.querySelector('.login-gate-btn').onclick = signInWithGoogle;
+}
+
+function hideLoginGate() {
+    restoreProtectedPageContent();
+    document.getElementById('loginGate')?.remove();
+}
+
+function hideProtectedPageContent() {
+    [...document.body.children].forEach((child) => {
+        if (child.id === 'loginGate') return;
+        if (!child.dataset.authGateDisplay) child.dataset.authGateDisplay = child.style.display || ' ';
+        child.style.display = 'none';
+    });
+}
+
+function restoreProtectedPageContent() {
+    [...document.body.children].forEach((child) => {
+        if (!child.dataset.authGateDisplay) return;
+        child.style.display = child.dataset.authGateDisplay.trim();
+        delete child.dataset.authGateDisplay;
+    });
+}
+
+
+export function canAccessTrip(user, trip) {
+    if (!user || !trip) return false;
+
+    if (Array.isArray(trip.memberIds) && trip.memberIds.includes(user.uid)) return true;
+    if (trip.ownerId && trip.ownerId === user.uid) return true;
+
+    const isLegacyTrip = !trip.ownerId && !Array.isArray(trip.memberIds);
+    return isLegacyTrip && user.email === 's96395@gmail.com';
 }
 
 export function showToast(message, type = 'success') {

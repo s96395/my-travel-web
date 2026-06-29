@@ -6,7 +6,7 @@ import {
 import {
     getUserNickname, showToast, showErrorToast, getErrorMessage, formatDate, copyToClipboard,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
-    escapeHtml, safeUrl, safeCssUrl
+    escapeHtml, safeUrl, safeCssUrl, requireLoginBeforeLoad, canAccessTrip
 } from './utils.js';
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -30,10 +30,16 @@ if (tripId && shareKey) {
 }
 
 async function init() {
+    const currentUser = await requireLoginBeforeLoad();
+
     try {
         const tripSnap = await getDoc(doc(db, "trips", tripId));
         if (tripSnap.exists() && tripSnap.data().shareKey === shareKey) {
             currentTripData = tripSnap.data();
+            if (!canAccessTrip(currentUser, currentTripData)) {
+                renderAccessError('你沒有此旅程的存取權限。');
+                return;
+            }
             renderHeader(currentTripData);
             applyTripTypeUI(currentTripData.tripType);
             setupEvents(currentTripData);
