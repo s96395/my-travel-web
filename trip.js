@@ -23,6 +23,7 @@ const TODO_TEMPLATES = {
 let currentTripData = null;
 let currentUser = null;
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
+const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
 
 if (tripId && shareKey) {
     init();
@@ -61,9 +62,15 @@ async function init() {
     }
 }
 
+function isSystemOwner(user = currentUser) {
+    return (user?.email || '').trim().toLowerCase() === SYSTEM_OWNER_EMAIL;
+}
+
 function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
+
+    if (isSystemOwner()) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
