@@ -27,6 +27,7 @@ init();
 
 async function init() {
     currentUser = await requireLoginBeforeLoad();
+    openAddModalBtn.hidden = false;
     await fetchTrips();
     setupEventListeners();
 }
@@ -353,17 +354,13 @@ function applyFilters() {
             (t.city || '').toLowerCase().includes(term)
         );
     }
+    renderHeroCard(filtered);
     renderTrips(filtered);
     updateStats(filtered);
 }
 
 function setupEventListeners() {
-    openAddModalBtn.hidden = !isSystemOwner();
     openAddModalBtn.onclick = () => {
-        if (!isSystemOwner()) {
-            showToast('只有系統管理者可以建立旅程。', 'error');
-            return;
-        }
         addTripModal.style.display = 'block';
     };
     closeAddModalBtn.onclick = () => addTripModal.style.display = 'none';
@@ -382,12 +379,6 @@ function setupEventListeners() {
 
     addTripForm.onsubmit = async (e) => {
         e.preventDefault();
-        if (!isSystemOwner()) {
-            showToast('只有系統管理者可以建立旅程。', 'error');
-            addTripModal.style.display = 'none';
-            return;
-        }
-
         const data = normalizeFormData(Object.fromEntries(new FormData(addTripForm).entries()));
         const validationError = validateFormData(data, {
             dateRange: true,
