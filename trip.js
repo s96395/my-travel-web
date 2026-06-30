@@ -1,7 +1,7 @@
 import { db } from './firebase-db.js';
 import { 
     doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, 
-    query, orderBy, serverTimestamp
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
     getUserNickname, showToast, showErrorToast, getErrorMessage, formatDate, copyToClipboard,
@@ -24,6 +24,30 @@ let currentTripData = null;
 let currentUser = null;
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
+
+function compareOptionalValues(a, b) {
+    const aEmpty = a === undefined || a === null || a === '';
+    const bEmpty = b === undefined || b === null || b === '';
+    if (aEmpty && bEmpty) return 0;
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+
+    const aNum = Number(a);
+    const bNum = Number(b);
+    if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+
+    return String(a).localeCompare(String(b), 'zh-Hant', { numeric: true, sensitivity: 'base' });
+}
+
+function compareByFields(fields) {
+    return (a, b) => {
+        for (const field of fields) {
+            const result = compareOptionalValues(a[field], b[field]);
+            if (result !== 0) return result;
+        }
+        return String(a.id || '').localeCompare(String(b.id || ''));
+    };
+}
 
 if (tripId && shareKey) {
     init();
@@ -48,9 +72,9 @@ async function init() {
             setupTodos(currentTripData.tripType);
             setupDeleteDelegation();
             setupFlightHotel(currentTripData);
-            loadAllData();
-            loadTodos();
-            if (currentTripData.tripType === '潛旅') loadDiveLogs();
+            loadAllData().catch(err => showErrorToast('loadTrip', err));
+            loadTodos().catch(err => showErrorToast('loadTrip', err));
+            if (currentTripData.tripType === '潛旅') loadDiveLogs().catch(err => showErrorToast('loadTrip', err));
             if (currentTripData.tripType === '跟團') setupTourSection(currentTripData);
             document.getElementById('trip-details').style.display = 'block';
         } else {
@@ -161,8 +185,9 @@ function renderSummaryCard(data) {
 
 // ===== 潛水日誌 =====
 async function loadDiveLogs() {
-    const snap = await getDocs(query(collection(db, `trips/${tripId}/diveLogs`), orderBy('diveDate'), orderBy('createdAt')));
-    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await getDocs(collection(db, `trips/${tripId}/diveLogs`));
+    const logs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort(compareByFields(['diveDate', 'createdAt']));
     const totalTanks = logs.reduce((s, l) => s + (Number(l.tanks) || 1), 0);
 
     document.getElementById('dive-tank-summary').innerText = `本趟累計：${totalTanks} 瓶`;
@@ -170,7 +195,11 @@ async function loadDiveLogs() {
     const listEl = document.getElementById('dive-log-list');
     if (logs.length === 0) {
         listEl.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:30px 0; font-weight:400;">尚無潛水記錄，點擊「＋ 新增潛水」開始記錄吧！</p>`;
-        await updateDoc(doc(db, "trips", tripId), { totalTanks: 0 });
+        try {
+            await updateDoc(doc(db, "trips", tripId), { totalTanks: 0 });
+        } catch (err) {
+            console.warn('[syncTotalTanks]', err);
+        }
         return;
     }
 
@@ -222,7 +251,11 @@ async function loadDiveLogs() {
     }).join('');
 
     // 同步總瓶數回主文件，並即時更新摘要卡
-    await updateDoc(doc(db, "trips", tripId), { totalTanks });
+    try {
+        await updateDoc(doc(db, "trips", tripId), { totalTanks });
+    } catch (err) {
+        console.warn('[syncTotalTanks]', err);
+    }
     if (currentTripData) {
         currentTripData.totalTanks = totalTanks;
         renderSummaryCard(currentTripData);
@@ -676,64 +709,80 @@ function renderHotelDisplay(h) {
 
 async function loadAllData() {
     // 行程
-    const qI = query(collection(db, `trips/${tripId}/itinerary`), orderBy("day"), orderBy("time"));
-    const sI = await getDocs(qI);
-    let htmlI = ""; let lastDay = null;
-    sI.forEach(d => {
-        const item = d.data();
-        if (lastDay !== item.day) {
-            lastDay = item.day;
-            htmlI += `<h3 style="margin-top:25px; margin-bottom:10px; border-left:6px solid var(--primary); padding-left:15px;">Day ${escapeHtml(lastDay)}</h3>`;
-        }
-        htmlI += `<div class="itinerary-item">
-                    <div><span style="color:var(--accent);">${escapeHtml(item.time || '--:--')}</span> <strong>${escapeHtml(item.activity)}</strong>${item.location ? `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;"> · ${escapeHtml(item.location)}</span>` : ''}</div>
-                    <div style="display:flex;gap:6px;">
-                        <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(d.id)}" data-edit-day="${escapeHtml(item.day)}" data-edit-time="${escapeHtml(item.time||'')}" data-edit-activity="${escapeHtml(item.activity)}" data-edit-location="${escapeHtml(item.location||'')}" title="編輯">✎</button>
-                        <button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(d.id)}" title="刪除">×</button>
-                    </div>
-                  </div>`;
-    });
-    document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; text-align:center; padding:30px 0;'>尚未建立行程</p>";
+    try {
+        const sI = await getDocs(collection(db, `trips/${tripId}/itinerary`));
+        const items = sI.docs.map(d => ({ id: d.id, ...d.data() }))
+            .sort(compareByFields(['day', 'time']));
+        let htmlI = ""; let lastDay = null;
+        items.forEach(item => {
+            if (lastDay !== item.day) {
+                lastDay = item.day;
+                htmlI += `<h3 style="margin-top:25px; margin-bottom:10px; border-left:6px solid var(--primary); padding-left:15px;">Day ${escapeHtml(lastDay || '未設定')}</h3>`;
+            }
+            htmlI += `<div class="itinerary-item">
+                        <div><span style="color:var(--accent);">${escapeHtml(item.time || '--:--')}</span> <strong>${escapeHtml(item.activity)}</strong>${item.location ? `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;"> · ${escapeHtml(item.location)}</span>` : ''}</div>
+                        <div style="display:flex;gap:6px;">
+                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-time="${escapeHtml(item.time||'')}" data-edit-activity="${escapeHtml(item.activity)}" data-edit-location="${escapeHtml(item.location||'')}" title="編輯">✎</button>
+                            <button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" title="刪除">×</button>
+                        </div>
+                      </div>`;
+        });
+        document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; text-align:center; padding:30px 0;'>尚未建立行程</p>";
+    } catch (err) {
+        showErrorToast('loadTrip', err);
+    }
 
     // 支出
-    const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
-    let total = 0; const cats = {}; let htmlE = "";
-    sE.forEach(d => {
-        const ex = d.data(); const amt = Number(ex.amount) || 0;
-        total += amt; cats[ex.category] = (cats[ex.category] || 0) + amt;
-        const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
-        htmlE += `<tr>
-            <td class="expense-name">${escapeHtml(ex.name)}</td>
-            <td><span class="expense-cat-badge">${escapeHtml(ex.category || '其他')}</span></td>
-            <td class="expense-amt">$${amt.toLocaleString()}</td>
-            <td>${ex.payMethod ? `<span class="${payBadgeClass}">${escapeHtml(ex.payMethod)}</span>` : '—'}</td>
-            <td class="expense-note">${escapeHtml(ex.note || '')}</td>
-            <td class="expense-who">${escapeHtml(ex.createdByName || '—')}</td>
-            <td style="white-space:nowrap;">
-                <button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>
-                <button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" title="刪除">×</button>
-            </td>
-        </tr>`;
-    });
-    document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;
-    const footTotal = document.getElementById('expense-total-foot');
-    if (footTotal) footTotal.innerText = `$${total.toLocaleString()}`;
-    document.getElementById('expense-list').innerHTML = htmlE ||
-        `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px; font-weight:400;">尚無支出紀錄</td></tr>`;
-    renderChart(cats);
-    await updateDoc(doc(db, "trips", tripId), { totalExpense: total });
+    try {
+        const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
+        let total = 0; const cats = {}; let htmlE = "";
+        sE.forEach(d => {
+            const ex = d.data(); const amt = Number(ex.amount) || 0;
+            total += amt; cats[ex.category || '其他'] = (cats[ex.category || '其他'] || 0) + amt;
+            const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
+            htmlE += `<tr>
+                <td class="expense-name">${escapeHtml(ex.name)}</td>
+                <td><span class="expense-cat-badge">${escapeHtml(ex.category || '其他')}</span></td>
+                <td class="expense-amt">$${amt.toLocaleString()}</td>
+                <td>${ex.payMethod ? `<span class="${payBadgeClass}">${escapeHtml(ex.payMethod)}</span>` : '—'}</td>
+                <td class="expense-note">${escapeHtml(ex.note || '')}</td>
+                <td class="expense-who">${escapeHtml(ex.createdByName || '—')}</td>
+                <td style="white-space:nowrap;">
+                    <button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>
+                    <button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" title="刪除">×</button>
+                </td>
+            </tr>`;
+        });
+        document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;
+        const footTotal = document.getElementById('expense-total-foot');
+        if (footTotal) footTotal.innerText = `$${total.toLocaleString()}`;
+        document.getElementById('expense-list').innerHTML = htmlE ||
+            `<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:30px; font-weight:400;">尚無支出紀錄</td></tr>`;
+        renderChart(cats);
+        try {
+            await updateDoc(doc(db, "trips", tripId), { totalExpense: total });
+        } catch (err) {
+            console.warn('[syncTotalExpense]', err);
+        }
+    } catch (err) {
+        showErrorToast('loadTrip', err);
+    }
 
     // 相片
-    const sPh = await getDocs(collection(db, `trips/${tripId}/images`));
-    let htmlPh = "";
-    sPh.forEach(d => {
-        const imageUrl = escapeHtml(safeUrl(d.data().url, ''));
-        htmlPh += `<div style="position:relative; aspect-ratio:1; border-radius:15px; overflow:hidden;">
-                    <img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'">
-                    <button data-delete-type="images" data-delete-id="${escapeHtml(d.id)}" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:1rem;" title="刪除">×</button>
-                   </div>`;
-    });
-    document.getElementById('photo-grid').innerHTML = htmlPh || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400; padding:20px 0;'>尚無相片</p>";
+    try {
+        const sPh = await getDocs(collection(db, `trips/${tripId}/images`));
+        let htmlPh = "";
+        sPh.forEach(d => {
+            const imageUrl = escapeHtml(safeUrl(d.data().url, ''));
+            htmlPh += `<div style="position:relative; aspect-ratio:1; border-radius:15px; overflow:hidden;">
+                        <img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'">
+                        <button data-delete-type="images" data-delete-id="${escapeHtml(d.id)}" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:1rem;" title="刪除">×</button>
+                       </div>`;
+        });
+        document.getElementById('photo-grid').innerHTML = htmlPh || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400; padding:20px 0;'>尚無相片</p>";
+    } catch (err) {
+        showErrorToast('loadTrip', err);
+    }
 }
 
 function setupTodos(tripType) {
@@ -773,8 +822,9 @@ async function addTodo(text) {
 }
 
 async function loadTodos() {
-    const snap = await getDocs(query(collection(db, `trips/${tripId}/todos`), orderBy('order')));
-    const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const snap = await getDocs(collection(db, `trips/${tripId}/todos`));
+    const todos = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort(compareByFields(['order', 'createdAt']));
     const total = todos.length;
     const done = todos.filter(t => t.done).length;
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
