@@ -68,6 +68,7 @@ async function init() {
             }
             renderHeader(currentTripData);
             applyTripTypeUI(currentTripData.tripType);
+            applyRoleUI();
             setupEvents(currentTripData);
             setupTodos(currentTripData.tripType);
             setupDeleteDelegation();
@@ -77,6 +78,7 @@ async function init() {
             if (currentTripData.tripType === '潛旅') loadDiveLogs().catch(err => showErrorToast('loadTrip', err));
             if (currentTripData.tripType === '跟團') setupTourSection(currentTripData);
             document.getElementById('trip-details').style.display = 'block';
+            applyRoleUI();
         } else {
             renderAccessError('權限錯誤或旅程不存在，請確認共編連結是否正確。');
         }
@@ -97,6 +99,31 @@ function canAccessTrip(trip) {
     if (isSystemOwner()) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
+}
+
+function isTripOwner(trip = currentTripData) {
+    return Boolean(currentUser?.uid && (isSystemOwner() || trip?.ownerId === currentUser.uid));
+}
+
+function isOwnRecord(record) {
+    return isTripOwner() || (record?.createdByName && record.createdByName === getUserNickname());
+}
+
+function applyRoleUI() {
+    const ownerOnlyIds = ['editTripInfoBtn', 'editFlightBtn', 'editHotelBtn', 'editTourBtn', 'copyLinkBtn', 'deleteTripBtn'];
+    ownerOnlyIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isTripOwner() ? '' : 'none';
+    });
+
+    ['copyLinkBtn', 'deleteTripBtn'].forEach(id => {
+        const card = document.getElementById(id)?.closest('.card');
+        if (card) card.style.display = isTripOwner() ? '' : 'none';
+    });
+
+    document.querySelectorAll('[data-owner-only]').forEach(el => {
+        el.style.display = isTripOwner() ? '' : 'none';
+    });
 }
 
 function renderAccessError(message) {
@@ -229,14 +256,14 @@ async function loadDiveLogs() {
                     </div>
                     ${l.note ? `<div class="dive-log-note">📝 ${escapeHtml(l.note)}</div>` : ''}
                 </div>
-                <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${escapeHtml(l.id)}"
+                ${isOwnRecord(l) ? `<div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${escapeHtml(l.id)}" data-own-only="true" data-created-by-name="${escapeHtml(l.createdByName || '')}"
                         data-edit-divedate="${escapeHtml(l.diveDate||'')}"
                         data-edit-divesite="${escapeHtml(l.diveSite||'')}" data-edit-maxdepth="${escapeHtml(l.maxDepth||'')}"
                         data-edit-duration="${escapeHtml(l.duration||'')}" data-edit-visibility="${escapeHtml(l.visibility||'')}"
                         data-edit-tanks="${escapeHtml(l.tanks||1)}" data-edit-note="${escapeHtml(l.note||'')}" title="編輯">✎</button>
-                    <button class="delete-btn-sub" data-delete-type="diveLogs" data-delete-id="${escapeHtml(l.id)}" title="刪除">×</button>
-                </div>
+                    ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="diveLogs" data-delete-id="${escapeHtml(l.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
+                </div>` : ''}
             </div>`;
         }).join('');
 
@@ -266,6 +293,7 @@ async function loadDiveLogs() {
 function setupTourSection(data) {
     renderTourDisplay(data.tour || {});
     document.getElementById('editTourBtn').onclick = () => {
+        if (!isTripOwner()) return;
         const t = data.tour || {};
         openModal('跟團資訊', `
             <div class="form-group"><label>旅行社 / 團名</label><input type="text" name="tourCompany" value="${escapeHtml(t.tourCompany||'')}" placeholder="例如：雄獅旅遊 東京賞楓5日團"></div>
@@ -309,6 +337,8 @@ function setupDeleteDelegation() {
         if (editBtn) {
             const type = editBtn.dataset.editType;
             const id = editBtn.dataset.editId;
+            if (editBtn.dataset.ownerOnly === 'true' && !isTripOwner()) return;
+            if (editBtn.dataset.ownOnly === 'true' && !isTripOwner() && editBtn.dataset.createdByName !== getUserNickname()) return;
             const modal = document.getElementById('universalModal');
             const modalForm = document.getElementById('modalForm');
 
@@ -337,6 +367,13 @@ function setupDeleteDelegation() {
                     <div class="form-group"><label>付款方式</label><select name="payMethod">${payOptions}</select></div>
                     <div class="form-group"><label>備註</label><input type="text" name="note" value="${escapeHtml(editBtn.dataset.editNote)}"></div>
                 `, 'edit-expenses');
+            }
+
+            if (type === 'todos') {
+                openModal('編輯待辦', `
+                    <input type="hidden" name="_editId" value="${escapeHtml(id)}">
+                    <div class="form-group"><label>待辦事項</label><input type="text" name="text" value="${escapeHtml(editBtn.dataset.editText)}" required></div>
+                `, 'edit-todos');
             }
 
             if (type === 'diveLogs') {
@@ -377,6 +414,8 @@ function setupDeleteDelegation() {
         if (!btn) return;
         const type = btn.dataset.deleteType;
         const id = btn.dataset.deleteId;
+        if (btn.dataset.ownerOnly === 'true' && !isTripOwner()) return;
+        if (btn.dataset.ownOnly === 'true' && !isTripOwner() && btn.dataset.createdByName !== getUserNickname()) return;
         if (confirm("確定要刪除這筆紀錄嗎？")) {
             try {
                 await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
@@ -483,10 +522,11 @@ function setupEvents(data) {
         }
     }, { once: false });
 
-    document.getElementById('copyLinkBtn').onclick = () => copyToClipboard(window.location.href);
+    document.getElementById('copyLinkBtn').onclick = () => { if (isTripOwner()) copyToClipboard(window.location.href); };
 
     // 編輯旅程基本資料
     document.getElementById('editTripInfoBtn').onclick = async () => {
+        if (!isTripOwner()) return;
         const snap = await getDoc(doc(db, 'trips', tripId));
         const d = snap.data();
         const tags = Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || '');
@@ -525,6 +565,7 @@ function setupEvents(data) {
     };
 
     document.getElementById('deleteTripBtn').onclick = async () => {
+        if (!isTripOwner()) return;
         if (confirm("⚠️ 確定要刪除整趟旅程嗎？此操作無法復原。")) {
             try {
                 await deleteDoc(doc(db, "trips", tripId));
@@ -563,6 +604,14 @@ function setupEvents(data) {
             return;
         }
 
+        if (type === 'edit-todos') {
+            const id = data._editId; delete data._editId;
+            data.updatedAt = serverTimestamp();
+            data.updatedByName = getUserNickname();
+            try { await updateDoc(doc(db, `trips/${tripId}/todos`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('待辦已更新 ✓'); loadTodos(); } catch (err) { showErrorToast('saveRecord', err); }
+            return;
+        }
+
         if (type === 'edit-diveLogs') {
             const id = data._editId; delete data._editId;
             if (data.maxDepth) data.maxDepth = Number(data.maxDepth);
@@ -575,16 +624,19 @@ function setupEvents(data) {
         }
 
         if (type === 'flight') {
+            if (!isTripOwner()) return;
             try { await updateDoc(doc(db, 'trips', tripId), { flight: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderFlightDisplay(data); showToast('班機資訊已儲存 ✓'); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
 
         if (type === 'hotel') {
+            if (!isTripOwner()) return;
             try { await updateDoc(doc(db, 'trips', tripId), { hotel: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderHotelDisplay(data); showToast('住宿資訊已儲存 ✓'); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
 
         if (type === 'tour') {
+            if (!isTripOwner()) return;
             if (data.tourFee) data.tourFee = Number(data.tourFee);
             if (data.paidFee) data.paidFee = Number(data.paidFee);
             try { await updateDoc(doc(db, 'trips', tripId), { tour: data, updatedAt: serverTimestamp() }); modal.style.display = 'none'; modalForm.reset(); renderTourDisplay(data); showToast('跟團資訊已儲存 ✓'); } catch (err) { showErrorToast('saveRecord', err); }
@@ -592,6 +644,7 @@ function setupEvents(data) {
         }
 
         if (type === 'tripInfo') {
+            if (!isTripOwner()) return;
             data.updatedAt = serverTimestamp();
             data.updatedByName = getUserNickname();
             try {
@@ -631,6 +684,7 @@ function setupFlightHotel(data) {
     renderHotelDisplay(data.hotel || {});
 
     document.getElementById('editFlightBtn').onclick = () => {
+        if (!isTripOwner()) return;
         const f = data.flight || {};
         openModal('班機資訊', `
             <div style="display:flex;gap:12px;">
@@ -653,6 +707,7 @@ function setupFlightHotel(data) {
     };
 
     document.getElementById('editHotelBtn').onclick = () => {
+        if (!isTripOwner()) return;
         const h = data.hotel || {};
         openModal('住宿資訊', `
             <div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" value="${escapeHtml(h.hotelName||'')}" placeholder="例如：Rembrandt Style Naha"></div>
@@ -723,7 +778,7 @@ async function loadAllData() {
                         <div><span style="color:var(--accent);">${escapeHtml(item.time || '--:--')}</span> <strong>${escapeHtml(item.activity)}</strong>${item.location ? `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;"> · ${escapeHtml(item.location)}</span>` : ''}</div>
                         <div style="display:flex;gap:6px;">
                             <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-time="${escapeHtml(item.time||'')}" data-edit-activity="${escapeHtml(item.activity)}" data-edit-location="${escapeHtml(item.location||'')}" title="編輯">✎</button>
-                            <button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" title="刪除">×</button>
+                            ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                         </div>
                       </div>`;
         });
@@ -748,8 +803,8 @@ async function loadAllData() {
                 <td class="expense-note">${escapeHtml(ex.note || '')}</td>
                 <td class="expense-who">${escapeHtml(ex.createdByName || '—')}</td>
                 <td style="white-space:nowrap;">
-                    <button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>
-                    <button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" title="刪除">×</button>
+                    ${isOwnRecord(ex) ? `<button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-own-only="true" data-created-by-name="${escapeHtml(ex.createdByName || '')}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>` : ''}
+                    ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                 </td>
             </tr>`;
         });
@@ -776,7 +831,7 @@ async function loadAllData() {
             const imageUrl = escapeHtml(safeUrl(d.data().url, ''));
             htmlPh += `<div style="position:relative; aspect-ratio:1; border-radius:15px; overflow:hidden;">
                         <img src="${imageUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.style.display='none'">
-                        <button data-delete-type="images" data-delete-id="${escapeHtml(d.id)}" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:1rem;" title="刪除">×</button>
+                        ${isTripOwner() ? `<button data-delete-type="images" data-delete-id="${escapeHtml(d.id)}" data-owner-only="true" style="position:absolute; top:8px; right:8px; background:rgba(255,255,255,0.85); border:none; border-radius:50%; width:28px; height:28px; cursor:pointer; font-size:1rem;" title="刪除">×</button>` : ''}
                        </div>`;
         });
         document.getElementById('photo-grid').innerHTML = htmlPh || "<p style='color:#ccc; text-align:center; font-size:0.9rem; font-weight:400; padding:20px 0;'>尚無相片</p>";
@@ -839,7 +894,8 @@ async function loadTodos() {
                 <div class="todo-checkbox ${t.done ? 'checked' : ''}" data-toggle-todo="${escapeHtml(t.id)}"></div>
                 <span class="todo-text">${escapeHtml(t.text)}</span>
                 ${t.createdByName ? `<span class="todo-meta">${escapeHtml(t.createdByName)}</span>` : ''}
-                <button class="todo-delete" data-delete-type="todos" data-delete-id="${escapeHtml(t.id)}" title="刪除">×</button>
+                ${isOwnRecord(t) ? `<button class="edit-btn-sub" data-edit-type="todos" data-edit-id="${escapeHtml(t.id)}" data-own-only="true" data-created-by-name="${escapeHtml(t.createdByName || '')}" data-edit-text="${escapeHtml(t.text)}" title="編輯">✎</button>` : ''}
+                ${isTripOwner() ? `<button class="todo-delete" data-delete-type="todos" data-delete-id="${escapeHtml(t.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
             </div>
         `).join('');
 }
