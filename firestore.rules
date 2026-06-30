@@ -20,6 +20,15 @@ service cloud.firestore {
         );
     }
 
+    function canListTripData(tripData) {
+      return isSignedIn()
+        && (
+          isSystemOwner()
+          || tripData.ownerId == request.auth.uid
+          || request.auth.uid in tripData.memberIds
+        );
+    }
+
     function canAccessTrip(tripId) {
       return canAccessTripData(get(/databases/$(database)/documents/trips/$(tripId)).data);
     }
@@ -28,7 +37,9 @@ service cloud.firestore {
     // trips 主集合
     // ============================================================
     match /trips/{tripId} {
-      allow read, write: if canAccessTripData(resource.data);
+      allow get: if canAccessTripData(resource.data);
+      allow list: if canListTripData(resource.data);
+      allow update, delete: if canAccessTripData(resource.data);
       allow create: if canAccessTripData(request.resource.data);
 
       // 所有 trips/{tripId} 底下的子集合：
