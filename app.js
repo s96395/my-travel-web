@@ -12,6 +12,7 @@ const addTripModal = document.getElementById('addTripModal');
 const openAddModalBtn = document.getElementById('openAddModal');
 const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
+const statsGrid = document.querySelector('.stats-grid');
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
 const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者邀請。';
@@ -37,6 +38,7 @@ async function fetchTrips() {
         allTrips = snap.docs
             .map(doc => ({ id: doc.id, ...doc.data() }));
         const visibleTrips = getVisibleTrips();
+        renderHeroCard(visibleTrips);
         renderTrips(visibleTrips);
         updateStats(visibleTrips);
     } catch (err) {
@@ -45,6 +47,76 @@ async function fetchTrips() {
 }
 
 const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
+
+// ===== 首頁 Hero Card =====
+function renderHeroCard(trips) {
+    if (!statsGrid) return;
+
+    let heroSection = document.getElementById('homeHeroCard');
+    if (!heroSection) {
+        statsGrid.insertAdjacentHTML('beforebegin', '<section class="home-hero-card" id="homeHeroCard"></section>');
+        heroSection = document.getElementById('homeHeroCard');
+    }
+
+    const today = getTodayDateString();
+    const activeTrip = trips
+        .filter(t => t.startDate && t.endDate && t.startDate <= today && today <= t.endDate)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+    const upcomingTrip = trips
+        .filter(t => t.startDate && t.startDate >= today)
+        .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+    const heroTrip = activeTrip || upcomingTrip;
+
+    if (!heroTrip) {
+        heroSection.innerHTML = `
+            <div class="home-hero-card__content">
+                <span class="home-hero-card__eyebrow">下一趟旅行</span>
+                <h2>開始規劃下一趟旅行吧！</h2>
+            </div>
+            <button type="button" class="btn btn-primary home-hero-card__button" id="heroAddTripBtn">新增旅程</button>
+        `;
+        document.getElementById('heroAddTripBtn').onclick = () => openAddModalBtn.click();
+        return;
+    }
+
+    const tripUrl = `trip.html?id=${encodeURIComponent(heroTrip.id)}&key=${encodeURIComponent(heroTrip.shareKey || '')}`;
+    const locationText = [heroTrip.country, heroTrip.city].filter(Boolean).join(' / ') || '尚未設定地點';
+
+    heroSection.innerHTML = `
+        <div class="home-hero-card__content">
+            <span class="home-hero-card__eyebrow">下一趟旅行</span>
+            <h2>${escapeHtml(heroTrip.title || '未命名旅程')}</h2>
+            <p class="home-hero-card__location">${escapeHtml(locationText)}</p>
+            <p class="home-hero-card__date">${formatDate(heroTrip.startDate)} - ${formatDate(heroTrip.endDate)}</p>
+            <p class="home-hero-card__status">${escapeHtml(getHeroTripStatusText(heroTrip, today))}</p>
+        </div>
+        <a class="btn btn-primary home-hero-card__button" href="${tripUrl}">查看旅程</a>
+    `;
+}
+
+function getTodayDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getDateDiffInDays(fromDate, toDate) {
+    const start = new Date(`${fromDate}T00:00:00`);
+    const end = new Date(`${toDate}T00:00:00`);
+    return Math.round((end - start) / 86400000);
+}
+
+function getHeroTripStatusText(trip, today) {
+    if (trip.startDate <= today && today <= trip.endDate) {
+        const currentDay = getDateDiffInDays(trip.startDate, today) + 1;
+        const totalDays = getDateDiffInDays(trip.startDate, trip.endDate) + 1;
+        return `旅行中 Day ${currentDay} / ${totalDays}`;
+    }
+
+    return `距離出發還有 ${getDateDiffInDays(today, trip.startDate)} 天`;
+}
 
 // ===== 依年份分組渲染 =====
 function renderTrips(trips) {
