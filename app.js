@@ -94,30 +94,27 @@ function renderHeroCard(trips) {
     if (!heroTrip) {
         heroSection.innerHTML = `
             <div class="home-hero-card__content">
-                <span class="home-hero-card__status-label">即將出發</span>
+                <span class="home-hero-card__eyebrow">下一趟旅行</span>
                 <h2>開始規劃下一趟旅行吧！</h2>
-                <p class="home-hero-card__location">尚未有即將出發或旅行中的旅程</p>
             </div>
+            <button type="button" class="btn btn-primary home-hero-card__button" id="heroAddTripBtn">新增旅程</button>
         `;
+        document.getElementById('heroAddTripBtn').onclick = () => openAddModalBtn.click();
         return;
     }
 
     const tripUrl = `trip.html?id=${encodeURIComponent(heroTrip.id)}&key=${encodeURIComponent(heroTrip.shareKey || '')}`;
     const locationText = [heroTrip.country, heroTrip.city].filter(Boolean).join(' / ') || '尚未設定地點';
-    const heroStatus = getHeroTripStatus(heroTrip, today);
 
     heroSection.innerHTML = `
-        <a class="home-hero-card__link" href="${tripUrl}" aria-label="開啟 ${escapeHtml(heroTrip.title || '未命名旅程')}">
-            <div class="home-hero-card__topline">
-                <span class="home-hero-card__status-label">${escapeHtml(heroStatus.label)}</span>
-            </div>
-            <div class="home-hero-card__content">
-                <h2>${escapeHtml(heroTrip.title || '未命名旅程')}</h2>
-                <p class="home-hero-card__location">${escapeHtml(locationText)}</p>
-                <p class="home-hero-card__countdown">${escapeHtml(heroStatus.headline)}</p>
-                <p class="home-hero-card__date">${formatDate(heroTrip.startDate)} - ${formatDate(heroTrip.endDate)}</p>
-            </div>
-        </a>
+        <div class="home-hero-card__content">
+            <span class="home-hero-card__eyebrow">下一趟旅行</span>
+            <h2>${escapeHtml(heroTrip.title || '未命名旅程')}</h2>
+            <p class="home-hero-card__location">${escapeHtml(locationText)}</p>
+            <p class="home-hero-card__date">${formatDate(heroTrip.startDate)} - ${formatDate(heroTrip.endDate)}</p>
+            <p class="home-hero-card__status">${escapeHtml(getHeroTripStatusText(heroTrip, today))}</p>
+        </div>
+        <a class="btn btn-primary home-hero-card__button" href="${tripUrl}">查看旅程</a>
     `;
 }
 
@@ -135,20 +132,14 @@ function getDateDiffInDays(fromDate, toDate) {
     return Math.round((end - start) / 86400000);
 }
 
-function getHeroTripStatus(trip, today) {
+function getHeroTripStatusText(trip, today) {
     if (trip.startDate <= today && today <= trip.endDate) {
         const currentDay = getDateDiffInDays(trip.startDate, today) + 1;
         const totalDays = getDateDiffInDays(trip.startDate, trip.endDate) + 1;
-        return {
-            label: '旅行中',
-            headline: `Day ${currentDay} / ${totalDays}`
-        };
+        return `旅行中 Day ${currentDay} / ${totalDays}`;
     }
 
-    return {
-        label: '即將出發',
-        headline: `D-${getDateDiffInDays(today, trip.startDate)}`
-    };
+    return `距離出發還有 ${getDateDiffInDays(today, trip.startDate)} 天`;
 }
 
 // ===== 依年份分組渲染 =====
