@@ -64,54 +64,79 @@ nav {
 
 /* 首頁 Hero Card（下一趟旅行） */
 .home-hero-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 24px;
-    background: white;
+    background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(230,213,184,0.7));
+    border: 1px solid rgba(255,255,255,0.78);
     border-radius: var(--radius-lg);
-    box-shadow: var(--shadow);
-    padding: 32px;
+    box-shadow: 0 22px 48px rgba(26, 58, 95, 0.16);
     margin-top: -60px;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
     position: relative;
     z-index: 1;
+    overflow: hidden;
+}
+.home-hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at top right, rgba(230,126,34,0.18), transparent 34%),
+        radial-gradient(circle at bottom left, rgba(26,58,95,0.12), transparent 38%);
+    pointer-events: none;
+}
+.home-hero-card__link,
+.home-hero-card > .home-hero-card__content {
+    color: inherit;
+    display: block;
+    min-height: 320px;
+    padding: 34px 38px 38px;
+    position: relative;
+    text-decoration: none;
+}
+.home-hero-card__topline {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 36px;
 }
 .home-hero-card__content {
     min-width: 0;
+    text-align: center;
 }
-.home-hero-card__eyebrow {
-    display: inline-block;
+.home-hero-card__status-label {
+    background: rgba(255,255,255,0.74);
+    border: 1px solid rgba(26,58,95,0.1);
+    border-radius: 50px;
     color: var(--accent);
-    font-size: 0.85rem;
+    display: inline-flex;
+    font-size: 0.88rem;
     font-weight: 700;
     letter-spacing: 0.08em;
-    margin-bottom: 8px;
+    line-height: 1;
+    padding: 10px 16px;
 }
 .home-hero-card h2 {
     color: var(--primary);
-    font-size: 1.7rem;
-    line-height: 1.25;
-    margin-bottom: 8px;
+    font-size: clamp(1.65rem, 4vw, 2.7rem);
+    line-height: 1.18;
+    margin: 0 auto 12px;
+    max-width: 760px;
 }
 .home-hero-card__location {
     color: var(--text-main);
     font-size: 1rem;
-    margin-bottom: 4px;
+    margin-bottom: 24px;
 }
-.home-hero-card__date,
-.home-hero-card__status {
+.home-hero-card__countdown {
+    color: var(--primary);
+    font-size: clamp(3rem, 11vw, 5.8rem);
+    font-weight: 900;
+    letter-spacing: -0.06em;
+    line-height: 0.95;
+    margin-bottom: 24px;
+}
+.home-hero-card__date {
     color: var(--text-muted);
-    font-size: 0.92rem;
-}
-.home-hero-card__status {
-    color: var(--accent);
+    font-size: 0.96rem;
     font-weight: 700;
-    margin-top: 6px;
-}
-.home-hero-card__button {
-    flex-shrink: 0;
-    text-decoration: none;
 }
 
 /* 還原 4 個浮動圓角方塊 */
@@ -191,13 +216,15 @@ input:focus { border-color: var(--primary); background: #fff; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); margin-top: -40px; }
     .hero h1 { font-size: 2rem; }
     .home-hero-card {
-        align-items: flex-start;
-        flex-direction: column;
         margin-top: -40px;
-        padding: 26px 22px;
     }
-    .home-hero-card__button {
-        width: 100%;
+    .home-hero-card__link,
+    .home-hero-card > .home-hero-card__content {
+        min-height: 280px;
+        padding: 26px 22px 30px;
+    }
+    .home-hero-card__topline {
+        margin-bottom: 30px;
     }
     .stats-grid {
         margin-top: 0;
