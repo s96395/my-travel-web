@@ -236,7 +236,7 @@ function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
 
-    if (isSystemOwner() && !hasTripPermissionFields(trip)) return true;
+    if (isSystemOwner()) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
@@ -259,6 +259,7 @@ function applyFilters() {
         );
     }
     renderTrips(filtered);
+    updateStats(filtered);
 }
 
 function setupEventListeners() {
