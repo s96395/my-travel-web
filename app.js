@@ -1,5 +1,5 @@
 import { db } from './firebase-db.js';
-import { collection, addDoc, getDocs, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
     generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
@@ -33,17 +33,40 @@ async function init() {
 
 async function fetchTrips() {
     try {
-        const q = query(collection(db, "trips"), orderBy("startDate", "desc"));
-        const snap = await getDocs(q);
-        allTrips = snap.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }));
+        allTrips = await fetchAccessibleTrips();
         const visibleTrips = getVisibleTrips();
         renderHeroCard(visibleTrips);
         renderTrips(visibleTrips);
         updateStats(visibleTrips);
     } catch (err) {
         showErrorToast('loadTrips', err);
+        allTrips = [];
+        renderHeroCard([]);
     }
+}
+
+async function fetchAccessibleTrips() {
+    const tripsRef = collection(db, "trips");
+
+    if (isSystemOwner()) {
+        const snap = await getDocs(query(tripsRef, orderBy("startDate", "desc")));
+        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    }
+
+    const uid = currentUser?.uid;
+    if (!uid) return [];
+
+    const [ownedSnap, memberSnap] = await Promise.all([
+        getDocs(query(tripsRef, where("ownerId", "==", uid))),
+        getDocs(query(tripsRef, where("memberIds", "array-contains", uid))),
+    ]);
+
+    const tripsById = new Map();
+    [...ownedSnap.docs, ...memberSnap.docs].forEach(doc => {
+        tripsById.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+
+    return [...tripsById.values()].sort((a, b) => (b.startDate || '').localeCompare(a.startDate || ''));
 }
 
 const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
