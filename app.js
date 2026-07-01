@@ -1,5 +1,5 @@
 import { db } from './firebase-db.js';
-import { collection, addDoc, getDocs, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, addDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
     generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
@@ -14,7 +14,6 @@ const closeAddModalBtn = document.getElementById('closeAddModal');
 const searchInput = document.getElementById('searchInput');
 const statsGrid = document.querySelector('.stats-grid');
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
-const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
 const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者邀請。';
 
 let allTrips = [];
@@ -48,11 +47,6 @@ async function fetchTrips() {
 
 async function fetchAccessibleTrips() {
     const tripsRef = collection(db, "trips");
-
-    if (isSystemOwner()) {
-        const snap = await getDocs(query(tripsRef, orderBy("startDate", "desc")));
-        return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    }
 
     const uid = currentUser?.uid;
     if (!uid) return [];
@@ -320,10 +314,6 @@ function toggle(id) {
     if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-function isSystemOwner(user = currentUser) {
-    return (user?.email || '').trim().toLowerCase() === SYSTEM_OWNER_EMAIL;
-}
-
 function hasTripPermissionFields(trip) {
     return Boolean(trip.ownerId) || (Array.isArray(trip.memberIds) && trip.memberIds.length > 0);
 }
@@ -331,8 +321,6 @@ function hasTripPermissionFields(trip) {
 function canAccessTrip(trip) {
     const uid = currentUser?.uid;
     if (!uid) return false;
-
-    if (isSystemOwner()) return true;
 
     return trip.ownerId === uid || (Array.isArray(trip.memberIds) && trip.memberIds.includes(uid));
 }
