@@ -229,11 +229,11 @@ function updateStats(trips) {
         byYear[year] = (byYear[year] || 0) + (Number(t.totalExpense) || 0);
     });
     const years = Object.keys(byYear).sort((a, b) => b - a);
-    const latestYear = years[0];
-    const latestTotal = latestYear ? byYear[latestYear] : 0;
-    document.getElementById('stat-expense').innerText = `$${latestTotal.toLocaleString()}`;
+    const currentYear = String(new Date().getFullYear());
+    const currentYearTotal = byYear[currentYear] || 0;
+    document.getElementById('stat-expense').innerText = `$${currentYearTotal.toLocaleString()}`;
     const expLabel = document.querySelector('#stat-expense-card .stat-label');
-    if (expLabel) expLabel.innerHTML = `${escapeHtml(latestYear || '')} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
+    if (expLabel) expLabel.innerHTML = `${escapeHtml(currentYear)} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
     const expBreakdown = document.getElementById('stat-expense-breakdown');
     if (expBreakdown) {
         const allTotal = trips.reduce((s, t) => s + (Number(t.totalExpense) || 0), 0);
