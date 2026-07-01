@@ -54,3 +54,15 @@
 ## License
 
 Personal Project
+
+
+## 2026-07 Legacy Owner Migration
+
+已完成 Firestore legacy migration：
+
+- trips.ownerId
+- trips.memberIds
+- createdByUid
+- updatedByUid
+
+Migration 已於 2026-07 完成，一次性工具已移除。
