@@ -43,7 +43,7 @@ export function initAuthUI() {
 
     ensureAuthArea();
 
-    onAuthStateChanged(auth, async (user) => {
+    onAuthStateChanged(auth, (user) => {
         currentAuthUser = user;
 
         if (!user) {
@@ -53,22 +53,31 @@ export function initAuthUI() {
             return;
         }
 
-        try {
-            currentUserProfile = await createOrUpdateUserProfile(user);
-            renderLoggedIn(currentUserProfile);
-            if (loginGateEnabled) hideLoginGate();
-        } catch (error) {
-            console.error('[authProfile]', error);
-            currentUserProfile = {
-                uid: user.uid,
-                nickname: user.displayName || '旅人',
-                photoURL: user.photoURL || '',
-            };
-            renderLoggedIn(currentUserProfile);
-            if (loginGateEnabled) hideLoginGate();
-            showToast('登入成功，但使用者資料暫時無法同步。', 'error');
-        }
+        currentUserProfile = getAuthFallbackProfile(user);
+        renderLoggedIn(currentUserProfile);
+        if (loginGateEnabled) hideLoginGate();
+
+        createOrUpdateUserProfile(user)
+            .then((profile) => {
+                if (auth.currentUser?.uid !== user.uid) return;
+                currentUserProfile = profile;
+                renderLoggedIn(currentUserProfile);
+            })
+            .catch((error) => {
+                console.error('[authProfile]', error);
+                if (auth.currentUser?.uid !== user.uid) return;
+                showToast('登入成功，但使用者資料暫時無法同步。', 'error');
+            });
     });
+}
+
+function getAuthFallbackProfile(user) {
+    return {
+        uid: user.uid,
+        email: user.email || '',
+        nickname: user.displayName || '旅人',
+        photoURL: user.photoURL || '',
+    };
 }
 
 async function createOrUpdateUserProfile(user) {
