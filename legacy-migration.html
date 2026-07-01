@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legacy Migration | 沈迷旅行</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav>
+        <div class="container nav-content">
+            <a href="index.html" class="logo">沈迷旅行<span style="font-size:0.6em; font-weight:400; opacity:0.7; margin-left:8px;">Legacy Migration</span></a>
+            <div class="nav-links"></div>
+        </div>
+    </nav>
+
+    <main class="container" style="padding-top:40px; padding-bottom:60px;">
+        <section class="card" style="padding:28px; margin-bottom:24px;">
+            <p style="color:var(--text-muted); font-weight:700; margin-bottom:8px;">一次性工具</p>
+            <h1 style="color:var(--primary); margin-bottom:14px;">Legacy Owner 欄位 Migration</h1>
+            <p style="color:var(--text-muted); line-height:1.8; margin-bottom:20px;">
+                預設為 dry-run，只會掃描並顯示將更新的項目；按下「執行寫入」後才會使用前端 Firebase SDK 更新 Firestore。
+                此頁僅允許 s96395@gmail.com 使用。
+            </p>
+            <div id="accessStatus" style="font-weight:800; color:var(--primary);">正在檢查登入狀態...</div>
+        </section>
+
+        <section id="migrationPanel" class="card" style="padding:28px; display:none;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:24px;">
+                <button type="button" class="btn btn-primary" id="scanBtn">重新掃描 dry-run</button>
+                <button type="button" class="btn btn-outline" id="writeBtn">執行寫入</button>
+            </div>
+
+            <div class="stats-grid" style="margin-bottom:24px;">
+                <div class="stat-card"><span class="stat-value" id="scannedTrips">0</span><span class="stat-label">掃描 trips 數量</span></div>
+                <div class="stat-card"><span class="stat-value" id="tripPatchCount">0</span><span class="stat-label">需要補 ownerId/memberIds 的 trips</span></div>
+                <div class="stat-card"><span class="stat-value" id="subPatchCount">0</span><span class="stat-label">需要補 createdByUid/updatedByUid 的子集合資料</span></div>
+                <div class="stat-card"><span class="stat-value" id="unresolvedCount">0</span><span class="stat-label">unresolved</span></div>
+            </div>
+
+            <h2 style="color:var(--primary); margin-bottom:12px;">掃描結果</h2>
+            <pre id="summaryOutput" style="white-space:pre-wrap; overflow:auto; max-height:360px; background:#f8fafc; border-radius:12px; padding:16px; border:1px solid rgba(26,58,95,0.12);"></pre>
+
+            <h2 style="color:var(--primary); margin:24px 0 12px;">Unresolved 清單</h2>
+            <div id="unresolvedList" style="display:grid; gap:12px;"></div>
+        </section>
+    </main>
+
+    <script type="module" src="legacy-migration.js"></script>
+</body>
+</html>
