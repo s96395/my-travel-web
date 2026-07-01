@@ -106,7 +106,22 @@ function isTripOwner(trip = currentTripData) {
 }
 
 function isOwnRecord(record) {
-    return isTripOwner() || (record?.createdByName && record.createdByName === getUserNickname());
+    if (isTripOwner()) return true;
+    if (record?.createdByUid) return record.createdByUid === currentUser?.uid;
+    return Boolean(record?.createdByName && record.createdByName === getUserNickname());
+}
+
+function isOwnRecordDataset(dataset) {
+    if (isTripOwner()) return true;
+    if (dataset.createdByUid) return dataset.createdByUid === currentUser?.uid;
+    return Boolean(dataset.createdByName && dataset.createdByName === getUserNickname());
+}
+
+function getAuditUserFields(action) {
+    return {
+        [`${action}ByName`]: getUserNickname(),
+        [`${action}ByUid`]: currentUser?.uid || ''
+    };
 }
 
 function applyRoleUI() {
@@ -257,7 +272,7 @@ async function loadDiveLogs() {
                     ${l.note ? `<div class="dive-log-note">📝 ${escapeHtml(l.note)}</div>` : ''}
                 </div>
                 ${isOwnRecord(l) ? `<div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${escapeHtml(l.id)}" data-own-only="true" data-created-by-name="${escapeHtml(l.createdByName || '')}"
+                    <button class="edit-btn-sub" data-edit-type="diveLogs" data-edit-id="${escapeHtml(l.id)}" data-own-only="true" data-created-by-name="${escapeHtml(l.createdByName || '')}" data-created-by-uid="${escapeHtml(l.createdByUid || '')}"
                         data-edit-divedate="${escapeHtml(l.diveDate||'')}"
                         data-edit-divesite="${escapeHtml(l.diveSite||'')}" data-edit-maxdepth="${escapeHtml(l.maxDepth||'')}"
                         data-edit-duration="${escapeHtml(l.duration||'')}" data-edit-visibility="${escapeHtml(l.visibility||'')}"
@@ -338,7 +353,7 @@ function setupDeleteDelegation() {
             const type = editBtn.dataset.editType;
             const id = editBtn.dataset.editId;
             if (editBtn.dataset.ownerOnly === 'true' && !isTripOwner()) return;
-            if (editBtn.dataset.ownOnly === 'true' && !isTripOwner() && editBtn.dataset.createdByName !== getUserNickname()) return;
+            if (editBtn.dataset.ownOnly === 'true' && !isOwnRecordDataset(editBtn.dataset)) return;
             const modal = document.getElementById('universalModal');
             const modalForm = document.getElementById('modalForm');
 
@@ -402,7 +417,7 @@ function setupDeleteDelegation() {
             const isDone = toggleBtn.classList.contains('checked');
             try {
                 await updateDoc(doc(db, `trips/${tripId}/todos`, todoId), {
-                    done: !isDone, updatedAt: serverTimestamp(), updatedByName: getUserNickname()
+                    done: !isDone, updatedAt: serverTimestamp(), ...getAuditUserFields('updated')
                 });
                 loadTodos();
             } catch (err) { showErrorToast('updateTodo', err); }
@@ -415,7 +430,7 @@ function setupDeleteDelegation() {
         const type = btn.dataset.deleteType;
         const id = btn.dataset.deleteId;
         if (btn.dataset.ownerOnly === 'true' && !isTripOwner()) return;
-        if (btn.dataset.ownOnly === 'true' && !isTripOwner() && btn.dataset.createdByName !== getUserNickname()) return;
+        if (btn.dataset.ownOnly === 'true' && !isOwnRecordDataset(btn.dataset)) return;
         if (confirm("確定要刪除這筆紀錄嗎？")) {
             try {
                 await deleteDoc(doc(db, `trips/${tripId}/${type}`, id));
@@ -592,6 +607,7 @@ function setupEvents(data) {
             const id = data._editId; delete data._editId;
             if (data.day) data.day = Number(data.day);
             data.updatedAt = serverTimestamp();
+            Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('行程已更新 ✓'); loadAllData(); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
@@ -600,6 +616,7 @@ function setupEvents(data) {
             const id = data._editId; delete data._editId;
             if (data.amount) data.amount = Number(data.amount);
             data.updatedAt = serverTimestamp();
+            Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/expenses`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('支出已更新 ✓'); loadAllData(); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
@@ -607,7 +624,7 @@ function setupEvents(data) {
         if (type === 'edit-todos') {
             const id = data._editId; delete data._editId;
             data.updatedAt = serverTimestamp();
-            data.updatedByName = getUserNickname();
+            Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/todos`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('待辦已更新 ✓'); loadTodos(); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
@@ -619,6 +636,7 @@ function setupEvents(data) {
             if (data.visibility) data.visibility = Number(data.visibility);
             if (data.tanks) data.tanks = Number(data.tanks);
             data.updatedAt = serverTimestamp();
+            Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/diveLogs`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('潛水紀錄已更新 ✓'); loadDiveLogs(); } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
@@ -667,7 +685,7 @@ function setupEvents(data) {
         if (data.visibility) data.visibility = Number(data.visibility);
         if (data.tanks) data.tanks = Number(data.tanks);
         data.createdAt = serverTimestamp();
-        data.createdByName = getUserNickname();
+        Object.assign(data, getAuditUserFields('created'));
         try {
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none'; modalForm.reset();
@@ -803,7 +821,7 @@ async function loadAllData() {
                 <td class="expense-note">${escapeHtml(ex.note || '')}</td>
                 <td class="expense-who">${escapeHtml(ex.createdByName || '—')}</td>
                 <td style="white-space:nowrap;">
-                    ${isOwnRecord(ex) ? `<button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-own-only="true" data-created-by-name="${escapeHtml(ex.createdByName || '')}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>` : ''}
+                    ${isOwnRecord(ex) ? `<button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-own-only="true" data-created-by-name="${escapeHtml(ex.createdByName || '')}" data-created-by-uid="${escapeHtml(ex.createdByUid || '')}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>` : ''}
                     ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                 </td>
             </tr>`;
@@ -869,7 +887,7 @@ async function addTodo(text) {
     try {
         await addDoc(collection(db, `trips/${tripId}/todos`), {
             text: data.text, done: false, order: Date.now(),
-            createdAt: serverTimestamp(), createdByName: getUserNickname()
+            createdAt: serverTimestamp(), ...getAuditUserFields('created')
         });
         loadTodos();
         showToast(`已新增「${data.text}」`);
@@ -894,7 +912,7 @@ async function loadTodos() {
                 <div class="todo-checkbox ${t.done ? 'checked' : ''}" data-toggle-todo="${escapeHtml(t.id)}"></div>
                 <span class="todo-text">${escapeHtml(t.text)}</span>
                 ${t.createdByName ? `<span class="todo-meta">${escapeHtml(t.createdByName)}</span>` : ''}
-                ${isOwnRecord(t) ? `<button class="edit-btn-sub" data-edit-type="todos" data-edit-id="${escapeHtml(t.id)}" data-own-only="true" data-created-by-name="${escapeHtml(t.createdByName || '')}" data-edit-text="${escapeHtml(t.text)}" title="編輯">✎</button>` : ''}
+                ${isOwnRecord(t) ? `<button class="edit-btn-sub" data-edit-type="todos" data-edit-id="${escapeHtml(t.id)}" data-own-only="true" data-created-by-name="${escapeHtml(t.createdByName || '')}" data-created-by-uid="${escapeHtml(t.createdByUid || '')}" data-edit-text="${escapeHtml(t.text)}" title="編輯">✎</button>` : ''}
                 ${isTripOwner() ? `<button class="todo-delete" data-delete-type="todos" data-delete-id="${escapeHtml(t.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
             </div>
         `).join('');
