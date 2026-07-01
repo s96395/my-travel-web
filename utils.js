@@ -20,6 +20,7 @@ let currentAuthUser = null;
 let currentUserProfile = null;
 let authInitialized = false;
 let loginGateEnabled = false;
+let authLoadingVisible = false;
 
 export function getCurrentAuthUser() {
     return currentAuthUser;
@@ -173,22 +174,52 @@ async function signInWithGoogle() {
 export function requireLoginBeforeLoad() {
     loginGateEnabled = true;
     initAuthUI();
-    showLoginGate();
+    showAppLoading();
 
     return new Promise((resolve) => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             currentAuthUser = user;
 
             if (!user) {
+                hideAppLoading();
                 showLoginGate();
                 return;
             }
 
             hideLoginGate();
+            hideAppLoading();
             unsubscribe();
             resolve(user);
         });
     });
+}
+
+function showAppLoading() {
+    authLoadingVisible = true;
+    hideProtectedPageContent();
+
+    let loading = document.getElementById('appLoading');
+    if (!loading) {
+        loading = document.createElement('main');
+        loading.id = 'appLoading';
+        loading.style.cssText = 'position:fixed;inset:0;z-index:9998;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px;background:#fff;color:var(--primary);';
+        loading.innerHTML = `
+            <div style="width:min(420px, 100%);text-align:center;">
+                <h1 style="font-size:2rem;margin-bottom:12px;font-weight:800;">沈迷旅行</h1>
+                <p style="color:var(--text-muted);font-weight:600;">正在載入...</p>
+            </div>
+        `;
+        document.body.appendChild(loading);
+    }
+}
+
+function hideAppLoading() {
+    authLoadingVisible = false;
+    document.getElementById('appLoading')?.remove();
+
+    if (!document.getElementById('loginGate')) {
+        restoreProtectedPageContent();
+    }
 }
 
 function showLoginGate() {
@@ -213,13 +244,15 @@ function showLoginGate() {
 }
 
 function hideLoginGate() {
-    restoreProtectedPageContent();
     document.getElementById('loginGate')?.remove();
+    if (!authLoadingVisible) {
+        restoreProtectedPageContent();
+    }
 }
 
 function hideProtectedPageContent() {
     [...document.body.children].forEach((child) => {
-        if (child.id === 'loginGate') return;
+        if (child.id === 'loginGate' || child.id === 'appLoading') return;
         if (!child.dataset.authGateDisplay) child.dataset.authGateDisplay = child.style.display || ' ';
         child.style.display = 'none';
     });
