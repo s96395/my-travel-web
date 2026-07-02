@@ -33,6 +33,12 @@ service cloud.firestore {
       return canAccessTripData(get(/databases/$(database)/documents/trips/$(tripId)).data);
     }
 
+    function canPreviewJoinTrip() {
+      return isSignedIn()
+        && resource.data.shareKey is string
+        && resource.data.shareKey.size() > 0;
+    }
+
     function canJoinTripByShareKey() {
       return isSignedIn()
         && resource.data.shareKey is string
@@ -51,7 +57,7 @@ service cloud.firestore {
     // trips 主集合
     // ============================================================
     match /trips/{tripId} {
-      allow get: if canAccessTripData(resource.data);
+      allow get: if canAccessTripData(resource.data) || canPreviewJoinTrip();
       allow list: if canListTripData(resource.data);
       allow update: if canAccessTripData(resource.data) || canJoinTripByShareKey();
       allow delete: if canAccessTripData(resource.data);
