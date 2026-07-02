@@ -189,35 +189,27 @@ function setupCopyLinkButton() {
 
 async function renderCompanionSection(data) {
     const copyCard = document.getElementById('copyLinkBtn')?.closest('.card');
-    if (!copyCard) return;
+    if (copyCard) {
+        copyCard.style.display = isTripOwner(data) ? '' : 'none';
+        copyCard.style.background = 'var(--primary)';
+        copyCard.style.color = 'white';
+        copyCard.style.textAlign = 'center';
+        copyCard.innerHTML = `
+            <h4 style="margin-bottom:10px;">旅伴共編</h4>
+            <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享此網址即可一起規劃旅程</p>
+            <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
+        `;
+        setupCopyLinkButton();
+    }
+
+    const listEl = document.getElementById('companion-list');
+    if (!listEl) return;
 
     const ownerId = data?.ownerId || '';
     const userIds = getTripUserIds(data);
-    copyCard.style.background = 'white';
-    copyCard.style.color = 'var(--text-main)';
-    copyCard.style.textAlign = 'left';
-    copyCard.innerHTML = `
-        <div class="card-header" style="margin-bottom:16px;">
-            <h2>旅伴</h2>
-        </div>
-        <div id="companion-list">
-            <p class="info-empty">載入旅伴中...</p>
-        </div>
-        ${isTripOwner(data) ? `
-        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
-            <p style="font-size: 0.8rem; color:var(--text-muted); margin-bottom: 12px; font-weight:400;">分享此網址即可一起規劃旅程</p>
-            <button class="btn btn-outline" style="width:100%;" id="copyLinkBtn">複製分享連結</button>
-        </div>` : ''}
-    `;
-
-    setupCopyLinkButton();
-
     const profiles = await Promise.all(userIds.map(uid => getTripUserProfile(uid)));
-    const listEl = document.getElementById('companion-list');
-    if (!listEl) return;
     listEl.innerHTML = profiles.map(profile => {
-        const isOwner = profile.uid === ownerId;
-        const roleText = isOwner ? '建立者' : '旅伴';
+        const roleText = profile.uid === ownerId ? '建立者' : '旅伴';
         const avatar = profile.photoURL
             ? `<img src="${escapeHtml(safeUrl(profile.photoURL, ''))}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
             : `<span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;">${escapeHtml(profile.displayName.charAt(0).toUpperCase())}</span>`;
@@ -289,6 +281,12 @@ function renderSummaryCard(data) {
         <div class="summary-item">
             <span class="summary-label">旅伴</span>
             <span class="summary-value">${escapeHtml(getCompanionSummary(data))}</span>
+        </div>
+        <div class="summary-item" style="flex-basis: 100%;">
+            <span class="summary-label">旅伴清單</span>
+            <div id="companion-list" class="summary-value" style="font-weight:400;">
+                <p class="info-empty" style="padding:0; text-align:left;">載入旅伴中...</p>
+            </div>
         </div>
         <div class="summary-item">
             <span class="summary-label">狀態</span>
