@@ -33,13 +33,28 @@ service cloud.firestore {
       return canAccessTripData(get(/databases/$(database)/documents/trips/$(tripId)).data);
     }
 
+    function canJoinTripByShareKey() {
+      return isSignedIn()
+        && resource.data.shareKey is string
+        && resource.data.shareKey.size() > 0
+        && resource.data.memberIds is list
+        && request.resource.data.memberIds is list
+        && !(request.auth.uid in resource.data.memberIds)
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
+        && request.resource.data.memberIds[resource.data.memberIds.size()] == request.auth.uid
+        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+    }
+
     // ============================================================
     // trips 主集合
     // ============================================================
     match /trips/{tripId} {
       allow get: if canAccessTripData(resource.data);
       allow list: if canListTripData(resource.data);
-      allow update, delete: if canAccessTripData(resource.data);
+      allow update: if canAccessTripData(resource.data) || canJoinTripByShareKey();
+      allow delete: if canAccessTripData(resource.data);
       allow create: if canAccessTripData(request.resource.data);
 
       // 所有 trips/{tripId} 底下的子集合：
