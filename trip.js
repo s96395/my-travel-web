@@ -68,6 +68,7 @@ async function init() {
             }
             renderHeader(currentTripData);
             applyTripTypeUI(currentTripData.tripType);
+            renderCompanionSection(currentTripData).catch(err => showErrorToast('loadTrip', err));
             applyRoleUI();
             setupEvents(currentTripData);
             setupTodos(currentTripData.tripType);
@@ -131,7 +132,7 @@ function applyRoleUI() {
         if (el) el.style.display = isTripOwner() ? '' : 'none';
     });
 
-    ['copyLinkBtn', 'deleteTripBtn'].forEach(id => {
+    ['deleteTripBtn'].forEach(id => {
         const card = document.getElementById(id)?.closest('.card');
         if (card) card.style.display = isTripOwner() ? '' : 'none';
     });
@@ -139,6 +140,89 @@ function applyRoleUI() {
     document.querySelectorAll('[data-owner-only]').forEach(el => {
         el.style.display = isTripOwner() ? '' : 'none';
     });
+}
+
+
+function getTripUserIds(data) {
+    const ownerId = data?.ownerId || '';
+    const memberIds = Array.isArray(data?.memberIds) ? data.memberIds : [];
+    return [ownerId, ...memberIds].filter((uid, index, ids) => uid && ids.indexOf(uid) === index);
+}
+
+function getCompanionSummary(data) {
+    const memberCount = getTripUserIds(data).filter(uid => uid !== data?.ownerId).length;
+    return memberCount === 0 ? '獨旅' : `共 ${memberCount + 1} 人`;
+}
+
+function getShortUid(uid) {
+    if (!uid) return '未知使用者';
+    return uid.length > 8 ? `${uid.slice(0, 4)}…${uid.slice(-4)}` : uid;
+}
+
+async function getTripUserProfile(uid) {
+    try {
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        if (!userSnap.exists()) return { uid, displayName: getShortUid(uid), photoURL: '' };
+        const user = userSnap.data();
+        return {
+            uid,
+            displayName: user.nickname || getShortUid(uid),
+            photoURL: user.photoURL || ''
+        };
+    } catch (err) {
+        console.warn('[loadTripUser]', uid, err);
+        return { uid, displayName: getShortUid(uid), photoURL: '' };
+    }
+}
+
+function setupCopyLinkButton() {
+    const copyLinkBtn = document.getElementById('copyLinkBtn');
+    if (!copyLinkBtn) return;
+    copyLinkBtn.onclick = () => {
+        if (!isTripOwner()) return;
+        const joinUrl = new URL('join.html', window.location.href);
+        joinUrl.searchParams.set('id', tripId);
+        joinUrl.searchParams.set('key', shareKey);
+        copyToClipboard(joinUrl.href);
+    };
+}
+
+async function renderCompanionSection(data) {
+    const copyCard = document.getElementById('copyLinkBtn')?.closest('.card');
+    if (!copyCard) return;
+
+    const ownerId = data?.ownerId || '';
+    const userIds = getTripUserIds(data);
+    copyCard.style.background = 'white';
+    copyCard.style.color = 'var(--text-main)';
+    copyCard.style.textAlign = 'left';
+    copyCard.innerHTML = `
+        <div class="card-header" style="margin-bottom:16px;">
+            <h2>旅伴</h2>
+        </div>
+        <div id="companion-list">
+            <p class="info-empty">載入旅伴中...</p>
+        </div>
+        ${isTripOwner(data) ? `
+        <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--border-color);">
+            <p style="font-size: 0.8rem; color:var(--text-muted); margin-bottom: 12px; font-weight:400;">分享此網址即可一起規劃旅程</p>
+            <button class="btn btn-outline" style="width:100%;" id="copyLinkBtn">複製分享連結</button>
+        </div>` : ''}
+    `;
+
+    setupCopyLinkButton();
+
+    const profiles = await Promise.all(userIds.map(uid => getTripUserProfile(uid)));
+    const listEl = document.getElementById('companion-list');
+    if (!listEl) return;
+    listEl.innerHTML = profiles.map(profile => {
+        const isOwner = profile.uid === ownerId;
+        const roleText = isOwner ? '建立者' : '旅伴';
+        const avatar = profile.photoURL
+            ? `<img src="${escapeHtml(safeUrl(profile.photoURL, ''))}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
+            : `<span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;">${escapeHtml(profile.displayName.charAt(0).toUpperCase())}</span>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">${avatar}<span>${escapeHtml(profile.displayName)}（${roleText}）</span></div>`;
+    }).join('') || '<p class="info-empty">尚無旅伴資訊</p>';
 }
 
 function renderAccessError(message) {
@@ -204,7 +288,7 @@ function renderSummaryCard(data) {
         </div>
         <div class="summary-item">
             <span class="summary-label">旅伴</span>
-            <span class="summary-value">${escapeHtml(data.companions || '獨旅')}</span>
+            <span class="summary-value">${escapeHtml(getCompanionSummary(data))}</span>
         </div>
         <div class="summary-item">
             <span class="summary-label">狀態</span>
@@ -537,13 +621,7 @@ function setupEvents(data) {
         }
     }, { once: false });
 
-    document.getElementById('copyLinkBtn').onclick = () => {
-        if (!isTripOwner()) return;
-        const joinUrl = new URL('join.html', window.location.href);
-        joinUrl.searchParams.set('id', tripId);
-        joinUrl.searchParams.set('key', shareKey);
-        copyToClipboard(joinUrl.href);
-    };
+    setupCopyLinkButton();
 
     // 編輯旅程基本資料
     document.getElementById('editTripInfoBtn').onclick = async () => {
@@ -678,6 +756,7 @@ function setupEvents(data) {
                 const snap = await getDoc(doc(db, 'trips', tripId));
                 currentTripData = snap.data();
                 renderHeader(currentTripData);
+                renderCompanionSection(currentTripData).catch(err => showErrorToast('loadTrip', err));
                 applyTripTypeUI(currentTripData.tripType);
             } catch (err) { showErrorToast('saveRecord', err); }
             return;
