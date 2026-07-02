@@ -150,28 +150,22 @@ function getTripUserIds(data) {
 }
 
 function getCompanionSummary(data) {
-    const memberCount = getTripUserIds(data).filter(uid => uid !== data?.ownerId).length;
-    return memberCount === 0 ? '獨旅' : `共 ${memberCount + 1} 人`;
-}
-
-function getShortUid(uid) {
-    if (!uid) return '未知使用者';
-    return uid.length > 8 ? `${uid.slice(0, 4)}…${uid.slice(-4)}` : uid;
+    return `共 ${getTripUserIds(data).length} 人`;
 }
 
 async function getTripUserProfile(uid) {
     try {
         const userSnap = await getDoc(doc(db, 'users', uid));
-        if (!userSnap.exists()) return { uid, displayName: getShortUid(uid), photoURL: '' };
+        if (!userSnap.exists()) return { uid, displayName: '未知旅伴', photoURL: '' };
         const user = userSnap.data();
         return {
             uid,
-            displayName: user.nickname || getShortUid(uid),
+            displayName: user.nickname || user.displayName || '未知旅伴',
             photoURL: user.photoURL || ''
         };
     } catch (err) {
         console.warn('[loadTripUser]', uid, err);
-        return { uid, displayName: getShortUid(uid), photoURL: '' };
+        return { uid, displayName: '未知旅伴', photoURL: '' };
     }
 }
 
@@ -188,20 +182,6 @@ function setupCopyLinkButton() {
 }
 
 async function renderCompanionSection(data) {
-    const copyCard = document.getElementById('copyLinkBtn')?.closest('.card');
-    if (copyCard) {
-        copyCard.style.display = isTripOwner(data) ? '' : 'none';
-        copyCard.style.background = 'var(--primary)';
-        copyCard.style.color = 'white';
-        copyCard.style.textAlign = 'center';
-        copyCard.innerHTML = `
-            <h4 style="margin-bottom:10px;">旅伴共編</h4>
-            <p style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 15px;">分享此網址即可一起規劃旅程</p>
-            <button class="btn" style="background:white; color:var(--primary); width:100%;" id="copyLinkBtn">複製分享連結</button>
-        `;
-        setupCopyLinkButton();
-    }
-
     const listEl = document.getElementById('companion-list');
     if (!listEl) return;
 
@@ -215,6 +195,7 @@ async function renderCompanionSection(data) {
             : `<span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;">${escapeHtml(profile.displayName.charAt(0).toUpperCase())}</span>`;
         return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">${avatar}<span>${escapeHtml(profile.displayName)}（${roleText}）</span></div>`;
     }).join('') || '<p class="info-empty">尚無旅伴資訊</p>';
+    setupCopyLinkButton();
 }
 
 function renderAccessError(message) {
@@ -287,6 +268,8 @@ function renderSummaryCard(data) {
             <div id="companion-list" class="summary-value" style="font-weight:400;">
                 <p class="info-empty" style="padding:0; text-align:left;">載入旅伴中...</p>
             </div>
+            ${isTripOwner(data) ? `
+            <button class="btn btn-primary" id="copyLinkBtn" type="button" style="margin-top:12px;">複製分享連結</button>` : ''}
         </div>
         <div class="summary-item">
             <span class="summary-label">狀態</span>
@@ -647,7 +630,6 @@ function setupEvents(data) {
                 <div class="form-group" style="flex:1"><label>出發日期</label><input type="date" name="startDate" value="${escapeHtml(d.startDate || '')}"></div>
                 <div class="form-group" style="flex:1"><label>回程日期</label><input type="date" name="endDate" value="${escapeHtml(d.endDate || '')}"></div>
             </div>
-            <div class="form-group"><label>旅伴</label><input type="text" name="companions" value="${escapeHtml(d.companions || '')}" placeholder="例如：小明、小花"></div>
             <div class="form-group"><label>狀態</label>
                 <select name="status">
                     <option value="規劃中" ${d.status==='規劃中'?'selected':''}>規劃中</option>
