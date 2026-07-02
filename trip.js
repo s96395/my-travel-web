@@ -537,7 +537,13 @@ function setupEvents(data) {
         }
     }, { once: false });
 
-    document.getElementById('copyLinkBtn').onclick = () => { if (isTripOwner()) copyToClipboard(window.location.href); };
+    document.getElementById('copyLinkBtn').onclick = () => {
+        if (!isTripOwner()) return;
+        const joinUrl = new URL('join.html', window.location.href);
+        joinUrl.searchParams.set('id', tripId);
+        joinUrl.searchParams.set('key', shareKey);
+        copyToClipboard(joinUrl.href);
+    };
 
     // 編輯旅程基本資料
     document.getElementById('editTripInfoBtn').onclick = async () => {
