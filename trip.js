@@ -149,9 +149,6 @@ function getTripUserIds(data) {
     return [ownerId, ...memberIds].filter((uid, index, ids) => uid && ids.indexOf(uid) === index);
 }
 
-function getCompanionSummary(data) {
-    return `共 ${getTripUserIds(data).length} 人`;
-}
 
 async function getTripUserProfile(uid) {
     try {
@@ -193,7 +190,7 @@ async function renderCompanionSection(data) {
         const avatar = profile.photoURL
             ? `<img src="${escapeHtml(safeUrl(profile.photoURL, ''))}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
             : `<span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;">${escapeHtml(profile.displayName.charAt(0).toUpperCase())}</span>`;
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;">${avatar}<span>${escapeHtml(profile.displayName)}（${roleText}）</span></div>`;
+        return `<div class="companion-item">${avatar}<span class="companion-name">${escapeHtml(profile.displayName)}</span><span class="companion-role">${roleText}</span></div>`;
     }).join('') || '<p class="info-empty">尚無旅伴資訊</p>';
     setupCopyLinkButton();
 }
@@ -233,8 +230,6 @@ function renderSummaryCard(data) {
     const statusMap = { '規劃中': 'planning', '即將出發': 'upcoming', '已完成': 'completed', '已封存': 'archived' };
     const days = data.days || (data.startDate && data.endDate
         ? Math.ceil((new Date(data.endDate) - new Date(data.startDate)) / 86400000) + 1 : '—');
-    const tags = Array.isArray(data.tags) ? data.tags
-        : (data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : []);
     const TYPE_ICON = { '自由行': '🎒', '跟團': '🚌', '潛旅': '🤿' };
     const typeIcon = data.tripType ? `${TYPE_ICON[data.tripType] || ''} ${escapeHtml(data.tripType)}` : '—';
 
@@ -260,33 +255,19 @@ function renderSummaryCard(data) {
             <span class="summary-value">${days} 天</span>
         </div>
         <div class="summary-item">
-            <span class="summary-label">旅伴</span>
-            <span class="summary-value">${escapeHtml(getCompanionSummary(data))}</span>
-        </div>
-        <div class="summary-item" style="flex-basis: 100%;">
-            <span class="summary-label">旅伴清單</span>
-            <div id="companion-list" class="summary-value" style="font-weight:400;">
-                <p class="info-empty" style="padding:0; text-align:left;">載入旅伴中...</p>
-            </div>
-            ${isTripOwner(data) ? `
-            <button class="btn btn-primary" id="copyLinkBtn" type="button" style="margin-top:12px;">複製分享連結</button>` : ''}
-        </div>
-        <div class="summary-item">
             <span class="summary-label">狀態</span>
             <span class="summary-value">
                 <span class="status-pill ${statusMap[data.status] || 'planning'}">${escapeHtml(data.status || '規劃中')}</span>
             </span>
         </div>
-        ${data.tripType === '潛旅' ? `
-        <div class="summary-item">
-            <span class="summary-label">本趟氣瓶</span>
-            <span class="summary-value" style="color:var(--ocean); font-weight:700;">🫧 ${data.totalTanks || 0} 瓶</span>
-        </div>` : ''}
-        ${data.note ? `
-        <div class="summary-item" style="flex-basis: 100%;">
-            <span class="summary-label">備註</span>
-            <span class="summary-value" style="font-weight:400; color:var(--text-muted);">${escapeHtml(data.note)}</span>
-        </div>` : ''}
+        <div class="summary-item companion-summary-item">
+            <span class="summary-label">旅伴（${getTripUserIds(data).length}）</span>
+            <div id="companion-list" class="summary-value companion-list">
+                <p class="info-empty" style="padding:0; text-align:left;">載入旅伴中...</p>
+            </div>
+            ${isTripOwner(data) ? `
+            <button class="btn btn-primary companion-invite-btn" id="copyLinkBtn" type="button">＋ 邀請旅伴</button>` : ''}
+        </div>
     `;
 }
 
