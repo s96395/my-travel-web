@@ -37,7 +37,7 @@ async function fetchTrips() {
         const visibleTrips = getVisibleTrips();
         renderHeroCard(visibleTrips);
         renderTrips(visibleTrips);
-        updateStats(visibleTrips);
+        updateStats(allTrips);
     } catch (err) {
         showErrorToast('loadTrips', err);
         allTrips = [];
@@ -344,7 +344,7 @@ function applyFilters() {
     }
     renderHeroCard(filtered);
     renderTrips(filtered);
-    updateStats(filtered);
+    updateStats(allTrips);
 }
 
 function setupEventListeners() {
