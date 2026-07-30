@@ -17,18 +17,32 @@ body, input, select, textarea, button {
 }
 
 :root {
-    --bg-color: #FDFCF8;
+    /* Design tokens: preserve the existing navy-led palette while standardising surfaces. */
     --primary: #1A3A5F;
+    --primary-dark: #102B49;
+    --primary-soft: #EEF4FA;
+    --bg-color: #F7F9FC;
+    --card-bg: #FFFFFF;
+    --text-main: #2C3E50;
+    --text-muted: #6F7E8C;
+    --border-color: #E2E8F0;
+    --border-color-strong: #D3DDE8;
+    --shadow-sm: 0 1px 2px rgba(26, 58, 95, 0.05), 0 6px 18px rgba(26, 58, 95, 0.06);
+    --shadow: 0 2px 4px rgba(26, 58, 95, 0.05), 0 14px 36px rgba(26, 58, 95, 0.09);
+    --shadow-hover: 0 4px 8px rgba(26, 58, 95, 0.06), 0 18px 42px rgba(26, 58, 95, 0.13);
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --radius-pill: 999px;
+    --space-xs: 6px;
+    --space-sm: 10px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --duration-fast: 160ms;
+    --duration-normal: 240ms;
     --secondary: #E6D5B8;
     --accent: #E67E22;
-    --text-main: #2C3E50;
-    --text-muted: #7F8C8D;
-    --card-bg: #FFFFFF;
-    --border-color: #ECE9E2;
-    /* 全站圓角設定 */
-    --radius-lg: 30px; 
-    --radius-md: 20px;
-    --shadow: 0 15px 35px rgba(26, 58, 95, 0.12);
 }
 
 body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.7; overflow-x: hidden; font-size: 16px; }
@@ -68,7 +82,8 @@ nav {
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    background: white;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow);
     padding: 32px;
@@ -123,7 +138,8 @@ nav {
     margin-bottom: 50px; 
 }
 .stat-card { 
-    background: white; 
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
     padding: 30px 15px; 
     border-radius: var(--radius-md); 
     box-shadow: var(--shadow); 
@@ -145,8 +161,8 @@ nav {
 
 /* 旅程卡片 (16:9 比例) */
 .trip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 35px; padding-bottom: 80px; }
-.trip-card { background: white; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: 0.3s; position: relative; }
-.trip-card:hover { transform: translateY(-10px); }
+.trip-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform var(--duration-normal) ease, box-shadow var(--duration-normal) ease, border-color var(--duration-normal) ease; position: relative; }
+.trip-card:hover { border-color: var(--border-color-strong); box-shadow: var(--shadow-hover); transform: translateY(-3px); }
 
 .trip-cover-wrap { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; }
 .trip-cover { width: 100%; height: 100%; object-fit: cover; }
@@ -179,11 +195,15 @@ input, select, textarea {
 input:focus { border-color: var(--primary); background: #fff; }
 
 /* 按鈕圓角膠囊型 */
-.btn { padding: 14px 30px; border-radius: 50px; border: none; cursor: pointer; transition: 0.3s; display: inline-flex; align-items: center; justify-content: center; }
-.btn-primary { background: var(--primary); color: white; }
+.btn { min-height: 42px; padding: 10px 24px; border-radius: var(--radius-pill); border: 1px solid transparent; cursor: pointer; transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease, box-shadow var(--duration-fast) ease, transform var(--duration-fast) ease; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; line-height: 1.25; text-decoration: none; }
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible { outline: 3px solid rgba(26, 58, 95, 0.22); outline-offset: 2px; }
+.btn-primary { background: var(--primary); color: white; box-shadow: 0 4px 12px rgba(26, 58, 95, 0.18); }
+.btn-primary:hover { background: var(--primary-dark); box-shadow: 0 6px 16px rgba(26, 58, 95, 0.24); }
 
 /* 內頁卡片與行程圓化 */
-.card { background: white; border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; }
+.card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; transition: transform var(--duration-normal) ease, box-shadow var(--duration-normal) ease, border-color var(--duration-normal) ease; }
+.card:hover { border-color: var(--border-color-strong); box-shadow: var(--shadow-hover); transform: translateY(-2px); }
 .itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); font-size: 1rem; }
 .delete-btn-sub { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.2rem; }
 
@@ -364,11 +384,11 @@ input:focus { border-color: var(--primary); background: #fff; }
     align-self: flex-start;
 }
 .btn-outline {
-    background: white;
+    background: var(--card-bg);
     border: 1px solid var(--border-color);
     color: var(--text-main);
     padding: 8px 18px;
-    border-radius: 50px;
+    border-radius: var(--radius-pill);
     font-size: 0.85rem;
     cursor: pointer;
     transition: 0.2s;
@@ -377,7 +397,7 @@ input:focus { border-color: var(--primary); background: #fff; }
 .btn-outline:hover {
     border-color: var(--primary);
     color: var(--primary);
-    background: #f0f4f8;
+    background: var(--primary-soft);
 }
 .status-pill {
     display: inline-block;
@@ -530,8 +550,8 @@ input:focus { border-color: var(--primary); background: #fff; }
 .expense-who { font-size: 0.78rem; color: var(--text-muted); font-weight: 400; white-space: nowrap; }
 
 /* 可點擊的統計卡 */
-.stat-card-clickable { cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; }
-.stat-card-clickable:hover { box-shadow: 0 8px 30px rgba(26,58,95,0.15); transform: translateY(-3px); }
+.stat-card-clickable { cursor: pointer; transition: box-shadow var(--duration-normal) ease, transform var(--duration-normal) ease, border-color var(--duration-normal) ease; }
+.stat-card-clickable:hover { border-color: var(--border-color-strong); box-shadow: var(--shadow-hover); transform: translateY(-3px); }
 
 /* 編輯按鈕 */
 .edit-btn-sub {
@@ -625,7 +645,7 @@ input:focus { border-color: var(--primary); background: #fff; }
 
 /* ===== 統計卡片可點擊 ===== */
 .stat-card-clickable { cursor: pointer; }
-.stat-card-clickable:hover { box-shadow: 0 20px 45px rgba(26,58,95,0.18); }
+.stat-card-clickable:hover { box-shadow: var(--shadow-hover); }
 
 /* ===== 潛水日誌區塊 ===== */
 :root { --ocean: #0096C7; }
@@ -727,21 +747,25 @@ input:focus { border-color: var(--primary); background: #fff; }
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: var(--space-sm);
     margin: 0;
-    padding-bottom: 12px;
-    border-bottom: 2px solid var(--border-color);
-    border-top: 0;
-    border-right: 0;
-    border-left: 0;
+    padding: 12px 14px;
+    border: 1px solid transparent;
+    border-bottom-color: var(--border-color-strong);
+    border-radius: var(--radius-sm);
     background: transparent;
     font: inherit;
     text-align: left;
     cursor: pointer;
+    transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+}
+.year-group-header:hover {
+    background: var(--primary-soft);
+    border-color: #DFEAF4;
 }
 .year-group-header:focus-visible {
-    outline: 3px solid rgba(0, 150, 199, 0.3);
-    outline-offset: 4px;
+    outline: 3px solid rgba(26, 58, 95, 0.24);
+    outline-offset: 2px;
 }
 .year-group-arrow {
     width: 0;
@@ -749,7 +773,9 @@ input:focus { border-color: var(--primary); background: #fff; }
     border-top: 6px solid transparent;
     border-bottom: 6px solid transparent;
     border-left: 8px solid var(--primary);
-    transition: transform 0.25s ease;
+    margin: 0 5px;
+    flex: 0 0 auto;
+    transition: transform var(--duration-normal) ease;
 }
 .year-group.is-expanded .year-group-arrow {
     transform: rotate(90deg);
@@ -764,15 +790,22 @@ input:focus { border-color: var(--primary); background: #fff; }
     font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-muted);
-    background: #f0f0f0;
-    padding: 3px 10px;
-    border-radius: 50px;
+    background: var(--primary-soft);
+    border: 1px solid #DFEAF4;
+    padding: 3px 11px;
+    border-radius: var(--radius-pill);
 }
 .year-group-expense {
     font-size: 0.85rem;
     font-weight: 700;
     color: var(--accent);
     margin-left: auto;
+}
+.year-group-expense::before {
+    content: "年度總支出 ";
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
 }
 .year-group-grid {
     display: grid;
@@ -802,6 +835,8 @@ input:focus { border-color: var(--primary); background: #fff; }
 @media (max-width: 600px) {
     .year-group-title { font-size: 1.3rem; }
     .year-group-grid { grid-template-columns: 1fr 1fr; gap: 14px; }
+    .year-group-header { flex-wrap: wrap; }
+    .year-group-expense { flex-basis: 100%; margin-left: 30px; }
 }
 
 /* Auth UI */
