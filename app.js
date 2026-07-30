@@ -19,6 +19,7 @@ const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者
 let allTrips = [];
 let activeTypeFilter = 'all';
 let currentUser = null;
+const yearExpansionState = new Map();
 
 if (openAddModalBtn) openAddModalBtn.hidden = true;
 
@@ -155,6 +156,9 @@ function renderTrips(trips) {
     tripGrid.innerHTML = years.map(year => {
         const yearTrips = byYear[year];
         const yearExpense = yearTrips.reduce((s, t) => s + (Number(t.totalExpense) || 0), 0);
+        const isExpanded = yearExpansionState.has(year)
+            ? yearExpansionState.get(year)
+            : year === String(new Date().getFullYear());
 
         const cards = yearTrips.map(trip => {
             const typeIcon = TYPE_ICON[trip.tripType] || '';
@@ -183,13 +187,16 @@ function renderTrips(trips) {
         }).join('');
 
         return `
-        <div class="year-group">
-            <div class="year-group-header">
+        <div class="year-group${isExpanded ? ' is-expanded' : ''}" data-year="${escapeHtml(year)}">
+            <button type="button" class="year-group-header" aria-expanded="${isExpanded}" aria-controls="year-content-${escapeHtml(year)}">
+                <span class="year-group-arrow" aria-hidden="true"></span>
                 <span class="year-group-title">${year}</span>
                 <span class="year-group-count">${yearTrips.length} 趟</span>
                 ${yearExpense > 0 ? `<span class="year-group-expense">$${yearExpense.toLocaleString()}</span>` : ''}
+            </button>
+            <div class="year-group-content" id="year-content-${escapeHtml(year)}">
+                <div class="year-group-grid">${cards}</div>
             </div>
-            <div class="year-group-grid">${cards}</div>
         </div>`;
     }).join('');
 }
@@ -348,6 +355,16 @@ function applyFilters() {
 }
 
 function setupEventListeners() {
+    tripGrid.addEventListener('click', (e) => {
+        const header = e.target.closest('.year-group-header');
+        if (!header) return;
+
+        const group = header.closest('.year-group');
+        const isExpanded = group.classList.toggle('is-expanded');
+        header.setAttribute('aria-expanded', String(isExpanded));
+        yearExpansionState.set(group.dataset.year, isExpanded);
+    });
+
     openAddModalBtn.onclick = () => {
         addTripModal.style.display = 'block';
     };
