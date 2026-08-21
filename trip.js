@@ -1044,11 +1044,23 @@ async function loadAllData() {
     try {
         const sE = await getDocs(collection(db, `trips/${tripId}/expenses`));
         let total = 0; const cats = {}; let htmlE = "";
+        let personalExpenseTotal = 0;
+        let confirmedCount = 0;
+        let unconfirmedCount = 0;
+        let missingCurrentUserShareCount = 0;
         sE.forEach(d => {
             const ex = d.data(); const amt = Number(ex.amount) || 0;
             const hasPersonalShares = ex.personalShares && typeof ex.personalShares === 'object' && !Array.isArray(ex.personalShares);
             const hasCurrentUserShare = hasPersonalShares && Object.hasOwn(ex.personalShares, currentUser.uid);
             const myShareText = !hasPersonalShares ? '尚未確認' : hasCurrentUserShare ? `NT$${Number(ex.personalShares[currentUser.uid]).toLocaleString()}` : '沒有此使用者的分攤資料';
+            if (!hasPersonalShares) {
+                unconfirmedCount += 1;
+            } else if (!hasCurrentUserShare) {
+                missingCurrentUserShareCount += 1;
+            } else {
+                confirmedCount += 1;
+                personalExpenseTotal += Number(ex.personalShares[currentUser.uid]) || 0;
+            }
             total += amt; cats[ex.category || '其他'] = (cats[ex.category || '其他'] || 0) + amt;
             const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
             htmlE += `<tr>
@@ -1065,6 +1077,17 @@ async function loadAllData() {
             </tr>`;
         });
         document.getElementById('total-expense').innerText = `$${total.toLocaleString()}`;
+        const totalExpenseElement = document.getElementById('total-expense');
+        let personalSummary = document.getElementById('personal-expense-summary');
+        if (!personalSummary) {
+            totalExpenseElement.insertAdjacentHTML('beforebegin', '<p id="personal-expense-summary" style="font-size:1rem; color:var(--primary); margin-top:4px; font-weight:700;"></p>');
+            personalSummary = document.getElementById('personal-expense-summary');
+        }
+        const needsConfirmation = unconfirmedCount + missingCurrentUserShareCount;
+        const insufficientText = sE.size > 0 && confirmedCount === 0 ? ' · 尚未有足夠的個人支出資料' : '';
+        const confirmationText = confirmedCount > 0 && needsConfirmation > 0 ? ` · 尚有 ${needsConfirmation} 筆費用未確認` : '';
+        personalSummary.textContent = `我的旅行支出 NT$ ${personalExpenseTotal.toLocaleString()}${insufficientText}${confirmationText}`;
+        totalExpenseElement.textContent = `旅程總支出 $${total.toLocaleString()}`;
         const footTotal = document.getElementById('expense-total-foot');
         if (footTotal) footTotal.innerText = `$${total.toLocaleString()}`;
         document.getElementById('expense-list').innerHTML = htmlE ||

@@ -17,6 +17,7 @@ const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85c
 const EMPTY_TRIPS_MESSAGE = '目前沒有共編旅程，請等待旅程建立者邀請。';
 
 let allTrips = [];
+let personalExpenseByTrip = new Map();
 let activeTypeFilter = 'all';
 let currentUser = null;
 const yearExpansionState = new Map();
@@ -35,6 +36,7 @@ async function init() {
 async function fetchTrips() {
     try {
         allTrips = await fetchAccessibleTrips();
+        personalExpenseByTrip = await fetchPersonalExpenseSummaries(allTrips);
         const visibleTrips = getVisibleTrips();
         renderHeroCard(visibleTrips);
         renderTrips(visibleTrips);
@@ -44,6 +46,40 @@ async function fetchTrips() {
         allTrips = [];
         renderHeroCard([]);
     }
+}
+
+function summarizePersonalExpenses(expenses, uid) {
+    const summary = {
+        personalExpenseTotal: 0,
+        confirmedCount: 0,
+        unconfirmedCount: 0,
+        missingCurrentUserShareCount: 0,
+        totalExpenseCount: expenses.length,
+    };
+
+    expenses.forEach(expense => {
+        const hasPersonalShares = expense.personalShares
+            && typeof expense.personalShares === 'object'
+            && !Array.isArray(expense.personalShares);
+        if (!hasPersonalShares) {
+            summary.unconfirmedCount += 1;
+        } else if (!Object.hasOwn(expense.personalShares, uid)) {
+            summary.missingCurrentUserShareCount += 1;
+        } else {
+            summary.confirmedCount += 1;
+            summary.personalExpenseTotal += Number(expense.personalShares[uid]) || 0;
+        }
+    });
+
+    return summary;
+}
+
+async function fetchPersonalExpenseSummaries(trips) {
+    const entries = await Promise.all(trips.map(async trip => {
+        const snapshot = await getDocs(collection(db, `trips/${trip.id}/expenses`));
+        return [trip.id, summarizePersonalExpenses(snapshot.docs.map(doc => doc.data()), currentUser.uid)];
+    }));
+    return new Map(entries);
 }
 
 async function fetchAccessibleTrips() {
@@ -249,6 +285,44 @@ function updateStats(trips) {
                 <span style="font-weight:700;">$${allTotal.toLocaleString()}</span>
             </div>
         `;
+    }
+
+    // === 💰 我的旅行支出（僅計入有目前使用者 uid key 的 personalShares）===
+    const personalByYear = {};
+    trips.forEach(trip => {
+        const year = trip.startDate ? trip.startDate.substring(0, 4) : '未知';
+        if (!personalByYear[year]) {
+            personalByYear[year] = {
+                personalExpenseTotal: 0,
+                confirmedCount: 0,
+                unconfirmedCount: 0,
+                missingCurrentUserShareCount: 0,
+                totalExpenseCount: 0,
+            };
+        }
+        const tripSummary = personalExpenseByTrip.get(trip.id);
+        if (!tripSummary) return;
+        Object.keys(personalByYear[year]).forEach(key => {
+            personalByYear[year][key] += tripSummary[key];
+        });
+    });
+    const currentPersonal = personalByYear[currentYear] || {
+        personalExpenseTotal: 0,
+        confirmedCount: 0,
+        unconfirmedCount: 0,
+        missingCurrentUserShareCount: 0,
+        totalExpenseCount: 0,
+    };
+    const needsConfirmation = currentPersonal.unconfirmedCount + currentPersonal.missingCurrentUserShareCount;
+    document.getElementById('stat-personal-expense').innerText = `NT$ ${currentPersonal.personalExpenseTotal.toLocaleString()}`;
+    document.getElementById('stat-personal-expense-label').innerText = `${currentYear} 我的旅行支出`;
+    const personalHint = document.getElementById('stat-personal-expense-hint');
+    if (currentPersonal.totalExpenseCount > 0 && currentPersonal.confirmedCount === 0) {
+        personalHint.innerText = '尚未有足夠的個人支出資料';
+    } else if (needsConfirmation > 0) {
+        personalHint.innerText = `尚有 ${needsConfirmation} 筆費用未確認`;
+    } else {
+        personalHint.innerText = '';
     }
 
     // === 📊 旅程總支出（依類型） ===

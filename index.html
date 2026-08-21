@@ -27,6 +27,11 @@
     <main class="container">
         <!-- 統計方塊 -->
         <section class="stats-grid">
+            <div class="stat-card" id="stat-personal-expense-card">
+                <span class="stat-value" id="stat-personal-expense">NT$ 0</span>
+                <span class="stat-label" id="stat-personal-expense-label">我的旅行支出</span>
+                <span id="stat-personal-expense-hint" style="display:block; min-height:1.2em; margin-top:8px; color:var(--text-muted); font-size:0.78rem; font-weight:400;"></span>
+            </div>
             <div class="stat-card stat-card-clickable" id="stat-country-card" onclick="toggleCountryBreakdown()">
                 <span class="stat-value" id="stat-countries">🌍 0</span>
                 <span class="stat-label">去過的國家 <span style="font-size:0.7em; opacity:0.6;">▼</span></span>
