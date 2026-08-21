@@ -872,13 +872,13 @@ async function loadAllData() {
             }
             const title = item.title || item.activity || '未命名行程';
             const area = item.area || item.location || '';
-            const fixedTime = item.reservationTime || item.time || '';
+            const fixedTime = item.reservationTime || '';
             const itemType = ITINERARY_TYPE_OPTIONS.includes(item.type) ? item.type : 'other';
             const priority = ITINERARY_PRIORITY_OPTIONS.includes(item.priority) ? item.priority : '';
             htmlI += `<div class="itinerary-item">
                         <div class="itinerary-item-main"><span class="itinerary-type-icon" title="${escapeHtml(ITINERARY_TYPE_LABELS[itemType])}">${ITINERARY_TYPE_ICONS[itemType]}</span><div><div class="itinerary-item-heading"><strong>${escapeHtml(title)}</strong>${fixedTime ? `<span class="itinerary-fixed-time">${escapeHtml(fixedTime)}</span>` : ''}${priority ? `<span class="itinerary-priority ${priority}">${ITINERARY_PRIORITY_LABELS[priority]}</span>` : ''}</div>${area ? `<div class="itinerary-area">${escapeHtml(area)}</div>` : ''}${item.note ? `<div class="itinerary-note">${escapeHtml(item.note)}</div>` : ''}</div></div>
                         <div class="itinerary-actions">
-                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-title="${escapeHtml(title)}" data-edit-area="${escapeHtml(area)}" data-edit-item-type="${escapeHtml(item.type || '')}" data-edit-priority="${escapeHtml(item.priority || '')}" data-edit-reservation-time="${escapeHtml(item.reservationTime || item.time || '')}" data-edit-note="${escapeHtml(item.note || '')}" title="編輯">✎</button>
+                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-title="${escapeHtml(title)}" data-edit-area="${escapeHtml(area)}" data-edit-item-type="${escapeHtml(item.type || '')}" data-edit-priority="${escapeHtml(item.priority || '')}" data-edit-reservation-time="${escapeHtml(item.reservationTime || '')}" data-edit-note="${escapeHtml(item.note || '')}" title="編輯">✎</button>
                             ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                         </div>
                       </div>`;
