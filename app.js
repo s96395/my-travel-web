@@ -192,7 +192,7 @@ function renderTrips(trips) {
                 <span class="year-group-arrow" aria-hidden="true"></span>
                 <span class="year-group-title">${year}</span>
                 <span class="year-group-count">${yearTrips.length} 趟</span>
-                ${yearExpense > 0 ? `<span class="year-group-expense">$${yearExpense.toLocaleString()}</span>` : ''}
+                ${yearExpense > 0 ? `<span class="year-group-expense" aria-label="${escapeHtml(year)} 年度旅程總支出 $${yearExpense.toLocaleString()}">$${yearExpense.toLocaleString()}</span>` : ''}
             </button>
             <div class="year-group-content" id="year-content-${escapeHtml(year)}">
                 <div class="year-group-grid">${cards}</div>
@@ -223,7 +223,7 @@ function updateStats(trips) {
         `).join('') || '<p style="font-size:0.82rem; color:var(--text-muted);">尚無已完成的旅程</p>';
     }
 
-    // === 💰 年度支出 ===
+    // === 💰 年度旅程總支出 ===
     const byYear = {};
     trips.forEach(t => {
         const year = t.startDate ? t.startDate.substring(0, 4) : '未知';
@@ -234,7 +234,7 @@ function updateStats(trips) {
     const currentYearTotal = byYear[currentYear] || 0;
     document.getElementById('stat-expense').innerText = `$${currentYearTotal.toLocaleString()}`;
     const expLabel = document.querySelector('#stat-expense-card .stat-label');
-    if (expLabel) expLabel.innerHTML = `${escapeHtml(currentYear)} 支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
+    if (expLabel) expLabel.innerHTML = `${escapeHtml(currentYear)} 年度旅程總支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
     const expBreakdown = document.getElementById('stat-expense-breakdown');
     if (expBreakdown) {
         const allTotal = trips.reduce((s, t) => s + (Number(t.totalExpense) || 0), 0);
@@ -251,7 +251,7 @@ function updateStats(trips) {
         `;
     }
 
-    // === 📊 旅遊類別支出 ===
+    // === 📊 旅程總支出（依類型） ===
     const typeExpense = { '自由行': 0, '跟團': 0, '潛旅': 0 };
     trips.forEach(t => {
         const type = t.tripType || '自由行';

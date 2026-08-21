@@ -820,7 +820,7 @@ input:focus { border-color: var(--primary); background: #fff; }
     margin-left: auto;
 }
 .year-group-expense::before {
-    content: "年度總支出 ";
+    content: "年度旅程總支出 ";
     color: var(--text-muted);
     font-size: 0.75rem;
     font-weight: 500;
