@@ -194,6 +194,12 @@ input, select, textarea {
 }
 input:focus { border-color: var(--primary); background: #fff; }
 
+.itinerary-more { margin: 4px 0 20px; border-top: 1px solid var(--border-color); }
+.itinerary-more summary { padding: 16px 0; color: var(--primary); font-weight: 700; cursor: pointer; list-style: none; }
+.itinerary-more summary::-webkit-details-marker { display: none; }
+.itinerary-more[open] summary { color: var(--accent); }
+.itinerary-more-fields { padding-top: 4px; }
+
 /* 按鈕圓角膠囊型 */
 .btn { min-height: 42px; padding: 10px 24px; border-radius: var(--radius-pill); border: 1px solid transparent; cursor: pointer; transition: background-color var(--duration-fast) ease, border-color var(--duration-fast) ease, color var(--duration-fast) ease, box-shadow var(--duration-fast) ease, transform var(--duration-fast) ease; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; line-height: 1.25; text-decoration: none; }
 .btn:hover { transform: translateY(-1px); }
