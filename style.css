@@ -461,8 +461,18 @@ input:focus { border-color: var(--primary); background: #fff; }
 .expense-table-total-amt { font-weight: 700; color: var(--primary); }
 
 .expense-name { font-weight: 500; }
+.expense-my-share { display: block; margin-top: 3px; color: var(--text-muted); font-size: 0.75rem; font-weight: 400; white-space: nowrap; }
 .expense-amt { font-weight: 600; white-space: nowrap; }
 .expense-note { color: var(--text-muted); font-size: 0.82rem; font-weight: 400; max-width: 200px; }
+
+.expense-split { margin-top: 18px; padding: 16px; border: 1px solid var(--border-color); border-radius: 10px; }
+.expense-split legend { padding: 0 6px; color: var(--primary); font-weight: 700; }
+.expense-split-options { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+.expense-split-hint { margin: 10px 0; color: var(--text-muted); font-size: 0.8rem; }
+.expense-split-warning { margin: 10px 0; padding: 10px; border-radius: 8px; background: #fff4e5; color: #8a4b08; font-size: 0.82rem; }
+.expense-share-list { display: grid; gap: 8px; }
+.expense-share-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.expense-share-row input { width: 130px; padding: 8px; border: 1px solid var(--border-color); border-radius: 8px; text-align: right; }
 
 /* 分類徽章 */
 .expense-cat-badge {

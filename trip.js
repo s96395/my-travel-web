@@ -1,7 +1,7 @@
 import { db } from './firebase-db.js';
 import { 
     doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, 
-    serverTimestamp
+    serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
     getUserNickname, showToast, showErrorToast, getErrorMessage, formatDate, copyToClipboard,
@@ -195,6 +195,97 @@ function getTripUserIds(data) {
     const ownerId = data?.ownerId || '';
     const memberIds = Array.isArray(data?.memberIds) ? data.memberIds : [];
     return [ownerId, ...memberIds].filter((uid, index, ids) => uid && ids.indexOf(uid) === index);
+}
+
+async function getExpenseShareMembers(personalShares = {}) {
+    const currentIds = getTripUserIds(currentTripData);
+    const departedIds = Object.keys(personalShares).filter(uid => !currentIds.includes(uid));
+    const profiles = await Promise.all([...currentIds, ...departedIds].map(uid => getTripUserProfile(uid)));
+    return profiles.map(profile => ({ ...profile, departed: departedIds.includes(profile.uid) }));
+}
+
+function getExpenseSplitFields(members, personalShares) {
+    const hasShares = personalShares && typeof personalShares === 'object' && !Array.isArray(personalShares);
+    const mode = hasShares ? 'custom' : 'unallocated';
+    const departedCount = members.filter(member => member.departed).length;
+    return `
+        <fieldset class="expense-split" data-split-root>
+            <legend>費用分攤</legend>
+            <div class="expense-split-options">
+                <label><input type="radio" name="splitMode" value="unallocated" ${mode === 'unallocated' ? 'checked' : ''}> 尚未分攤</label>
+                <label><input type="radio" name="splitMode" value="equal"> 平均分攤</label>
+                <label><input type="radio" name="splitMode" value="custom" ${mode === 'custom' ? 'checked' : ''}> 自訂分攤</label>
+            </div>
+            ${departedCount ? `<p class="expense-split-warning">這筆資料包含 ${departedCount} 位已離開旅程成員。其原有分攤會保留；若改選平均分攤，將只以目前成員重新計算。</p>` : ''}
+            <p class="expense-split-hint" data-split-hint></p>
+            <div class="expense-share-list">
+                ${members.map(member => `
+                    <label class="expense-share-row" data-share-row data-departed="${member.departed}">
+                        <span>${escapeHtml(member.displayName)}${member.departed ? '（已離開旅程）' : ''}</span>
+                        <span>NT$ <input type="number" step="1" min="0" name="share_${escapeHtml(member.uid)}" data-share-uid="${escapeHtml(member.uid)}" value="${hasShares && Object.hasOwn(personalShares, member.uid) ? escapeHtml(personalShares[member.uid]) : ''}"></span>
+                    </label>`).join('')}
+            </div>
+        </fieldset>`;
+}
+
+function distributeExpenseEqually(amount, memberCount) {
+    if (!Number.isFinite(amount) || memberCount < 1) return [];
+    const precision = (String(amount).split('.')[1] || '').length;
+    const factor = 10 ** precision;
+    const totalUnits = Math.round(amount * factor);
+    const baseUnits = Math.floor(totalUnits / memberCount);
+    const remainder = totalUnits - baseUnits * memberCount;
+    return Array.from({ length: memberCount }, (_, index) => (baseUnits + (index < remainder ? 1 : 0)) / factor);
+}
+
+function setupExpenseSplitForm() {
+    const form = document.getElementById('modalForm');
+    const root = form.querySelector('[data-split-root]');
+    if (!root) return;
+    const amountInput = form.elements.amount;
+    const modeInputs = [...form.querySelectorAll('[name="splitMode"]')];
+    const shareRows = [...root.querySelectorAll('[data-share-row]')];
+    const hint = root.querySelector('[data-split-hint]');
+
+    const refresh = () => {
+        const mode = modeInputs.find(input => input.checked)?.value || 'unallocated';
+        const activeRows = shareRows.filter(row => mode === 'custom' || row.dataset.departed !== 'true');
+        shareRows.forEach(row => {
+            row.hidden = mode === 'unallocated' || !activeRows.includes(row);
+            row.querySelector('input').disabled = mode === 'unallocated' || !activeRows.includes(row);
+            row.querySelector('input').readOnly = mode === 'equal';
+        });
+        if (mode === 'equal') {
+            const shares = distributeExpenseEqually(Number(amountInput.value), activeRows.length);
+            activeRows.forEach((row, index) => { row.querySelector('input').value = Number.isFinite(shares[index]) ? shares[index] : ''; });
+            hint.textContent = '尾差依旅程成員順序，從第一位起每人加上最小金額單位，直到總和等於總金額。';
+        } else {
+            hint.textContent = mode === 'unallocated' ? '不會建立 personalShares；編輯儲存時會移除原有分攤。' : '各成員金額加總必須等於總金額。';
+        }
+    };
+    modeInputs.forEach(input => input.addEventListener('change', refresh));
+    amountInput.addEventListener('input', () => {
+        if (modeInputs.find(input => input.checked)?.value === 'equal') refresh();
+    });
+    refresh();
+}
+
+function collectExpensePersonalShares(form, amount) {
+    const mode = form.elements.splitMode?.value || 'unallocated';
+    if (mode === 'unallocated') return { mode, personalShares: undefined };
+    const personalShares = {};
+    for (const input of form.querySelectorAll('[data-share-uid]:not(:disabled)')) {
+        const value = Number(input.value);
+        if (input.value === '' || !Number.isFinite(value) || value < 0) {
+            return { error: '每位旅程成員的負擔金額都必須是有效且不小於 0 的數字。' };
+        }
+        personalShares[input.dataset.shareUid] = value;
+    }
+    const sum = Object.values(personalShares).reduce((total, value) => total + value, 0);
+    if (Math.abs(sum - amount) > Number.EPSILON * Math.max(1, Math.abs(sum), Math.abs(amount))) {
+        return { error: `分攤金額加總 NT$${sum.toLocaleString()}，必須等於總金額 NT$${amount.toLocaleString()}。` };
+    }
+    return { mode, personalShares };
 }
 
 
@@ -468,6 +559,8 @@ function setupDeleteDelegation() {
             }
 
             if (type === 'expenses') {
+                const personalShares = JSON.parse(decodeURIComponent(editBtn.dataset.editPersonalShares || 'null'));
+                const members = await getExpenseShareMembers(personalShares || {});
                 const catOptions = ['交通','住宿','餐飲','景點','購物','保險/簽證','電信費','其他']
                     .map(c => `<option value="${c}" ${c === editBtn.dataset.editCategory ? 'selected' : ''}>${c}</option>`).join('');
                 const payOptions = ['刷卡','現金','行動支付','其他']
@@ -481,7 +574,9 @@ function setupDeleteDelegation() {
                     </div>
                     <div class="form-group"><label>付款方式</label><select name="payMethod">${payOptions}</select></div>
                     <div class="form-group"><label>備註</label><input type="text" name="note" value="${escapeHtml(editBtn.dataset.editNote)}"></div>
+                    ${getExpenseSplitFields(members, personalShares || undefined)}
                 `, 'edit-expenses');
+                setupExpenseSplitForm();
             }
 
             if (type === 'todos') {
@@ -593,7 +688,9 @@ function setupEvents(data) {
         ${getItineraryMoreFields()}
     `, "itinerary");
 
-    document.getElementById('addExpenseBtn').onclick = () => openModal("新增支出", `
+    document.getElementById('addExpenseBtn').onclick = async () => {
+        const members = await getExpenseShareMembers();
+        openModal("新增支出", `
         <div class="form-group"><label>項目名稱</label><input type="text" name="name" required placeholder="例如：機票"></div>
         <div style="display:flex;gap:12px;">
             <div class="form-group" style="flex:1"><label>金額 (TWD)</label><input type="number" name="amount" required min="0"></div>
@@ -613,7 +710,10 @@ function setupEvents(data) {
             </select>
         </div>
         <div class="form-group"><label>備註</label><input type="text" name="note" placeholder="例如：一人 $8790，媽媽先轉帳"></div>
+        ${getExpenseSplitFields(members)}
     `, "expenses");
+        setupExpenseSplitForm();
+    };
 
     document.getElementById('addImageBtn').onclick = () => openModal("新增相片", `
         <div class="form-group"><label>圖片網址 (URL)</label><input type="url" name="url" required placeholder="https://..."></div>
@@ -715,7 +815,12 @@ function setupEvents(data) {
 
         if (type === 'edit-expenses') {
             const id = data._editId; delete data._editId;
-            if (data.amount) data.amount = Number(data.amount);
+            data.amount = Number(data.amount);
+            const split = collectExpensePersonalShares(modalForm, data.amount);
+            if (split.error) { showToast(split.error, 'error'); return; }
+            delete data.splitMode;
+            Object.keys(data).filter(key => key.startsWith('share_')).forEach(key => delete data[key]);
+            data.personalShares = split.mode === 'unallocated' ? deleteField() : split.personalShares;
             data.updatedAt = serverTimestamp();
             Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/expenses`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('支出已更新 ✓'); loadAllData(); } catch (err) { showErrorToast('saveRecord', err); }
@@ -788,6 +893,13 @@ function setupEvents(data) {
         if (data.tanks) data.tanks = Number(data.tanks);
         data.createdAt = serverTimestamp();
         Object.assign(data, getAuditUserFields('created'));
+        if (type === 'expenses') {
+            const split = collectExpensePersonalShares(modalForm, data.amount);
+            if (split.error) { showToast(split.error, 'error'); return; }
+            delete data.splitMode;
+            Object.keys(data).filter(key => key.startsWith('share_')).forEach(key => delete data[key]);
+            if (split.mode !== 'unallocated') data.personalShares = split.personalShares;
+        }
         try {
             if (type === 'itinerary') {
                 const itinerarySnap = await getDocs(collection(db, `trips/${tripId}/itinerary`));
@@ -934,17 +1046,20 @@ async function loadAllData() {
         let total = 0; const cats = {}; let htmlE = "";
         sE.forEach(d => {
             const ex = d.data(); const amt = Number(ex.amount) || 0;
+            const hasPersonalShares = ex.personalShares && typeof ex.personalShares === 'object' && !Array.isArray(ex.personalShares);
+            const hasCurrentUserShare = hasPersonalShares && Object.hasOwn(ex.personalShares, currentUser.uid);
+            const myShareText = !hasPersonalShares ? '尚未確認' : hasCurrentUserShare ? `NT$${Number(ex.personalShares[currentUser.uid]).toLocaleString()}` : '沒有此使用者的分攤資料';
             total += amt; cats[ex.category || '其他'] = (cats[ex.category || '其他'] || 0) + amt;
             const payBadgeClass = ex.payMethod === '現金' ? 'pay-badge cash' : 'pay-badge card';
             htmlE += `<tr>
-                <td class="expense-name">${escapeHtml(ex.name)}</td>
+                <td class="expense-name">${escapeHtml(ex.name)}<span class="expense-my-share">我的負擔：${escapeHtml(myShareText)}</span></td>
                 <td><span class="expense-cat-badge">${escapeHtml(ex.category || '其他')}</span></td>
                 <td class="expense-amt">$${amt.toLocaleString()}</td>
                 <td>${ex.payMethod ? `<span class="${payBadgeClass}">${escapeHtml(ex.payMethod)}</span>` : '—'}</td>
                 <td class="expense-note">${escapeHtml(ex.note || '')}</td>
                 <td class="expense-who">${escapeHtml(ex.createdByName || '—')}</td>
                 <td style="white-space:nowrap;">
-                    ${isOwnRecord(ex) ? `<button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-own-only="true" data-created-by-name="${escapeHtml(ex.createdByName || '')}" data-created-by-uid="${escapeHtml(ex.createdByUid || '')}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" title="編輯">✎</button>` : ''}
+                    ${isOwnRecord(ex) ? `<button class="edit-btn-sub" data-edit-type="expenses" data-edit-id="${escapeHtml(d.id)}" data-own-only="true" data-created-by-name="${escapeHtml(ex.createdByName || '')}" data-created-by-uid="${escapeHtml(ex.createdByUid || '')}" data-edit-name="${escapeHtml(ex.name)}" data-edit-amount="${escapeHtml(ex.amount)}" data-edit-category="${escapeHtml(ex.category||'')}" data-edit-paymethod="${escapeHtml(ex.payMethod||'')}" data-edit-note="${escapeHtml(ex.note||'')}" data-edit-personal-shares="${escapeHtml(encodeURIComponent(JSON.stringify(hasPersonalShares ? ex.personalShares : null)))}" title="編輯">✎</button>` : ''}
                     ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="expenses" data-delete-id="${escapeHtml(d.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                 </td>
             </tr>`;
