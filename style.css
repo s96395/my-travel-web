@@ -204,7 +204,19 @@ input:focus { border-color: var(--primary); background: #fff; }
 /* 內頁卡片與行程圓化 */
 .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 35px; box-shadow: var(--shadow); margin-bottom: 30px; transition: transform var(--duration-normal) ease, box-shadow var(--duration-normal) ease, border-color var(--duration-normal) ease; }
 .card:hover { border-color: var(--border-color-strong); box-shadow: var(--shadow-hover); transform: translateY(-2px); }
-.itinerary-item { display: flex; justify-content: space-between; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); font-size: 1rem; }
+.itinerary-day-title { margin: 25px 0 10px; border-left: 6px solid var(--primary); padding-left: 15px; }
+.itinerary-item { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px; background: #fcfcfc; border-radius: 15px; margin-bottom: 12px; border-left: 6px solid var(--primary); font-size: 1rem; }
+.itinerary-item-main { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+.itinerary-type-icon { width: 24px; flex: 0 0 24px; text-align: center; }
+.itinerary-item-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.itinerary-fixed-time { color: var(--accent); font-weight: 700; font-variant-numeric: tabular-nums; }
+.itinerary-priority { padding: 2px 9px; border-radius: var(--radius-pill); font-size: 0.78rem; font-weight: 700; }
+.itinerary-priority.must { color: #9b2c2c; background: #fff0f0; }
+.itinerary-priority.want { color: var(--primary); background: var(--primary-soft); }
+.itinerary-priority.optional { color: var(--text-muted); background: #edf0f2; }
+.itinerary-area, .itinerary-note { color: var(--text-muted); font-size: 0.86rem; font-weight: 400; }
+.itinerary-note { margin-top: 3px; white-space: pre-line; }
+.itinerary-actions { display: flex; flex: 0 0 auto; gap: 6px; }
 .delete-btn-sub { background: none; border: none; color: #ddd; cursor: pointer; font-size: 1.2rem; }
 
 @media (max-width: 768px) {
