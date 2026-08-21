@@ -30,6 +30,49 @@ const ITINERARY_TYPE_LABELS = { attraction: '景點', restaurant: '餐廳', cafe
 const ITINERARY_TYPE_ICONS = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', other: '•' };
 const ITINERARY_PRIORITY_LABELS = { must: '必去', want: '想去', optional: '有空再去' };
 
+function getTripDayCount(trip = currentTripData) {
+    const savedDays = Number(trip?.days);
+    if (Number.isInteger(savedDays) && savedDays > 0) return savedDays;
+    if (!trip?.startDate || !trip?.endDate) return 1;
+
+    const start = new Date(`${trip.startDate}T00:00:00`);
+    const end = new Date(`${trip.endDate}T00:00:00`);
+    const dayCount = Math.round((end - start) / 86400000) + 1;
+    return Number.isInteger(dayCount) && dayCount > 0 ? dayCount : 1;
+}
+
+function getItineraryDayOptions(selectedDay = 1) {
+    const selected = Number(selectedDay) || 1;
+    const dayCount = Math.max(getTripDayCount(), selected);
+    const start = currentTripData?.startDate ? new Date(`${currentTripData.startDate}T00:00:00`) : null;
+    const hasValidStart = start && !Number.isNaN(start.getTime());
+
+    return Array.from({ length: dayCount }, (_, index) => {
+        const day = index + 1;
+        let label = `Day ${day}`;
+        if (hasValidStart) {
+            const date = new Date(start);
+            date.setDate(start.getDate() + index);
+            const weekday = date.toLocaleDateString('zh-TW', { weekday: 'short' }).replace('週', '');
+            label += `｜${date.getMonth() + 1}/${date.getDate()}（${weekday}）`;
+        }
+        return `<option value="${day}" ${day === selected ? 'selected' : ''}>${label}</option>`;
+    }).join('');
+}
+
+function getItineraryMoreFields(values = {}) {
+    const isOpen = Boolean(values.type || values.reservationTime || values.note);
+    return `
+        <details class="itinerary-more" ${isOpen ? 'open' : ''}>
+            <summary>＋ 更多資訊</summary>
+            <div class="itinerary-more-fields">
+                <div class="form-group"><label>類型</label><select name="type"><option value="">未設定</option>${ITINERARY_TYPE_OPTIONS.map(value => `<option value="${value}" ${value === values.type ? 'selected' : ''}>${ITINERARY_TYPE_LABELS[value]}</option>`).join('')}</select></div>
+                <div class="form-group"><label>預約／固定時間</label><input type="time" name="reservationTime" value="${escapeHtml(values.reservationTime || '')}"></div>
+                <div class="form-group"><label>備註</label><textarea name="note" rows="3">${escapeHtml(values.note || '')}</textarea></div>
+            </div>
+        </details>`;
+}
+
 function compareOptionalValues(a, b) {
     const aEmpty = a === undefined || a === null || a === '';
     const bEmpty = b === undefined || b === null || b === '';
@@ -409,17 +452,18 @@ function setupDeleteDelegation() {
             const modalForm = document.getElementById('modalForm');
 
             if (type === 'itinerary') {
+                const itineraryValues = {
+                    type: editBtn.dataset.editItemType,
+                    reservationTime: editBtn.dataset.editReservationTime,
+                    note: editBtn.dataset.editNote,
+                };
                 openModal('編輯行程', `
                     <input type="hidden" name="_editId" value="${escapeHtml(id)}">
-                    <div class="form-group"><label>第幾天</label><input type="number" name="day" value="${escapeHtml(editBtn.dataset.editDay)}" min="1" required></div>
+                    <div class="form-group"><label>行程日</label><select name="day" required>${getItineraryDayOptions(editBtn.dataset.editDay)}</select></div>
                     <div class="form-group"><label>行程名稱</label><input type="text" name="title" value="${escapeHtml(editBtn.dataset.editTitle)}" required></div>
                     <div class="form-group"><label>區域</label><input type="text" name="area" value="${escapeHtml(editBtn.dataset.editArea)}" placeholder="例如：海雲台"></div>
-                    <div style="display:flex;gap:12px;">
-                        <div class="form-group" style="flex:1"><label>類型</label><select name="type"><option value="">未設定</option>${ITINERARY_TYPE_OPTIONS.map(value => `<option value="${value}" ${value === editBtn.dataset.editItemType ? 'selected' : ''}>${ITINERARY_TYPE_LABELS[value]}</option>`).join('')}</select></div>
-                        <div class="form-group" style="flex:1"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === (editBtn.dataset.editPriority || 'want') ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
-                    </div>
-                    <div class="form-group"><label>預約／固定時間</label><input type="time" name="reservationTime" value="${escapeHtml(editBtn.dataset.editReservationTime)}"></div>
-                    <div class="form-group"><label>備註</label><textarea name="note" rows="3">${escapeHtml(editBtn.dataset.editNote)}</textarea></div>
+                    <div class="form-group"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === (editBtn.dataset.editPriority || 'want') ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
+                    ${getItineraryMoreFields(itineraryValues)}
                 `, 'edit-itinerary');
             }
 
@@ -542,15 +586,11 @@ function setupEvents(data) {
     });
 
     document.getElementById('addDayBtn').onclick = () => openModal("新增行程", `
-        <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" min="1" required></div>
+        <div class="form-group"><label>行程日</label><select name="day" required>${getItineraryDayOptions()}</select></div>
         <div class="form-group"><label>行程名稱</label><input type="text" name="title" required placeholder="例如：白淺灘文化村"></div>
         <div class="form-group"><label>區域</label><input type="text" name="area" placeholder="例如：影島"></div>
-        <div style="display:flex;gap:12px;">
-            <div class="form-group" style="flex:1"><label>類型</label><select name="type"><option value="">未設定</option>${ITINERARY_TYPE_OPTIONS.map(value => `<option value="${value}">${ITINERARY_TYPE_LABELS[value]}</option>`).join('')}</select></div>
-            <div class="form-group" style="flex:1"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === 'want' ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
-        </div>
-        <div class="form-group"><label>預約／固定時間</label><input type="time" name="reservationTime"></div>
-        <div class="form-group"><label>備註</label><textarea name="note" rows="3"></textarea></div>
+        <div class="form-group"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === 'want' ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
+        ${getItineraryMoreFields()}
     `, "itinerary");
 
     document.getElementById('addExpenseBtn').onclick = () => openModal("新增支出", `
