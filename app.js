@@ -259,34 +259,6 @@ function updateStats(trips) {
         `).join('') || '<p style="font-size:0.82rem; color:var(--text-muted);">尚無已完成的旅程</p>';
     }
 
-    // === 💰 年度旅程總支出 ===
-    const byYear = {};
-    trips.forEach(t => {
-        const year = t.startDate ? t.startDate.substring(0, 4) : '未知';
-        byYear[year] = (byYear[year] || 0) + (Number(t.totalExpense) || 0);
-    });
-    const years = Object.keys(byYear).sort((a, b) => b - a);
-    const currentYear = String(new Date().getFullYear());
-    const currentYearTotal = byYear[currentYear] || 0;
-    document.getElementById('stat-expense').innerText = `$${currentYearTotal.toLocaleString()}`;
-    const expLabel = document.querySelector('#stat-expense-card .stat-label');
-    if (expLabel) expLabel.innerHTML = `${escapeHtml(currentYear)} 年度旅程總支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
-    const expBreakdown = document.getElementById('stat-expense-breakdown');
-    if (expBreakdown) {
-        const allTotal = trips.reduce((s, t) => s + (Number(t.totalExpense) || 0), 0);
-        expBreakdown.innerHTML = years.map(y => `
-            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
-                <span style="font-weight:500;">${escapeHtml(y)} 年</span>
-                <span style="font-weight:600;">$${byYear[y].toLocaleString()}</span>
-            </div>
-        `).join('') + `
-            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-top:6px; padding-top:6px; border-top:1px solid rgba(26,58,95,0.15); color:var(--primary);">
-                <span style="font-weight:600;">全部合計</span>
-                <span style="font-weight:700;">$${allTotal.toLocaleString()}</span>
-            </div>
-        `;
-    }
-
     // === 💰 我的旅行支出（僅計入有目前使用者 uid key 的 personalShares）===
     const personalByYear = {};
     trips.forEach(trip => {
@@ -306,6 +278,8 @@ function updateStats(trips) {
             personalByYear[year][key] += tripSummary[key];
         });
     });
+    const years = Object.keys(personalByYear).sort((a, b) => b - a);
+    const currentYear = String(new Date().getFullYear());
     const currentPersonal = personalByYear[currentYear] || {
         personalExpenseTotal: 0,
         confirmedCount: 0,
@@ -313,16 +287,38 @@ function updateStats(trips) {
         missingCurrentUserShareCount: 0,
         totalExpenseCount: 0,
     };
-    const needsConfirmation = currentPersonal.unconfirmedCount + currentPersonal.missingCurrentUserShareCount;
-    document.getElementById('stat-personal-expense').innerText = `NT$ ${currentPersonal.personalExpenseTotal.toLocaleString()}`;
-    document.getElementById('stat-personal-expense-label').innerText = `${currentYear} 我的旅行支出`;
-    const personalHint = document.getElementById('stat-personal-expense-hint');
-    if (currentPersonal.totalExpenseCount > 0 && currentPersonal.confirmedCount === 0) {
-        personalHint.innerText = '尚未有足夠的個人支出資料';
-    } else if (needsConfirmation > 0) {
-        personalHint.innerText = `尚有 ${needsConfirmation} 筆費用未確認`;
-    } else {
-        personalHint.innerText = '';
+    const currentNeedsConfirmation = currentPersonal.unconfirmedCount + currentPersonal.missingCurrentUserShareCount;
+    document.getElementById('stat-expense').innerText = currentPersonal.totalExpenseCount > 0 && currentPersonal.confirmedCount === 0
+        ? '尚未有足夠的個人支出資料'
+        : `NT$ ${currentPersonal.personalExpenseTotal.toLocaleString()}`;
+    const expLabel = document.querySelector('#stat-expense-card .stat-label');
+    if (expLabel) expLabel.innerHTML = `${escapeHtml(currentYear)} 我的旅行支出 <span style="font-size:0.7em; opacity:0.6;">▼</span>`;
+    const expHint = document.getElementById('stat-expense-hint');
+    expHint.innerText = currentNeedsConfirmation > 0
+        ? `尚有 ${currentNeedsConfirmation} 筆費用未確認`
+        : '';
+    const expBreakdown = document.getElementById('stat-expense-breakdown');
+    if (expBreakdown) {
+        const allTotal = Object.values(personalByYear)
+            .reduce((sum, summary) => sum + summary.personalExpenseTotal, 0);
+        expBreakdown.innerHTML = years.map(y => {
+            const summary = personalByYear[y];
+            const needsConfirmation = summary.unconfirmedCount + summary.missingCurrentUserShareCount;
+            const amount = summary.totalExpenseCount > 0 && summary.confirmedCount === 0
+                ? '尚未有足夠的個人支出資料'
+                : `NT$ ${summary.personalExpenseTotal.toLocaleString()}`;
+            return `
+            <div style="display:flex; justify-content:space-between; gap:8px; font-size:0.82rem; margin-bottom:4px; color:var(--text-main);">
+                <span style="font-weight:500;">${escapeHtml(y)} 年</span>
+                <span style="font-weight:600; text-align:right;">${amount}${needsConfirmation > 0 ? `<small style="display:block; color:var(--text-muted); font-weight:400;">尚有 ${needsConfirmation} 筆費用未確認</small>` : ''}</span>
+            </div>
+        `;
+        }).join('') + `
+            <div style="display:flex; justify-content:space-between; font-size:0.82rem; margin-top:6px; padding-top:6px; border-top:1px solid rgba(26,58,95,0.15); color:var(--primary);">
+                <span style="font-weight:600;">全部合計</span>
+                <span style="font-weight:700;">NT$ ${allTotal.toLocaleString()}</span>
+            </div>
+        `;
     }
 
     // === 📊 旅程總支出（依類型） ===
