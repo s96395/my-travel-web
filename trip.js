@@ -24,6 +24,11 @@ let currentTripData = null;
 let currentUser = null;
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
+const ITINERARY_TYPE_OPTIONS = ['attraction', 'restaurant', 'cafe', 'shopping', 'transport', 'other'];
+const ITINERARY_PRIORITY_OPTIONS = ['must', 'want', 'optional'];
+const ITINERARY_TYPE_LABELS = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', other: '其他' };
+const ITINERARY_TYPE_ICONS = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', other: '•' };
+const ITINERARY_PRIORITY_LABELS = { must: '必去', want: '想去', optional: '有空再去' };
 
 function compareOptionalValues(a, b) {
     const aEmpty = a === undefined || a === null || a === '';
@@ -407,9 +412,14 @@ function setupDeleteDelegation() {
                 openModal('編輯行程', `
                     <input type="hidden" name="_editId" value="${escapeHtml(id)}">
                     <div class="form-group"><label>第幾天</label><input type="number" name="day" value="${escapeHtml(editBtn.dataset.editDay)}" min="1" required></div>
-                    <div class="form-group"><label>時間</label><input type="time" name="time" value="${escapeHtml(editBtn.dataset.editTime)}"></div>
-                    <div class="form-group"><label>活動內容</label><input type="text" name="activity" value="${escapeHtml(editBtn.dataset.editActivity)}" required></div>
-                    <div class="form-group"><label>地點</label><input type="text" name="location" value="${escapeHtml(editBtn.dataset.editLocation)}"></div>
+                    <div class="form-group"><label>行程名稱</label><input type="text" name="title" value="${escapeHtml(editBtn.dataset.editTitle)}" required></div>
+                    <div class="form-group"><label>區域</label><input type="text" name="area" value="${escapeHtml(editBtn.dataset.editArea)}" placeholder="例如：海雲台"></div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1"><label>類型</label><select name="type"><option value="">未設定</option>${ITINERARY_TYPE_OPTIONS.map(value => `<option value="${value}" ${value === editBtn.dataset.editItemType ? 'selected' : ''}>${ITINERARY_TYPE_LABELS[value]}</option>`).join('')}</select></div>
+                        <div class="form-group" style="flex:1"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === (editBtn.dataset.editPriority || 'want') ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
+                    </div>
+                    <div class="form-group"><label>預約／固定時間</label><input type="time" name="reservationTime" value="${escapeHtml(editBtn.dataset.editReservationTime)}"></div>
+                    <div class="form-group"><label>備註</label><textarea name="note" rows="3">${escapeHtml(editBtn.dataset.editNote)}</textarea></div>
                 `, 'edit-itinerary');
             }
 
@@ -533,9 +543,14 @@ function setupEvents(data) {
 
     document.getElementById('addDayBtn').onclick = () => openModal("新增行程", `
         <div class="form-group"><label>第幾天</label><input type="number" name="day" value="1" min="1" required></div>
-        <div class="form-group"><label>時間</label><input type="time" name="time"></div>
-        <div class="form-group"><label>活動內容</label><input type="text" name="activity" required placeholder="例如：參觀首里城"></div>
-        <div class="form-group"><label>地點</label><input type="text" name="location"></div>
+        <div class="form-group"><label>行程名稱</label><input type="text" name="title" required placeholder="例如：白淺灘文化村"></div>
+        <div class="form-group"><label>區域</label><input type="text" name="area" placeholder="例如：影島"></div>
+        <div style="display:flex;gap:12px;">
+            <div class="form-group" style="flex:1"><label>類型</label><select name="type"><option value="">未設定</option>${ITINERARY_TYPE_OPTIONS.map(value => `<option value="${value}">${ITINERARY_TYPE_LABELS[value]}</option>`).join('')}</select></div>
+            <div class="form-group" style="flex:1"><label>優先度</label><select name="priority">${ITINERARY_PRIORITY_OPTIONS.map(value => `<option value="${value}" ${value === 'want' ? 'selected' : ''}>${ITINERARY_PRIORITY_LABELS[value]}</option>`).join('')}</select></div>
+        </div>
+        <div class="form-group"><label>預約／固定時間</label><input type="time" name="reservationTime"></div>
+        <div class="form-group"><label>備註</label><textarea name="note" rows="3"></textarea></div>
     `, "itinerary");
 
     document.getElementById('addExpenseBtn').onclick = () => openModal("新增支出", `
@@ -651,6 +666,7 @@ function setupEvents(data) {
         if (type === 'edit-itinerary') {
             const id = data._editId; delete data._editId;
             if (data.day) data.day = Number(data.day);
+            if (data.order) data.order = Number(data.order);
             data.updatedAt = serverTimestamp();
             Object.assign(data, getAuditUserFields('updated'));
             try { await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('行程已更新 ✓'); loadAllData(); } catch (err) { showErrorToast('saveRecord', err); }
@@ -733,6 +749,13 @@ function setupEvents(data) {
         data.createdAt = serverTimestamp();
         Object.assign(data, getAuditUserFields('created'));
         try {
+            if (type === 'itinerary') {
+                const itinerarySnap = await getDocs(collection(db, `trips/${tripId}/itinerary`));
+                const sameDayOrders = itinerarySnap.docs.map(item => item.data())
+                    .filter(item => Number(item.day) === data.day && item.order !== undefined && item.order !== '')
+                    .map(item => Number(item.order)).filter(Number.isFinite);
+                data.order = sameDayOrders.length ? Math.max(...sameDayOrders) + 1 : 1;
+            }
             await addDoc(collection(db, `trips/${tripId}/${type}`), data);
             modal.style.display = 'none'; modalForm.reset();
             showToast("已儲存並同步 ✓");
@@ -831,17 +854,31 @@ async function loadAllData() {
     try {
         const sI = await getDocs(collection(db, `trips/${tripId}/itinerary`));
         const items = sI.docs.map(d => ({ id: d.id, ...d.data() }))
-            .sort(compareByFields(['day', 'time']));
+            .sort((a, b) => {
+                const dayResult = compareOptionalValues(a.day, b.day);
+                if (dayResult !== 0) return dayResult;
+                const aHasOrder = a.order !== undefined && a.order !== null && a.order !== '';
+                const bHasOrder = b.order !== undefined && b.order !== null && b.order !== '';
+                if (aHasOrder && bHasOrder) return compareOptionalValues(a.order, b.order) || String(a.id).localeCompare(String(b.id));
+                if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
+                return compareOptionalValues(a.time, b.time) || String(a.id).localeCompare(String(b.id));
+            });
         let htmlI = ""; let lastDay = null;
         items.forEach(item => {
             if (lastDay !== item.day) {
                 lastDay = item.day;
-                htmlI += `<h3 style="margin-top:25px; margin-bottom:10px; border-left:6px solid var(--primary); padding-left:15px;">Day ${escapeHtml(lastDay || '未設定')}</h3>`;
+                const dayAreas = [...new Set(items.filter(other => other.day === item.day).map(other => other.area || other.location).filter(Boolean))];
+                htmlI += `<h3 class="itinerary-day-title">Day ${escapeHtml(lastDay || '未設定')}${dayAreas.length ? `｜${escapeHtml(dayAreas.join('・'))}` : ''}</h3>`;
             }
+            const title = item.title || item.activity || '未命名行程';
+            const area = item.area || item.location || '';
+            const fixedTime = item.reservationTime || item.time || '';
+            const itemType = ITINERARY_TYPE_OPTIONS.includes(item.type) ? item.type : 'other';
+            const priority = ITINERARY_PRIORITY_OPTIONS.includes(item.priority) ? item.priority : '';
             htmlI += `<div class="itinerary-item">
-                        <div><span style="color:var(--accent);">${escapeHtml(item.time || '--:--')}</span> <strong>${escapeHtml(item.activity)}</strong>${item.location ? `<span style="color:var(--text-muted); font-size:0.85rem; font-weight:400;"> · ${escapeHtml(item.location)}</span>` : ''}</div>
-                        <div style="display:flex;gap:6px;">
-                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-time="${escapeHtml(item.time||'')}" data-edit-activity="${escapeHtml(item.activity)}" data-edit-location="${escapeHtml(item.location||'')}" title="編輯">✎</button>
+                        <div class="itinerary-item-main"><span class="itinerary-type-icon" title="${escapeHtml(ITINERARY_TYPE_LABELS[itemType])}">${ITINERARY_TYPE_ICONS[itemType]}</span><div><div class="itinerary-item-heading"><strong>${escapeHtml(title)}</strong>${fixedTime ? `<span class="itinerary-fixed-time">${escapeHtml(fixedTime)}</span>` : ''}${priority ? `<span class="itinerary-priority ${priority}">${ITINERARY_PRIORITY_LABELS[priority]}</span>` : ''}</div>${area ? `<div class="itinerary-area">${escapeHtml(area)}</div>` : ''}${item.note ? `<div class="itinerary-note">${escapeHtml(item.note)}</div>` : ''}</div></div>
+                        <div class="itinerary-actions">
+                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-title="${escapeHtml(title)}" data-edit-area="${escapeHtml(area)}" data-edit-item-type="${escapeHtml(item.type || '')}" data-edit-priority="${escapeHtml(item.priority || '')}" data-edit-reservation-time="${escapeHtml(item.reservationTime || item.time || '')}" data-edit-note="${escapeHtml(item.note || '')}" title="編輯">✎</button>
                             ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
                         </div>
                       </div>`;
