@@ -369,18 +369,48 @@ input:focus { border-color: var(--primary); background: #fff; }
     gap: 10px;
     padding: 4px 0;
 }
+.companion-item.is-inactive { opacity: 0.58; }
+.companion-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    border-radius: 50%;
+    background: var(--secondary);
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+}
+.companion-identity { min-width: 0; display: flex; flex: 1; flex-direction: column; }
 .companion-name {
     font-weight: 600;
+    overflow-wrap: anywhere;
 }
+.companion-binding { color: var(--text-muted); font-size: 0.78rem; }
+.companion-badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .companion-role {
-    margin-left: auto;
-    color: var(--text-muted);
+    color: var(--primary);
+    background: var(--secondary);
     font-size: 0.85rem;
     font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 50px;
 }
+.companion-status { color: var(--text-muted); font-size: 0.78rem; }
+.companion-actions { display: flex; gap: 6px; }
+.companion-actions button { border: 0; background: transparent; color: var(--accent); cursor: pointer; padding: 6px; }
+.companion-manage-actions { margin-top: 8px; }
+.companion-manage-actions .btn { width: 100%; }
 .companion-invite-btn {
     width: 100%;
     margin-top: 12px;
+}
+
+@media (max-width: 600px) {
+    .companion-item { align-items: flex-start; flex-wrap: wrap; }
+    .companion-identity { flex-basis: calc(100% - 48px); }
+    .companion-badges, .companion-actions { margin-left: 42px; }
 }
 
 .summary-tags {

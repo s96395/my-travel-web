@@ -317,20 +317,108 @@ function setupCopyLinkButton() {
     };
 }
 
+function getParticipants(data = currentTripData) {
+    const participants = data?.participants;
+    if (!participants || typeof participants !== 'object' || Array.isArray(participants)) return [];
+    return Object.entries(participants).map(([id, participant]) => ({ id, ...participant }))
+        .sort(compareByFields(['order']));
+}
+
+function getParticipantUidConflicts(participants) {
+    const activeUids = new Map();
+    const conflicts = new Set();
+    participants.filter(participant => participant.status !== 'inactive' && participant.uid).forEach(participant => {
+        if (activeUids.has(participant.uid)) conflicts.add(participant.uid);
+        activeUids.set(participant.uid, participant.id);
+    });
+    return conflicts;
+}
+
+function getNextParticipantOrder(participants = getParticipants()) {
+    const orders = participants.map(participant => Number(participant.order)).filter(Number.isFinite);
+    return orders.length ? Math.max(...orders) + 1 : 1;
+}
+
+async function updateParticipant(participantId, participant) {
+    await updateDoc(doc(db, 'trips', tripId), {
+        [`participants.${participantId}`]: participant,
+        updatedAt: serverTimestamp()
+    });
+    currentTripData.participants = { ...(currentTripData.participants || {}), [participantId]: participant };
+    renderSummaryCard(currentTripData);
+    renderCompanionSection(currentTripData);
+    applyRoleUI();
+}
+
+function openParticipantNameModal(participant = null) {
+    if (!isTripOwner()) return;
+    openModal(participant ? '修改同行者姓名' : '新增同行者', `
+        ${participant ? `<input type="hidden" name="_participantId" value="${escapeHtml(participant.id)}">` : ''}
+        <div class="form-group"><label>姓名</label><input type="text" name="name" maxlength="100" value="${escapeHtml(participant?.name || '')}" required placeholder="例如：媽媽"></div>
+    `, participant ? 'edit-participant' : 'participant');
+}
+
+function setupParticipantActions() {
+    const listEl = document.getElementById('companion-list');
+    if (!listEl) return;
+    listEl.onclick = async (event) => {
+        if (!isTripOwner()) return;
+        const button = event.target.closest('[data-participant-action]');
+        if (!button) return;
+        const participants = getParticipants();
+        const participant = participants.find(item => item.id === button.dataset.participantId);
+        const action = button.dataset.participantAction;
+
+        if (action === 'add') return openParticipantNameModal();
+        if (action === 'create-owner') {
+            if (participants.some(item => item.uid === currentTripData.ownerId && item.status !== 'inactive')) {
+                showToast('Owner 同行者已存在。', 'error');
+                return;
+            }
+            const participantId = doc(collection(db, 'trips')).id;
+            await updateParticipant(participantId, {
+                name: currentTripData.ownerName || getUserNickname(), uid: currentTripData.ownerId,
+                order: getNextParticipantOrder(participants), status: 'active'
+            }).then(() => showToast('已建立 Owner 同行者 ✓')).catch(err => showErrorToast('saveRecord', err));
+            return;
+        }
+        if (!participant) return;
+        if (action === 'edit') return openParticipantNameModal(participant);
+        if (action === 'deactivate') {
+            if (participant.uid === currentTripData.ownerId) {
+                showToast('Owner 同行者不可停用。', 'error');
+                return;
+            }
+            if (!confirm(`確定要停用「${participant.name}」嗎？歷史資料仍會保留。`)) return;
+            await updateParticipant(participant.id, { ...currentTripData.participants[participant.id], status: 'inactive' })
+                .then(() => showToast('同行者已停用 ✓')).catch(err => showErrorToast('saveRecord', err));
+        }
+    };
+}
+
 async function renderCompanionSection(data) {
     const listEl = document.getElementById('companion-list');
     if (!listEl) return;
 
-    const ownerId = data?.ownerId || '';
-    const userIds = getTripUserIds(data);
-    const profiles = await Promise.all(userIds.map(uid => getTripUserProfile(uid)));
-    listEl.innerHTML = profiles.map(profile => {
-        const roleText = profile.uid === ownerId ? '建立者' : '旅伴';
-        const avatar = profile.photoURL
-            ? `<img src="${escapeHtml(safeUrl(profile.photoURL, ''))}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none'">`
-            : `<span style="width:32px;height:32px;border-radius:50%;background:var(--secondary);color:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-weight:700;">${escapeHtml(profile.displayName.charAt(0).toUpperCase())}</span>`;
-        return `<div class="companion-item">${avatar}<span class="companion-name">${escapeHtml(profile.displayName)}</span><span class="companion-role">${roleText}</span></div>`;
-    }).join('') || '<p class="info-empty">尚無旅伴資訊</p>';
+    const participants = getParticipants(data);
+    const conflicts = getParticipantUidConflicts(participants);
+    const hasOwnerParticipant = participants.some(participant => participant.uid === data.ownerId && participant.status !== 'inactive');
+    listEl.innerHTML = participants.map(participant => {
+        const isOwnerParticipant = participant.uid === data.ownerId;
+        const inactive = participant.status === 'inactive';
+        return `<div class="companion-item ${inactive ? 'is-inactive' : ''}">
+            <span class="companion-avatar">${escapeHtml((participant.name || '?').charAt(0).toUpperCase())}</span>
+            <span class="companion-identity"><span class="companion-name">${escapeHtml(participant.name || '未命名')}</span>
+                <span class="companion-binding">${participant.uid ? '已綁定帳號' : '未綁定帳號'}${conflicts.has(participant.uid) ? ' · 帳號綁定異常' : ''}</span></span>
+            <span class="companion-badges">${isOwnerParticipant ? '<span class="companion-role">Owner</span>' : ''}${inactive ? '<span class="companion-status">已停用</span>' : ''}</span>
+            ${isTripOwner(data) ? `<span class="companion-actions"><button type="button" data-participant-action="edit" data-participant-id="${escapeHtml(participant.id)}">改名</button>${!isOwnerParticipant && !inactive ? `<button type="button" data-participant-action="deactivate" data-participant-id="${escapeHtml(participant.id)}">停用</button>` : ''}</span>` : ''}
+        </div>`;
+    }).join('') || '<p class="info-empty">此旅程尚未建立同行者資料。</p>';
+    if (isTripOwner(data)) listEl.insertAdjacentHTML('beforeend', `
+        <div class="companion-manage-actions">
+            ${!hasOwnerParticipant ? '<button class="btn btn-primary" type="button" data-participant-action="create-owner">建立 Owner 同行者</button>' : '<button class="btn btn-primary" type="button" data-participant-action="add">＋ 新增同行者</button>'}
+        </div>`);
+    setupParticipantActions();
     setupCopyLinkButton();
 }
 
@@ -400,12 +488,12 @@ function renderSummaryCard(data) {
             </span>
         </div>
         <div class="summary-item companion-summary-item">
-            <span class="summary-label">旅伴（${getTripUserIds(data).length}）</span>
+            <span class="summary-label">同行者（${getParticipants(data).length}）</span>
             <div id="companion-list" class="summary-value companion-list">
                 <p class="info-empty" style="padding:0; text-align:left;">載入旅伴中...</p>
             </div>
             ${isTripOwner(data) ? `
-            <button class="btn btn-primary companion-invite-btn" id="copyLinkBtn" type="button">＋ 邀請旅伴</button>` : ''}
+            <button class="btn companion-invite-btn" id="copyLinkBtn" type="button">邀請共編 Member</button>` : ''}
         </div>
     `;
 }
@@ -800,6 +888,26 @@ function setupEvents(data) {
         const validationError = validateModalForm(type, data);
         if (validationError) {
             showToast(validationError, 'error');
+            return;
+        }
+
+        if (type === 'participant' || type === 'edit-participant') {
+            if (!isTripOwner()) return;
+            const name = (data.name || '').trim();
+            if (!name) { showToast('同行者姓名不可空白。', 'error'); return; }
+            if (name.length > 100) { showToast('文字欄位不可超過 100 字。', 'error'); return; }
+            const participantId = type === 'participant'
+                ? doc(collection(db, 'trips')).id
+                : data._participantId;
+            const existing = currentTripData.participants?.[participantId];
+            const participant = existing
+                ? { ...existing, name }
+                : { name, uid: null, order: getNextParticipantOrder(), status: 'active' };
+            try {
+                await updateParticipant(participantId, participant);
+                modal.style.display = 'none'; modalForm.reset();
+                showToast(type === 'participant' ? '同行者已新增 ✓' : '同行者姓名已更新 ✓');
+            } catch (err) { showErrorToast('saveRecord', err); }
             return;
         }
 
