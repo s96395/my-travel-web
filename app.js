@@ -1,5 +1,5 @@
 import { db } from './firebase-db.js';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { collection, doc, addDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
     generateShareKey, getUserNickname, showToast, showErrorToast, formatDate,
     normalizeFormData, validateFormData, TRIP_TYPE_OPTIONS, TRIP_STATUS_OPTIONS,
@@ -470,9 +470,15 @@ function setupEventListeners() {
 
         const key = generateShareKey();
         try {
+            const ownerParticipantId = doc(collection(db, "trips")).id;
             const docRef = await addDoc(collection(db, "trips"), {
                 ...data, shareKey: key, totalExpense: 0, totalTanks: 0,
                 ownerId: currentUser.uid, ownerName: getUserNickname(), memberIds: [currentUser.uid],
+                participants: {
+                    [ownerParticipantId]: {
+                        name: getUserNickname(), uid: currentUser.uid, order: 1, status: 'active'
+                    }
+                },
                 createdByName: getUserNickname(), createdAt: serverTimestamp()
             });
             location.href = `trip.html?id=${encodeURIComponent(docRef.id)}&key=${encodeURIComponent(key)}`;
