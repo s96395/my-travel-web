@@ -116,9 +116,15 @@ async function init() {
             }
             renderHeader(currentTripData);
             applyTripTypeUI(currentTripData.tripType);
-            renderCompanionSection(currentTripData).catch(err => showErrorToast('loadTrip', err));
+            setupCopyLinkButton();
+            renderCompanionSection(currentTripData);
             applyRoleUI();
-            setupEvents(currentTripData);
+            try {
+                setupEvents(currentTripData);
+            } catch (err) {
+                console.error('[setupTripEvents]', err);
+                showErrorToast('loadTrip', err);
+            }
             setupTodos(currentTripData.tripType);
             setupDeleteDelegation();
             setupFlightHotel(currentTripData);
@@ -320,7 +326,10 @@ function setupCopyLinkButton() {
 function getParticipants(data = currentTripData) {
     const participants = data?.participants;
     if (!participants || typeof participants !== 'object' || Array.isArray(participants)) return [];
-    return Object.entries(participants).map(([id, participant]) => ({ id, ...participant }))
+    return Object.entries(participants).map(([id, participant]) => ({
+        id,
+        ...(participant && typeof participant === 'object' && !Array.isArray(participant) ? participant : {})
+    }))
         .sort(compareByFields(['order']));
 }
 
@@ -363,7 +372,9 @@ function setupParticipantActions() {
     if (!listEl) return;
     listEl.onclick = async (event) => {
         if (!isTripOwner()) return;
-        const button = event.target.closest('[data-participant-action]');
+        const button = event.target instanceof Element
+            ? event.target.closest('[data-participant-action]')
+            : null;
         if (!button) return;
         const participants = getParticipants();
         const participant = participants.find(item => item.id === button.dataset.participantId);
@@ -396,30 +407,34 @@ function setupParticipantActions() {
     };
 }
 
-async function renderCompanionSection(data) {
+function renderCompanionSection(data) {
     const listEl = document.getElementById('companion-list');
     if (!listEl) return;
 
-    const participants = getParticipants(data);
-    const conflicts = getParticipantUidConflicts(participants);
-    const hasOwnerParticipant = participants.some(participant => participant.uid === data.ownerId && participant.status !== 'inactive');
-    listEl.innerHTML = participants.map(participant => {
-        const isOwnerParticipant = participant.uid === data.ownerId;
-        const inactive = participant.status === 'inactive';
-        return `<div class="companion-item ${inactive ? 'is-inactive' : ''}">
-            <span class="companion-avatar">${escapeHtml((participant.name || '?').charAt(0).toUpperCase())}</span>
-            <span class="companion-identity"><span class="companion-name">${escapeHtml(participant.name || '未命名')}</span>
-                <span class="companion-binding">${participant.uid ? '已綁定帳號' : '未綁定帳號'}${conflicts.has(participant.uid) ? ' · 帳號綁定異常' : ''}</span></span>
-            <span class="companion-badges">${isOwnerParticipant ? '<span class="companion-role">Owner</span>' : ''}${inactive ? '<span class="companion-status">已停用</span>' : ''}</span>
-            ${isTripOwner(data) ? `<span class="companion-actions"><button type="button" data-participant-action="edit" data-participant-id="${escapeHtml(participant.id)}">改名</button>${!isOwnerParticipant && !inactive ? `<button type="button" data-participant-action="deactivate" data-participant-id="${escapeHtml(participant.id)}">停用</button>` : ''}</span>` : ''}
-        </div>`;
-    }).join('') || '<p class="info-empty">此旅程尚未建立同行者資料。</p>';
-    if (isTripOwner(data)) listEl.insertAdjacentHTML('beforeend', `
-        <div class="companion-manage-actions">
-            ${!hasOwnerParticipant ? '<button class="btn btn-primary" type="button" data-participant-action="create-owner">建立 Owner 同行者</button>' : '<button class="btn btn-primary" type="button" data-participant-action="add">＋ 新增同行者</button>'}
-        </div>`);
-    setupParticipantActions();
-    setupCopyLinkButton();
+    try {
+        const participants = getParticipants(data);
+        const conflicts = getParticipantUidConflicts(participants);
+        const hasOwnerParticipant = participants.some(participant => participant.uid === data?.ownerId && participant.status !== 'inactive');
+        listEl.innerHTML = participants.map(participant => {
+            const isOwnerParticipant = participant.uid === data?.ownerId;
+            const inactive = participant.status === 'inactive';
+            return `<div class="companion-item ${inactive ? 'is-inactive' : ''}">
+                <span class="companion-avatar">${escapeHtml(String(participant.name || '?').charAt(0).toUpperCase())}</span>
+                <span class="companion-identity"><span class="companion-name">${escapeHtml(participant.name || '未命名')}</span>
+                    <span class="companion-binding">${participant.uid ? '已綁定帳號' : '未綁定帳號'}${conflicts.has(participant.uid) ? ' · 帳號綁定異常' : ''}</span></span>
+                <span class="companion-badges">${isOwnerParticipant ? '<span class="companion-role">Owner</span>' : ''}${inactive ? '<span class="companion-status">已停用</span>' : ''}</span>
+                ${isTripOwner(data) ? `<span class="companion-actions"><button type="button" data-participant-action="edit" data-participant-id="${escapeHtml(participant.id)}">改名</button>${!isOwnerParticipant && !inactive ? `<button type="button" data-participant-action="deactivate" data-participant-id="${escapeHtml(participant.id)}">停用</button>` : ''}</span>` : ''}
+            </div>`;
+        }).join('') || '<p class="info-empty">尚未建立同行者</p>';
+        if (isTripOwner(data)) listEl.insertAdjacentHTML('beforeend', `
+            <div class="companion-manage-actions">
+                ${!hasOwnerParticipant ? '<button class="btn btn-primary" type="button" data-participant-action="create-owner">建立我的同行者</button>' : '<button class="btn btn-primary" type="button" data-participant-action="add">＋ 新增同行者</button>'}
+            </div>`);
+        setupParticipantActions();
+    } catch (err) {
+        console.error('[renderCompanionSection]', err);
+        listEl.innerHTML = '<p class="info-empty">同行者資料暫時無法載入，請稍後再試。</p>';
+    }
 }
 
 function renderAccessError(message) {
@@ -986,7 +1001,7 @@ function setupEvents(data) {
                 const snap = await getDoc(doc(db, 'trips', tripId));
                 currentTripData = snap.data();
                 renderHeader(currentTripData);
-                renderCompanionSection(currentTripData).catch(err => showErrorToast('loadTrip', err));
+                renderCompanionSection(currentTripData);
                 applyTripTypeUI(currentTripData.tripType);
             } catch (err) { showErrorToast('saveRecord', err); }
             return;
