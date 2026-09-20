@@ -1,6 +1,6 @@
 import { db } from './firebase-db.js';
 import { 
-    doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, 
+    doc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, writeBatch,
     serverTimestamp, deleteField
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import {
@@ -22,6 +22,9 @@ const TODO_TEMPLATES = {
 
 let currentTripData = null;
 let currentUser = null;
+let currentItineraryItems = [];
+let itinerarySaveInProgress = false;
+const itineraryDayExpandedState = new Map();
 const DEFAULT_COVER_IMAGE = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828';
 const SYSTEM_OWNER_EMAIL = 's96395@gmail.com';
 const ITINERARY_TYPE_OPTIONS = ['attraction', 'restaurant', 'cafe', 'shopping', 'transport', 'other'];
@@ -94,6 +97,217 @@ function compareByFields(fields) {
             if (result !== 0) return result;
         }
         return String(a.id || '').localeCompare(String(b.id || ''));
+    };
+}
+
+function sortItineraryItems(items) {
+    return [...items].sort((a, b) => {
+        const dayResult = compareOptionalValues(a.day, b.day);
+        if (dayResult !== 0) return dayResult;
+        const aHasOrder = a.order !== undefined && a.order !== null && a.order !== '';
+        const bHasOrder = b.order !== undefined && b.order !== null && b.order !== '';
+        if (aHasOrder && bHasOrder) return compareOptionalValues(a.order, b.order) || String(a.id).localeCompare(String(b.id));
+        if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
+        return compareOptionalValues(a.time, b.time) || String(a.id).localeCompare(String(b.id));
+    });
+}
+
+function getInitialItineraryDayExpanded() {
+    return !window.matchMedia('(max-width: 768px)').matches;
+}
+
+function isItineraryDayExpanded(day) {
+    const key = String(day);
+    if (!itineraryDayExpandedState.has(key)) {
+        itineraryDayExpandedState.set(key, getInitialItineraryDayExpanded());
+    }
+    return itineraryDayExpandedState.get(key);
+}
+
+function getItineraryDayItems(items, day) {
+    return sortItineraryItems(items).filter(item => Number(item.day) === Number(day));
+}
+
+async function saveEditedItineraryDayMove(id, sourceDay, targetDay, editedData) {
+    const snapshot = await getDocs(collection(db, `trips/${tripId}/itinerary`));
+    const items = sortItineraryItems(snapshot.docs.map(item => ({ id: item.id, ...item.data() })));
+    const sourceItems = getItineraryDayItems(items, sourceDay).filter(item => item.id !== id);
+    const movedItem = items.find(item => item.id === id) || { id };
+    const targetItems = getItineraryDayItems(items, targetDay)
+        .filter(item => item.id !== id)
+        .concat({ ...movedItem, ...editedData, day: targetDay });
+    const batch = writeBatch(db);
+
+    sourceItems.forEach((item, index) => {
+        const order = index + 1;
+        if (Number(item.order) !== order) {
+            batch.update(doc(db, `trips/${tripId}/itinerary`, item.id), {
+                order, updatedAt: serverTimestamp(), ...getAuditUserFields('updated')
+            });
+        }
+    });
+    targetItems.forEach((item, index) => {
+        const order = index + 1;
+        const ref = doc(db, `trips/${tripId}/itinerary`, item.id);
+        if (item.id === id) {
+            batch.update(ref, { ...editedData, day: targetDay, order });
+        } else if (Number(item.order) !== order) {
+            batch.update(ref, { order, updatedAt: serverTimestamp(), ...getAuditUserFields('updated') });
+        }
+    });
+
+    await batch.commit();
+}
+
+function getItineraryDomIds(day) {
+    const zone = document.querySelector(`.itinerary-drop-zone[data-day="${CSS.escape(String(day))}"]`);
+    return zone ? [...zone.querySelectorAll('.itinerary-item[data-itinerary-id]')].map(item => item.dataset.itineraryId) : [];
+}
+
+function itinerarySequenceChanged(beforeIds, afterIds) {
+    return beforeIds.length !== afterIds.length || beforeIds.some((id, index) => id !== afterIds[index]);
+}
+
+async function saveDraggedItineraryOrder(movedId, sourceDay, targetDay) {
+    const affectedDays = [...new Set([Number(sourceDay), Number(targetDay)])];
+    const itemMap = new Map(currentItineraryItems.map(item => [item.id, item]));
+    const batch = writeBatch(db);
+    let hasWrites = false;
+
+    affectedDays.forEach(day => {
+        getItineraryDomIds(day).forEach((id, index) => {
+            const item = itemMap.get(id);
+            if (!item) return;
+            const order = index + 1;
+            const nextDay = id === movedId ? Number(targetDay) : Number(item.day);
+            const dayChanged = Number(item.day) !== nextDay;
+            const orderChanged = item.order === undefined || item.order === null || item.order === '' || Number(item.order) !== order;
+            if (!dayChanged && !orderChanged) return;
+
+            batch.update(doc(db, `trips/${tripId}/itinerary`, id), {
+                day: nextDay,
+                order,
+                updatedAt: serverTimestamp(),
+                ...getAuditUserFields('updated')
+            });
+            hasWrites = true;
+        });
+    });
+
+    if (hasWrites) await batch.commit();
+}
+
+function setupItineraryInteractions() {
+    const timeline = document.getElementById('itinerary-timeline');
+    if (!timeline) return;
+
+    timeline.onclick = (event) => {
+        const header = event.target.closest('.itinerary-day-header');
+        if (!header || itinerarySaveInProgress) return;
+        const day = header.dataset.day;
+        const content = timeline.querySelector(`.itinerary-day-content[data-day="${CSS.escape(day)}"]`);
+        if (!content) return;
+        const expanded = header.getAttribute('aria-expanded') !== 'true';
+        header.setAttribute('aria-expanded', String(expanded));
+        content.hidden = !expanded;
+        itineraryDayExpandedState.set(day, expanded);
+    };
+
+    timeline.onpointerdown = (event) => {
+        const handle = event.target.closest('.itinerary-drag-handle');
+        if (!handle || itinerarySaveInProgress || (event.pointerType === 'mouse' && event.button !== 0)) return;
+        const card = handle.closest('.itinerary-item[data-itinerary-id]');
+        const sourceZone = card?.closest('.itinerary-drop-zone');
+        if (!card || !sourceZone) return;
+
+        event.preventDefault();
+        const sourceDay = Number(sourceZone.dataset.day);
+        const originalSourceIds = getItineraryDomIds(sourceDay);
+        const rect = card.getBoundingClientRect();
+        const placeholder = document.createElement('div');
+        placeholder.className = 'itinerary-drag-placeholder';
+        placeholder.style.height = `${rect.height}px`;
+        card.before(placeholder);
+        document.body.appendChild(card);
+        card.classList.add('is-dragging');
+        Object.assign(card.style, {
+            position: 'fixed', width: `${rect.width}px`, height: `${rect.height}px`,
+            left: `${rect.left}px`, top: `${rect.top}px`, zIndex: '1000', margin: '0'
+        });
+
+        const drag = {
+            card, placeholder, sourceDay, originalSourceIds,
+            offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top,
+            clientX: event.clientX, clientY: event.clientY, active: true
+        };
+
+        const updateDropTarget = () => {
+            const hit = document.elementFromPoint(drag.clientX, drag.clientY);
+            const zone = hit?.closest('.itinerary-drop-zone');
+            if (!zone || zone.closest('.itinerary-day-content')?.hidden) return;
+            const hitCard = hit.closest('.itinerary-item[data-itinerary-id]');
+            if (hitCard && hitCard !== card) {
+                const hitRect = hitCard.getBoundingClientRect();
+                zone.insertBefore(placeholder, drag.clientY < hitRect.top + hitRect.height / 2 ? hitCard : hitCard.nextSibling);
+            } else if (!hitCard) {
+                zone.appendChild(placeholder);
+            }
+        };
+
+        const autoScroll = () => {
+            if (!drag.active) return;
+            const edge = 72;
+            const speed = drag.clientY < edge ? -14 : drag.clientY > window.innerHeight - edge ? 14 : 0;
+            if (speed) {
+                window.scrollBy(0, speed);
+                updateDropTarget();
+            }
+            drag.frame = requestAnimationFrame(autoScroll);
+        };
+
+        const controller = new AbortController();
+        const finish = async (cancelled = false) => {
+            if (!drag.active) return;
+            drag.active = false;
+            controller.abort();
+            cancelAnimationFrame(drag.frame);
+            placeholder.replaceWith(card);
+            card.classList.remove('is-dragging');
+            card.removeAttribute('style');
+
+            const targetZone = card.closest('.itinerary-drop-zone');
+            const targetDay = Number(targetZone?.dataset.day || sourceDay);
+            const sourceChanged = itinerarySequenceChanged(originalSourceIds, getItineraryDomIds(sourceDay));
+            const movedAcrossDays = targetDay !== sourceDay;
+            if (cancelled || (!sourceChanged && !movedAcrossDays)) {
+                if (cancelled) loadAllData();
+                return;
+            }
+
+            itinerarySaveInProgress = true;
+            timeline.classList.add('is-saving-order');
+            try {
+                await saveDraggedItineraryOrder(card.dataset.itineraryId, sourceDay, targetDay);
+                showToast('行程順序已更新 ✓');
+            } catch (err) {
+                showErrorToast('saveRecord', err);
+            } finally {
+                itinerarySaveInProgress = false;
+                timeline.classList.remove('is-saving-order');
+                await loadAllData();
+            }
+        };
+
+        window.addEventListener('pointermove', moveEvent => {
+            drag.clientX = moveEvent.clientX;
+            drag.clientY = moveEvent.clientY;
+            card.style.left = `${moveEvent.clientX - drag.offsetX}px`;
+            card.style.top = `${moveEvent.clientY - drag.offsetY}px`;
+            updateDropTarget();
+        }, { signal: controller.signal });
+        window.addEventListener('pointerup', () => finish(false), { signal: controller.signal, once: true });
+        window.addEventListener('pointercancel', () => finish(true), { signal: controller.signal, once: true });
+        autoScroll();
     };
 }
 
@@ -653,6 +867,7 @@ function setupDeleteDelegation() {
                 };
                 openModal('編輯行程', `
                     <input type="hidden" name="_editId" value="${escapeHtml(id)}">
+                    <input type="hidden" name="_originalDay" value="${escapeHtml(editBtn.dataset.editDay)}">
                     <div class="form-group"><label>行程日</label><select name="day" required>${getItineraryDayOptions(editBtn.dataset.editDay)}</select></div>
                     <div class="form-group"><label>行程名稱</label><input type="text" name="title" value="${escapeHtml(editBtn.dataset.editTitle)}" required></div>
                     <div class="form-group"><label>區域</label><input type="text" name="area" value="${escapeHtml(editBtn.dataset.editArea)}" placeholder="例如：海雲台"></div>
@@ -927,12 +1142,24 @@ function setupEvents(data) {
         }
 
         if (type === 'edit-itinerary') {
-            const id = data._editId; delete data._editId;
+            const id = data._editId;
+            const originalDay = Number(data._originalDay);
+            delete data._editId;
+            delete data._originalDay;
             if (data.day) data.day = Number(data.day);
-            if (data.order) data.order = Number(data.order);
             data.updatedAt = serverTimestamp();
             Object.assign(data, getAuditUserFields('updated'));
-            try { await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data); modal.style.display = 'none'; modalForm.reset(); showToast('行程已更新 ✓'); loadAllData(); } catch (err) { showErrorToast('saveRecord', err); }
+            try {
+                if (originalDay === data.day) {
+                    await updateDoc(doc(db, `trips/${tripId}/itinerary`, id), data);
+                } else {
+                    await saveEditedItineraryDayMove(id, originalDay, data.day, data);
+                }
+                modal.style.display = 'none'; modalForm.reset(); showToast('行程已更新 ✓'); loadAllData();
+            } catch (err) {
+                showErrorToast('saveRecord', err);
+                loadAllData();
+            }
             return;
         }
 
@@ -1128,37 +1355,48 @@ async function loadAllData() {
     // 行程
     try {
         const sI = await getDocs(collection(db, `trips/${tripId}/itinerary`));
-        const items = sI.docs.map(d => ({ id: d.id, ...d.data() }))
-            .sort((a, b) => {
-                const dayResult = compareOptionalValues(a.day, b.day);
-                if (dayResult !== 0) return dayResult;
-                const aHasOrder = a.order !== undefined && a.order !== null && a.order !== '';
-                const bHasOrder = b.order !== undefined && b.order !== null && b.order !== '';
-                if (aHasOrder && bHasOrder) return compareOptionalValues(a.order, b.order) || String(a.id).localeCompare(String(b.id));
-                if (aHasOrder !== bHasOrder) return aHasOrder ? -1 : 1;
-                return compareOptionalValues(a.time, b.time) || String(a.id).localeCompare(String(b.id));
-            });
-        let htmlI = ""; let lastDay = null;
+        const items = sortItineraryItems(sI.docs.map(d => ({ id: d.id, ...d.data() })));
+        currentItineraryItems = items;
+        const dayGroups = new Map();
         items.forEach(item => {
-            if (lastDay !== item.day) {
-                lastDay = item.day;
-                const dayAreas = [...new Set(items.filter(other => other.day === item.day).map(other => other.area || other.location).filter(Boolean))];
-                htmlI += `<h3 class="itinerary-day-title">Day ${escapeHtml(lastDay || '未設定')}${dayAreas.length ? `｜${escapeHtml(dayAreas.join('・'))}` : ''}</h3>`;
-            }
-            const title = item.title || item.activity || '未命名行程';
-            const area = item.area || item.location || '';
-            const fixedTime = item.reservationTime || '';
-            const itemType = ITINERARY_TYPE_OPTIONS.includes(item.type) ? item.type : 'other';
-            const priority = ITINERARY_PRIORITY_OPTIONS.includes(item.priority) ? item.priority : '';
-            htmlI += `<div class="itinerary-item">
-                        <div class="itinerary-item-main"><span class="itinerary-type-icon" title="${escapeHtml(ITINERARY_TYPE_LABELS[itemType])}">${ITINERARY_TYPE_ICONS[itemType]}</span><div><div class="itinerary-item-heading"><strong>${escapeHtml(title)}</strong>${fixedTime ? `<span class="itinerary-fixed-time">${escapeHtml(fixedTime)}</span>` : ''}${priority ? `<span class="itinerary-priority ${priority}">${ITINERARY_PRIORITY_LABELS[priority]}</span>` : ''}</div>${area ? `<div class="itinerary-area">${escapeHtml(area)}</div>` : ''}${item.note ? `<div class="itinerary-note">${escapeHtml(item.note)}</div>` : ''}</div></div>
-                        <div class="itinerary-actions">
-                            <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-title="${escapeHtml(title)}" data-edit-area="${escapeHtml(area)}" data-edit-item-type="${escapeHtml(item.type || '')}" data-edit-priority="${escapeHtml(item.priority || '')}" data-edit-reservation-time="${escapeHtml(item.reservationTime || '')}" data-edit-note="${escapeHtml(item.note || '')}" title="編輯">✎</button>
-                            ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
-                        </div>
-                      </div>`;
+            const dayKey = String(item.day ?? '');
+            if (!dayGroups.has(dayKey)) dayGroups.set(dayKey, []);
+            dayGroups.get(dayKey).push(item);
+        });
+
+        let htmlI = '';
+        dayGroups.forEach((dayItems, dayKey) => {
+            const expanded = isItineraryDayExpanded(dayKey);
+            const dayAreas = [...new Set(dayItems.map(item => item.area || item.location).filter(Boolean))];
+            const dayLabel = dayKey || '未設定';
+            const areaLabel = dayAreas.length ? dayAreas.join('・') : '尚未設定區域';
+            htmlI += `<section class="itinerary-day">
+                <button type="button" class="itinerary-day-header" data-day="${escapeHtml(dayKey)}" aria-expanded="${expanded}">
+                    <span class="itinerary-day-heading"><strong>Day ${escapeHtml(dayLabel)}</strong><span>${escapeHtml(areaLabel)}</span></span>
+                    <span class="itinerary-day-summary"><span>${dayItems.length} 個行程</span><span class="itinerary-day-indicator" aria-hidden="true">⌄</span></span>
+                </button>
+                <div class="itinerary-day-content" data-day="${escapeHtml(dayKey)}" ${expanded ? '' : 'hidden'}>
+                    <div class="itinerary-drop-zone" data-day="${escapeHtml(dayKey)}">`;
+
+            dayItems.forEach(item => {
+                const title = item.title || item.activity || '未命名行程';
+                const area = item.area || item.location || '';
+                const fixedTime = item.reservationTime || '';
+                const itemType = ITINERARY_TYPE_OPTIONS.includes(item.type) ? item.type : 'other';
+                const priority = ITINERARY_PRIORITY_OPTIONS.includes(item.priority) ? item.priority : '';
+                htmlI += `<div class="itinerary-item" data-itinerary-id="${escapeHtml(item.id)}" data-day="${escapeHtml(dayKey)}">
+                            <button type="button" class="itinerary-drag-handle" aria-label="拖曳調整「${escapeHtml(title)}」順序" title="拖曳排序"><span aria-hidden="true">⠿</span></button>
+                            <div class="itinerary-item-main"><span class="itinerary-type-icon" title="${escapeHtml(ITINERARY_TYPE_LABELS[itemType])}">${ITINERARY_TYPE_ICONS[itemType]}</span><div><div class="itinerary-item-heading"><strong>${escapeHtml(title)}</strong>${fixedTime ? `<span class="itinerary-fixed-time">${escapeHtml(fixedTime)}</span>` : ''}${priority ? `<span class="itinerary-priority ${priority}">${ITINERARY_PRIORITY_LABELS[priority]}</span>` : ''}</div>${area ? `<div class="itinerary-area">${escapeHtml(area)}</div>` : ''}${item.note ? `<div class="itinerary-note">${escapeHtml(item.note)}</div>` : ''}</div></div>
+                            <div class="itinerary-actions">
+                                <button class="edit-btn-sub" data-edit-type="itinerary" data-edit-id="${escapeHtml(item.id)}" data-edit-day="${escapeHtml(item.day || '')}" data-edit-title="${escapeHtml(title)}" data-edit-area="${escapeHtml(area)}" data-edit-item-type="${escapeHtml(item.type || '')}" data-edit-priority="${escapeHtml(item.priority || '')}" data-edit-reservation-time="${escapeHtml(item.reservationTime || '')}" data-edit-note="${escapeHtml(item.note || '')}" title="編輯">✎</button>
+                                ${isTripOwner() ? `<button class="delete-btn-sub" data-delete-type="itinerary" data-delete-id="${escapeHtml(item.id)}" data-owner-only="true" title="刪除">×</button>` : ''}
+                            </div>
+                          </div>`;
+            });
+            htmlI += '</div></div></section>';
         });
         document.getElementById('itinerary-timeline').innerHTML = htmlI || "<p style='color:#ccc; text-align:center; padding:30px 0;'>尚未建立行程</p>";
+        setupItineraryInteractions();
     } catch (err) {
         showErrorToast('loadTrip', err);
     }
