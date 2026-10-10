@@ -27,6 +27,7 @@ const S = {
 
 let stopTrips = null;
 const expenseWatch = new Map(); // tripId → 取消監看函式
+const retries = new Map();
 
 /* ---------- 畫面 ---------- */
 function render() {
@@ -67,7 +68,7 @@ function go(hash) {
 /* ---------- 資料監看 ---------- */
 function stopAll() {
   stopTrips?.(); stopTrips = null;
-  expenseWatch.forEach(off => off()); expenseWatch.clear();
+  expenseWatch.forEach(off => off()); expenseWatch.clear(); retries.clear();
   S.trips = []; S.expenses = new Map(); S.loadingTrips = true;
 }
 
@@ -76,7 +77,14 @@ function syncExpenseWatch() {
   expenseWatch.forEach((off, id) => { if (!ids.has(id)) { off(); expenseWatch.delete(id); S.expenses.delete(id); } });
   ids.forEach(id => {
     if (expenseWatch.has(id)) return;
-    expenseWatch.set(id, watchExpenses(id, list => { S.expenses.set(id, list); render(); }, err => console.warn('讀取支出失敗', id, err)));
+    // 剛建立的旅程還沒寫到伺服器時，讀支出會被安全規則擋下，稍後再試
+    expenseWatch.set(id, watchExpenses(id, list => { S.expenses.set(id, list); render(); }, err => {
+      expenseWatch.delete(id);
+      const n = (retries.get(id) || 0) + 1;
+      retries.set(id, n);
+      if (n <= 3) setTimeout(syncExpenseWatch, 1500 * n);
+      else console.warn('讀取支出失敗', id, err);
+    }));
   });
 }
 

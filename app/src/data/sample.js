@@ -19,8 +19,10 @@ const TRIPS = [
 ];
 
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
+// 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
 export async function addSampleTrips(user, nickname) {
   const batch = writeBatch(db);
+  const later = writeBatch(db);
   for (const t of TRIPS) {
     const ref = doc(collection(db, 'trips'));
     const me = doc(collection(db, 'trips')).id, an = doc(collection(db, 'trips')).id, rou = doc(collection(db, 'trips')).id;
@@ -41,10 +43,11 @@ export async function addSampleTrips(user, nickname) {
       if (mode === 'equal') e.personalShares = splitEqually(amount, people);
       if (mode === 'custom') e.personalShares = { [me]: amount / 2, [an]: amount / 2 };
       if (mode === 'me') e.personalShares = { [me]: amount };
-      batch.set(doc(collection(db, `trips/${ref.id}/expenses`)), e);
+      later.set(doc(collection(db, `trips/${ref.id}/expenses`)), e);
     }
   }
   await batch.commit();
+  await later.commit();
 }
 
 // 平均分攤：餘數從名單第一位起每人多分 1 元（同舊版）
