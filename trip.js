@@ -1102,7 +1102,7 @@ function setupFlightHotel(data) {
 
 function renderFlightDisplay(f) {
     const el = document.getElementById('flight-display');
-    const isEmpty = !f.airline && !f.depAirport && !f.retAirport;
+    const isEmpty = !Object.values(f).some(v => typeof v === 'string' && v.trim());
     if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫班機資訊</p>'; return; }
     const fmtTime = t => t ? String(t).replace('.', ':') : '—';
     const fmtDate = d => d ? String(d).replace(/-/g, '/') : '';
@@ -1149,7 +1149,7 @@ function bindSecretCodes(container) {
 function renderHotelDisplay(h) {
     const el = document.getElementById('hotel-display');
     if (!el) return;
-    const isEmpty = !h.hotelName && !h.hotelAddr;
+    const isEmpty = !Object.values(h).some(v => typeof v === 'string' && v.trim());
     if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫住宿資訊</p>'; return; }
     el.innerHTML = `
         <div class="info-grid">
