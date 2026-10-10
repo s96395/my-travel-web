@@ -62,7 +62,7 @@ function statsHtml(S, st) {
     ${statCard(S, 'type', '🎒', '$' + money(st.typeTotal), '旅程總支出（依類型）', '',
       st.types.map(([t, v]) => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_COLOR[t]}">$${money(v)}</b> <span class="muted">${pct(v)}%</span></span><span class="bar"><i style="width:${pct(v)}%;background:${TYPE_COLOR[t]}"></i></span></div>`).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">$${money(st.typeTotal)}</span></div>`)}
-    ${statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
+    ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
       st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
   </section>`;
 }

@@ -161,7 +161,11 @@ document.addEventListener('click', ev => {
   const fn = actions[el.dataset.act];
   if (fn) fn(el, ev);
 });
+// 中文輸入法組字時不重畫，否則會打斷組字；組完字再更新列表
 document.addEventListener('input', ev => {
+  if (ev.target.id === 'q' && !ev.isComposing) { S.q = ev.target.value; render(); }
+});
+document.addEventListener('compositionend', ev => {
   if (ev.target.id === 'q') { S.q = ev.target.value; render(); }
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetOpen()) closeSheet(); });

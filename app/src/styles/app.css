@@ -529,3 +529,9 @@ textarea.input{resize:vertical;font-family:inherit}
 .login{max-width:360px;margin-inline:auto}
 .login .brand{display:grid;gap:2px}
 .login-btn{gap:10px;padding-block:12px;font-weight:700}
+/* 沒有潛旅時只有三張統計卡 */
+.stats .stat:nth-child(3):last-child{grid-column:span 2}
+@media (min-width:1000px){
+  .device.wide .stats:not(:has(.stat:nth-child(4))){grid-template-columns:repeat(3,1fr)}
+  .device.wide .stats .stat:nth-child(3):last-child{grid-column:auto}
+}
