@@ -788,6 +788,12 @@ input:focus { border-color: var(--primary); background: #fff; }
 .info-flight-airport { font-size: 1rem; font-weight: 700; }
 .info-flight-time { font-size: 0.85rem; color: var(--text-muted); font-weight: 400; }
 .info-flight-arrow { font-size: 1.5rem; color: var(--accent); }
+.info-flight-row .info-flight-seg { flex: 1 1 100%; }
+.info-flight-route { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.info-flight-route .info-flight-arrow { font-size: 1rem; }
+.info-flight-route .info-flight-time { font-size: 0.95rem; color: var(--text-main); font-weight: 600; }
+.secret-code { font-family: monospace; font-size: 1rem; letter-spacing: 0.08em; color: var(--primary); background: #f5f5f5; border: 0; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+.secret-code:not(.shown)::after { content: ' 👁'; letter-spacing: 0; }
 .info-empty { color: var(--text-muted); font-weight: 400; font-size: 0.9rem; }
 
 @media (max-width: 600px) {

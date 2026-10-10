@@ -1055,14 +1055,28 @@ function setupFlightHotel(data) {
             </div>
             <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;">去程</p>
             <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="depAirport" value="${escapeHtml(f.depAirport||'')}" placeholder="例如：桃園機場"></div>
+                <div class="form-group" style="flex:1"><label>航班號</label><input type="text" name="depFlightNo" value="${escapeHtml(f.depFlightNo||'')}" placeholder="例如：JX310"></div>
+                <div class="form-group" style="flex:1"><label>日期</label><input type="date" name="depDate" value="${escapeHtml(f.depDate||'')}"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="depAirport" value="${escapeHtml(f.depAirport||'')}" placeholder="例如：臺中 RMQ（第 2 航廈）"></div>
                 <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="depTime" value="${escapeHtml(f.depTime||'')}"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>抵達機場</label><input type="text" name="depArrAirport" value="${escapeHtml(f.depArrAirport||'')}" placeholder="例如：釜山 PUS（國際航廈）"></div>
                 <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="arrTime" value="${escapeHtml(f.arrTime||'')}"></div>
             </div>
             <p style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin:8px 0 12px;">回程</p>
             <div style="display:flex;gap:12px;">
-                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="retAirport" value="${escapeHtml(f.retAirport||'')}" placeholder="例如：那霸機場"></div>
+                <div class="form-group" style="flex:1"><label>航班號</label><input type="text" name="retFlightNo" value="${escapeHtml(f.retFlightNo||'')}" placeholder="例如：JX311"></div>
+                <div class="form-group" style="flex:1"><label>日期</label><input type="date" name="retDate" value="${escapeHtml(f.retDate||'')}"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>出發機場</label><input type="text" name="retAirport" value="${escapeHtml(f.retAirport||'')}" placeholder="例如：釜山 PUS（國際航廈）"></div>
                 <div class="form-group" style="flex:1"><label>出發時間</label><input type="time" name="retDepTime" value="${escapeHtml(f.retDepTime||'')}"></div>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:2"><label>抵達機場</label><input type="text" name="retArrAirport" value="${escapeHtml(f.retArrAirport||'')}" placeholder="例如：臺中 RMQ（第 2 航廈）"></div>
                 <div class="form-group" style="flex:1"><label>抵達時間</label><input type="time" name="retArrTime" value="${escapeHtml(f.retArrTime||'')}"></div>
             </div>
         `, 'flight');
@@ -1074,7 +1088,10 @@ function setupFlightHotel(data) {
         openModal('住宿資訊', `
             <div class="form-group"><label>飯店名稱</label><input type="text" name="hotelName" value="${escapeHtml(h.hotelName||'')}" placeholder="例如：Rembrandt Style Naha"></div>
             <div class="form-group"><label>地址</label><input type="text" name="hotelAddr" value="${escapeHtml(h.hotelAddr||'')}" placeholder="飯店地址"></div>
-            <div class="form-group"><label>訂位代號</label><input type="text" name="hotelCode" value="${escapeHtml(h.hotelCode||'')}" placeholder="例如：XYZ789"></div>
+            <div style="display:flex;gap:12px;">
+                <div class="form-group" style="flex:1"><label>預訂確認碼</label><input type="text" name="hotelCode" value="${escapeHtml(h.hotelCode||'')}" placeholder="例如：XYZ789"></div>
+                <div class="form-group" style="flex:1"><label>PIN 碼</label><input type="text" name="hotelPin" value="${escapeHtml(h.hotelPin||'')}" placeholder="沒有可不填"></div>
+            </div>
             <div style="display:flex;gap:12px;">
                 <div class="form-group" style="flex:1"><label>Check-in 時間</label><input type="time" name="checkIn" value="${escapeHtml(h.checkIn||'')}"></div>
                 <div class="form-group" style="flex:1"><label>Check-out 時間</label><input type="time" name="checkOut" value="${escapeHtml(h.checkOut||'')}"></div>
@@ -1087,26 +1104,46 @@ function renderFlightDisplay(f) {
     const el = document.getElementById('flight-display');
     const isEmpty = !f.airline && !f.depAirport && !f.retAirport;
     if (isEmpty) { el.innerHTML = '<p class="info-empty">尚未填寫班機資訊</p>'; return; }
-    const fmt = t => t ? t.replace(':', '.') : '—';
+    const fmtTime = t => t ? String(t).replace('.', ':') : '—';
+    const fmtDate = d => d ? String(d).replace(/-/g, '/') : '';
+    // 舊資料沒有抵達機場時，去程抵達沿用回程出發機場，回程抵達沿用去程出發機場
+    const segment = (label, flightNo, date, from, depTime, to, arrTime) => `
+            <div class="info-flight-seg">
+                <span class="info-flight-label">${[label, flightNo, fmtDate(date)].filter(Boolean).map(escapeHtml).join('｜')}</span>
+                <span class="info-flight-route">
+                    <span class="info-flight-airport">${escapeHtml(from || '—')}</span>
+                    <span class="info-flight-time">${escapeHtml(fmtTime(depTime))}</span>
+                    <span class="info-flight-arrow">→</span>
+                    <span class="info-flight-airport">${escapeHtml(to || '—')}</span>
+                    <span class="info-flight-time">${escapeHtml(fmtTime(arrTime))}</span>
+                </span>
+            </div>`;
     el.innerHTML = `
         <div class="info-grid">
             ${f.airline ? `<div class="info-item"><span class="info-label">航空公司</span><span class="info-value">${escapeHtml(f.airline)}</span></div>` : ''}
-            ${f.flightCode ? `<div class="info-item"><span class="info-label">訂位代號</span><span class="info-value code">${escapeHtml(f.flightCode)}</span></div>` : ''}
+            ${f.flightCode ? `<div class="info-item"><span class="info-label">訂位代號</span><span class="info-value">${secretCodeHtml(f.flightCode)}</span></div>` : ''}
         </div>
         <div class="info-flight-row">
-            <div class="info-flight-seg">
-                <span class="info-flight-label">去程</span>
-                <span class="info-flight-airport">${escapeHtml(f.depAirport || '—')}</span>
-                <span class="info-flight-time">${escapeHtml(fmt(f.depTime))} → ${escapeHtml(fmt(f.arrTime))}</span>
-            </div>
-            <div class="info-flight-arrow">✈</div>
-            <div class="info-flight-seg">
-                <span class="info-flight-label">回程</span>
-                <span class="info-flight-airport">${escapeHtml(f.retAirport || '—')}</span>
-                <span class="info-flight-time">${escapeHtml(fmt(f.retDepTime))} → ${escapeHtml(fmt(f.retArrTime))}</span>
-            </div>
+            ${segment('去程', f.depFlightNo, f.depDate, f.depAirport, f.depTime, f.depArrAirport || f.retAirport, f.arrTime)}
+            ${segment('回程', f.retFlightNo, f.retDate, f.retAirport, f.retDepTime, f.retArrAirport || f.depAirport, f.retArrTime)}
         </div>
     `;
+    bindSecretCodes(el);
+}
+
+// 訂位代號、確認碼、PIN 碼預設遮蔽，點一下才顯示，避免分享畫面時外流
+function secretCodeHtml(value) {
+    return `<button type="button" class="secret-code" data-value="${escapeHtml(value)}" aria-label="點一下顯示">••••••</button>`;
+}
+
+function bindSecretCodes(container) {
+    container.querySelectorAll('.secret-code').forEach(btn => {
+        btn.onclick = () => {
+            const shown = btn.classList.toggle('shown');
+            btn.textContent = shown ? btn.dataset.value : '••••••';
+            btn.setAttribute('aria-label', shown ? '點一下隱藏' : '點一下顯示');
+        };
+    });
 }
 
 function renderHotelDisplay(h) {
@@ -1118,10 +1155,12 @@ function renderHotelDisplay(h) {
         <div class="info-grid">
             ${h.hotelName ? `<div class="info-item"><span class="info-label">飯店</span><span class="info-value"><strong>${escapeHtml(h.hotelName)}</strong></span></div>` : ''}
             ${h.hotelAddr ? `<div class="info-item"><span class="info-label">地址</span><span class="info-value">${escapeHtml(h.hotelAddr)}</span></div>` : ''}
-            ${h.hotelCode ? `<div class="info-item"><span class="info-label">訂位代號</span><span class="info-value code">${escapeHtml(h.hotelCode)}</span></div>` : ''}
+            ${h.hotelCode ? `<div class="info-item"><span class="info-label">預訂確認碼</span><span class="info-value">${secretCodeHtml(h.hotelCode)}</span></div>` : ''}
+            ${h.hotelPin ? `<div class="info-item"><span class="info-label">PIN 碼</span><span class="info-value">${secretCodeHtml(h.hotelPin)}</span></div>` : ''}
             ${(h.checkIn || h.checkOut) ? `<div class="info-item"><span class="info-label">Check-in / out</span><span class="info-value">${escapeHtml(h.checkIn||'—')} / ${escapeHtml(h.checkOut||'—')}</span></div>` : ''}
         </div>
     `;
+    bindSecretCodes(el);
 }
 
 async function loadAllData() {
