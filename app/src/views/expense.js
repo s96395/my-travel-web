@@ -1,5 +1,5 @@
 // 支出分頁：明細、分攤、結算、公費（規格書 F50–F56、S06、S07）
-// 手機用分段切換；電腦左邊明細、右邊結算與分攤，公費另一頁
+// 手機用分段切換；電腦左邊明細、右邊切換分攤或結算，公費另一頁
 import { esc, ICON, money, openSheet, $ } from '../ui/dom.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
 import {
@@ -34,11 +34,12 @@ export const canEdit = (S, trip, r) => trip.raw.ownerId === S.user.uid || (!!r?.
 export function renderExp(S, trip) {
   const c = ctxOf(S, trip);
   if (!c.expenses) return '<div class="empty">正在讀取支出…</div>';
+  // 電腦：左邊固定是明細，右邊一次只看「分攤」或「結算」，和手機的分頁一致
   if (S.wide) {
-    const seg = S.expSeg === 'fund' ? 'fund' : 'list';
-    return `${segs(S, [['list', '明細與結算'], ['fund', '公費']], seg)}
+    const seg = ['settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'share';
+    return `${segs(S, [['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
     ${seg === 'fund' ? `<div class="narrowcol">${expFund(S, c)}</div>`
-      : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${expSettle(S, c)}${expShare(S, c)}</div></div>`}`;
+      : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${seg === 'settle' ? expSettle(S, c) : expShare(S, c)}</div></div>`}`;
   }
   const seg = ['list', 'share', 'settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'list';
   return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
