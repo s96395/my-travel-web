@@ -1,6 +1,6 @@
 // Firebase 初始化。設定一律在啟動時從網路讀取（規格書 P09），讀不到就停止，不會改連其他環境
 import { initializeApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator } from 'firebase/auth';
+import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
 export let auth, db, envName;
@@ -12,7 +12,8 @@ export async function initFirebase() {
   if (!cfg.projectId || !cfg.apiKey) throw new Error('config-missing');
   const { env, emulator, ...options } = cfg;
   const app = initializeApp(options);
-  auth = getAuth(app);
+  // 登入狀態先存 localStorage：iPhone 加到主畫面的 App 關掉再開時，IndexedDB 裡的登入狀態可能讀不到
+  auth = initializeAuth(app, { persistence: [browserLocalPersistence, indexedDBLocalPersistence], popupRedirectResolver: browserPopupRedirectResolver });
   db = getFirestore(app);
   envName = env || 'production';
   if (emulator) {
