@@ -15,7 +15,7 @@ import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './da
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
-import { allFlights, allStays, flightFormSheet, stayFormSheet, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
+import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
@@ -38,7 +38,7 @@ const S = {
   trips: [], expenses: new Map(), loadingTrips: true,
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
-  flightDocs: [], stayDocs: [], loadingMove: false, reveal: {},
+  flightDocs: [], stayDocs: [], transitDocs: [], loadingMove: false, reveal: {},
   todoDocs: [], loadingTodo: false,
   diveDocs: [], loadingDive: false,
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
@@ -114,7 +114,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -125,7 +125,7 @@ function syncItineraryWatch() {
 
 function fillFromLocal(rec) {
   const x = rec?.subs || {};
-  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], todoDocs: x.todos || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
 }
 
 /* ---------- 下載供離線使用 ---------- */
@@ -188,11 +188,12 @@ function startTripWatch(tripId) {
     render();
   };
   let got = 0;
-  const moveLoaded = () => { if (++got >= 2) S.loadingMove = false; };
+  const moveLoaded = () => { if (++got >= 3) S.loadingMove = false; };
   itin.stops = [
     watchItinerary(tripId, ok(list => { S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
+    watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
@@ -482,6 +483,14 @@ const actions = {
   saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
   delFlight: el => removeRecord(el, 'flights', '已刪除航段'),
   delStay: el => removeRecord(el, 'stays', '已刪除住宿'),
+  transitForm(el) {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const t = S.transitDocs.find(x => x.id === el.dataset.id);
+    transitFormSheet(trip, t, canDelRecord(trip, t));
+  },
+  saveTransit: el => saveRecord(el, 'transits', readTransitForm(), () => S.transitDocs, ['已新增交通，會依出發時間排序', '已更新交通']),
+  delTransit: el => removeRecord(el, 'transits', '已刪除交通'),
   diveForm(el) {
     const trip = curTrip();
     if (!trip || S.offline) return;
