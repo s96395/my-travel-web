@@ -1,4 +1,4 @@
-// 交通住宿分頁：班機與住宿都可以多筆（規格書 F30–F32）
+// 交通住宿分頁：班機、其他交通（船、高鐵、火車、巴士）與住宿都可以多筆（規格書 F30–F32）
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { monthDay } from '../lib/dates.js';
 import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
@@ -47,13 +47,36 @@ function stayCard(S, s) {
   </article>`;
 }
 
+// 其他交通：時間都是當地時間，同一段不跨時區，當成 UTC 直接相減，不受手機所在時區的夏令時間影響
+export const TRANSIT_MODES = [['船', '⛴️'], ['高鐵', '🚄'], ['火車', '🚆'], ['巴士', '🚌']];
+const modeIcon = m => (TRANSIT_MODES.find(x => x[0] === m) || TRANSIT_MODES[0])[1];
+const localMin = s => { const t = s ? Date.parse(s.replace(' ', 'T') + 'Z') : NaN; return Number.isNaN(t) ? NaN : t / 60000; };
+const transitMinutes = t => { const m = localMin(t.arr) - localMin(t.dep); return m > 0 ? m : 0; };
+export const sortTransits = list => [...list].sort((a, b) => (a.dep || '').localeCompare(b.dep || ''));
+
+function transitCard(S, t) {
+  const m = transitMinutes(t);
+  const port = (name, time, right) => `<div class="port${right ? ' r' : ''}"><b style="font-size:18px">${esc(name || '—')}</b><span class="t">${hm(time)}</span></div>`;
+  return `<article class="flight">
+    <div class="top"><span><b>${modeIcon(t.mode)} ${esc(t.mode)}</b>・${esc(t.operator || '未填業者')} <span class="data">${esc(t.number)}</span></span><span class="row" style="gap:6px"><span class="num muted">${t.dep ? monthDay(t.dep.slice(0, 10)) : ''}</span>${editBtn(S, 'transitForm', t.id, '編輯這段交通')}</span></div>
+    <div class="route">
+      ${port(t.from, t.dep)}
+      <div class="mid"><span>${m ? durationText(m) : '—'}</span><span class="line"></span></div>
+      ${port(t.to, t.arr, true)}
+    </div>
+    ${t.pnr || t.note ? `<div class="foot">${t.pnr ? `<span class="muted">訂位代號</span>${secret(S, t.id + '-pnr', t.pnr)}` : ''}${t.note ? `<span class="muted">${esc(t.note)}</span>` : ''}</div>` : ''}
+  </article>`;
+}
+
 export function renderMove(S, trip) {
   if (S.loadingMove) return '<div class="empty">正在讀取班機與住宿…</div>';
-  const flights = sortFlights(allFlights(S, trip)), stays = sortStays(allStays(S, trip));
+  const flights = sortFlights(allFlights(S, trip)), stays = sortStays(allStays(S, trip)), transits = sortTransits(S.transitDocs);
   return `
   <div class="sec-h"><h2>班機</h2>${addBtn(S, 'flightForm', '新增航段')}</div>
-  <div class="list two">${flights.map(f => flightCard(S, f)).join('') || `<div class="empty">還沒有班機${trip.type === '潛旅' ? '，搭船的話可以不用填' : ''}</div>`}</div>
+  <div class="list two">${flights.map(f => flightCard(S, f)).join('') || `<div class="empty">還沒有班機${trip.type === '潛旅' ? '，搭船的話記在下方「其他交通」' : ''}</div>`}</div>
   <p class="small muted" style="margin:-8px 0 0">轉機請分成兩個航段輸入，會依實際起飛時間排序。</p>
+  <div class="sec-h"><h2>其他交通</h2>${addBtn(S, 'transitForm', '新增交通')}</div>
+  <div class="list two">${transits.map(t => transitCard(S, t)).join('') || '<div class="empty">船、高鐵、火車、巴士都可以記在這裡</div>'}</div>
   <div class="sec-h"><h2>住宿</h2>${addBtn(S, 'stayForm', '新增住宿')}</div>
   <div class="list two">${stays.map(s => stayCard(S, s)).join('') || '<div class="empty">還沒有住宿</div>'}</div>`;
 }
@@ -125,6 +148,29 @@ export function readFlightForm() {
   if (need.length) { need.forEach(k => $(`#ff-${k}`).classList.add('err')); return { error: '請把紅框的欄位填好' }; }
   if (!flightMinutes(f)) { $('#ff-arr').classList.add('err'); return { error: '抵達時間早於起飛時間，請檢查' }; }
   return { data: f };
+}
+
+export function transitFormSheet(trip, t, canDel) {
+  const start = trip.start || '';
+  const v = t || { mode: trip.type === '潛旅' ? '船' : '高鐵', operator: '', number: '', from: '', to: '', dep: start ? `${start} 08:00` : '', arr: start ? `${start} 09:00` : '', pnr: '', note: '' };
+  openSheet(`${head(t ? '編輯交通' : '新增交通')}
+    <div class="seg" id="tf-mode" style="justify-self:start;max-width:100%;overflow-x:auto">${TRANSIT_MODES.map(([m, i]) => `<button type="button" data-act="pickSeg" data-v="${m}" aria-pressed="${v.mode === m}">${i} ${m}</button>`).join('')}</div>
+    <div class="grid2">${fld('tf-operator', '業者', v.operator, 'text', 'placeholder="例如：凱旋客輪、台灣高鐵" maxlength="30"')}${fld('tf-number', '班次／車次', v.number, 'text', 'placeholder="例如：0803" maxlength="20"')}</div>
+    <div class="grid2">${fld('tf-from', '出發地', v.from, 'text', 'placeholder="例如：台東富岡漁港" maxlength="30"')}${fld('tf-to', '抵達地', v.to, 'text', 'placeholder="例如：綠島南寮漁港" maxlength="30"')}</div>
+    ${fld('tf-dep', '出發時間', (v.dep || '').replace(' ', 'T'), 'datetime-local')}
+    ${fld('tf-arr', '抵達時間', (v.arr || '').replace(' ', 'T'), 'datetime-local')}
+    <div class="grid2">${fld('tf-pnr', '訂位代號', v.pnr, 'text', 'placeholder="沒有可不填" maxlength="20"')}${fld('tf-note', '備註', v.note, 'text', 'placeholder="例如：提前 30 分鐘報到" maxlength="100"')}</div>
+    <p class="small muted" style="margin:0">時間請填當地時間。訂位代號平常會遮起來，點一下才會顯示。</p>
+    <div class="row">${delBtn(t, 'delTransit', canDel)}<button type="button" class="btn primary grow" data-act="saveTransit" data-id="${esc(t?.id || '')}">儲存</button></div>`);
+}
+
+export function readTransitForm() {
+  document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
+  const t = { mode: $('#tf-mode [aria-pressed="true"]')?.dataset.v || '船', operator: val('tf-operator'), number: val('tf-number'), from: val('tf-from'), to: val('tf-to'), dep: val('tf-dep').replace('T', ' '), arr: val('tf-arr').replace('T', ' '), pnr: val('tf-pnr'), note: val('tf-note') };
+  const need = ['from', 'to', 'dep'].filter(k => !t[k]);
+  if (need.length) { need.forEach(k => $(`#tf-${k}`).classList.add('err')); return { error: '請把紅框的欄位填好' }; }
+  if (t.arr && !transitMinutes(t)) { $('#tf-arr').classList.add('err'); return { error: '抵達時間要晚於出發時間' }; }
+  return { data: t };
 }
 
 export function stayFormSheet(trip, s, canDel) {
