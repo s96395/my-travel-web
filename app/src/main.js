@@ -132,20 +132,23 @@ async function loadOffline(user) {
     if (acc && acc.uid !== user.uid) await clearOffline();
     await saveAccount({ uid: user.uid, name: user.displayName || '', email: user.email || '', nickname: S.nickname });
     const list = await listOffline(user.uid);
-    if (S.user?.uid === user.uid) { S.dl = Object.fromEntries(list.map(r => [r.id, r.savedAt])); render(); }
+    if (S.user?.uid === user.uid) { S.dl = Object.fromEntries(list.map(r => [r.id, r.savedAt])); dlReady = true; refreshOffline(); render(); }
   } catch (err) { console.warn('讀取離線資料失敗', err); }
 }
-// 連上網路讀到旅程清單後：已被移出或刪除的旅程刪掉離線資料（P08），其他的重新下載一次
-let dlChecked = false;
+// 每次讀到旅程清單：已被移出或刪除的旅程刪掉離線資料（P08）；開啟後第一次讀到時，其他下載過的旅程重新下載一次
+let dlChecked = false, dlReady = false; // dlReady：已讀出這台裝置下載過哪些旅程
 async function refreshOffline() {
-  if (dlChecked || S.offline) return;
-  dlChecked = true;
+  if (S.offline || !dlReady || S.loadingTrips) return;
   const uid = S.user.uid, mine = new Set(S.trips.map(t => t.id));
-  for (const id of Object.keys(S.dl)) {
-    try {
-      if (!mine.has(id)) { await removeOffline(id); delete S.dl[id]; }
-      else S.dl[id] = await downloadTrip(id, uid);
-    } catch (err) { console.warn('更新離線資料失敗', id, err); }
+  const gone = Object.keys(S.dl).filter(id => !mine.has(id));
+  for (const id of gone) {
+    try { await removeOffline(id); delete S.dl[id]; } catch (err) { console.warn('刪除離線資料失敗', id, err); }
+  }
+  if (!dlChecked) {
+    dlChecked = true;
+    for (const id of Object.keys(S.dl)) {
+      try { S.dl[id] = await downloadTrip(id, uid); } catch (err) { console.warn('更新離線資料失敗', id, err); }
+    }
   }
   render();
 }
@@ -355,7 +358,8 @@ const actions = {
     closeSheet();
     // 登出時清掉手機上的旅程資料（P07）
     await clearOffline().catch(err => console.warn('清除離線資料失敗', err));
-    if (S.localOnly) { location.reload(); return; }
+    // 沒網路開啟時還沒連上 Firebase，記下來等下次連線時再真的登出
+    if (S.localOnly) { store.set('pendingLogout', '1'); location.reload(); return; }
     await logOut();
     go('#/');
     toast('已登出');
@@ -755,12 +759,15 @@ async function boot() {
     return;
   }
   exposeTestSignIn();
+  if (store.get('pendingLogout') === '1') {
+    try { await logOut(); store.set('pendingLogout', ''); } catch (err) { console.warn('登出失敗', err); }
+  }
   watchUser(async user => {
     stopAll();
     S.user = user;
     S.nickname = user ? await nicknameOf(user) : '';
     S.ready = true;
-    S.dl = {}; dlChecked = false;
+    S.dl = {}; dlChecked = false; dlReady = false;
     if (user) { startWatching(user); loadOffline(user); }
     render();
   });
