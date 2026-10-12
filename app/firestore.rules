@@ -52,7 +52,7 @@ service cloud.firestore {
         && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1;
     }
 
-    // 共編成員綁定同行者：只能動 bindPid 指定的那一位，而且只能綁自己、那一位原本沒有帳號
+    // 共編成員綁定同行者：只能動 bindPid 指定的那一位，而且只能綁自己、那一位原本沒有帳號；綁定時可以順便改名字
     function bindsSelfOnly() {
       let before = resource.data.get('participants', {});
       let after = request.resource.data.get('participants', {});
@@ -62,7 +62,8 @@ service cloud.firestore {
           && after.diff(before).affectedKeys().hasOnly([pid])
           && after[pid].get('uid', '') == request.auth.uid
           && (!(pid in before)
-            || (before[pid].get('uid', '') == '' && after[pid].diff(before[pid]).affectedKeys().hasOnly(['uid']))));
+            || (before[pid].get('uid', '') == '' && after[pid].diff(before[pid]).affectedKeys().hasOnly(['uid', 'name'])
+              && after[pid].get('name', '') is string && after[pid].get('name', '').size() > 0 && after[pid].get('name', '').size() <= 40)));
     }
 
     // 共編成員一般修改（支出總額、公費、行程以外的欄位）：不能改建立者、邀請碼與別人的成員身分

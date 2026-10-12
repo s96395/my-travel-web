@@ -96,9 +96,12 @@ test('共編成員：只能把沒有帳號的同行者綁成自己', async () =>
   await assertFails(updateDoc(trip('member'), { 'participants.p1.uid': 'member', bindPid: 'p1' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'member', 'participants.p3.name': '改名', bindPid: 'p2' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p1.uid': deleteField(), bindPid: 'p1' }));
-  await assertFails(updateDoc(trip('member'), { 'participants.p2': { name: '改掉名字', uid: 'member', order: 2 }, bindPid: 'p2' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2': { name: '改掉名字', uid: 'member', order: 5 }, bindPid: 'p2' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'member', 'participants.p2.name': '', bindPid: 'p2' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p3.uid': 'member', 'participants.p3.status': 'inactive', bindPid: 'p3' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p3.uid': 'member', bindPid: 'p3' }));
+  await assertSucceeds(updateDoc(trip('owner'), { 'participants.p3.uid': '' }));
+  await assertSucceeds(updateDoc(trip('member'), { 'participants.p3.uid': 'member', 'participants.p3.name': '俞皓', bindPid: 'p3' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p9': { name: '新朋友', uid: 'member', order: 9 }, bindPid: 'p9' }));
 });
 test('共編成員：可以看、上傳與刪除這趟的照片，但不能放非圖片', async () => {
