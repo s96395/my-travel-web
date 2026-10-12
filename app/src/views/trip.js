@@ -15,15 +15,41 @@ const LATER = { dive: '之後的批次' };
 
 export const tabButtons = (trip, tab) => tabsFor(trip).map(t => `<button type="button" data-act="tab" data-v="${t[0]}" ${tab === t[0] ? 'aria-current="page"' : ''}>${ICON[t[2]]}<span>${t[1]}</span></button>`).join('');
 
+const DL = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+const OK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>';
+const pad = n => String(n).padStart(2, '0');
+export const dlTime = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const device = S => (S.wide ? '這台電腦' : '這支手機');
+
+// 下載供離線使用（規格書 P05）
+function dlLine(S, t) {
+  const at = S.dl[t.id], off = S.offline ? 'disabled' : '';
+  if (S.dlBusy === t.id) return '<span class="grow" style="flex:1"><b>下載中…</b><div class="bar" style="margin-top:6px"><i style="width:60%"></i></div></span>';
+  if (!at) {
+    return `<span style="color:var(--muted)">${DL}</span><span class="grow" style="flex:1">還沒下載到${device(S)}<div class="muted">下載後沒有網路也能看行程、班機、住宿、待辦、支出</div></span>
+      <button type="button" class="btn sm primary" data-act="download" ${off}>下載供離線使用</button>`;
+  }
+  return `<span style="color:var(--good)">${OK}</span><span class="grow" style="flex:1">已可離線查看<div class="muted">最後更新 ${dlTime(at)}</div></span>
+    ${S.localOnly ? '' : `<button type="button" class="btn sm" data-act="download" ${off}>重新下載</button>`}`;
+}
+
+function offBanner(S, t) {
+  if (!S.offline) return '';
+  const at = S.dl[t?.id];
+  const msg = !t || at ? `只能查看，暫時不能修改。${S.localOnly && at ? `顯示的是 ${dlTime(at)} 下載的資料。` : ''}` : `這趟還沒下載到${device(S)}，連上網路後按「下載供離線使用」。`;
+  return `<div class="banner" role="status"><b>離線中</b><span>${msg}</span></div>`;
+}
+
 const avatar = (p, i) => `<span class="avatar${p.uid ? '' : ' unbound'}" data-c="${i % 3}" title="${esc(p.name)}">${esc((p.name || '?').slice(0, 1))}</span>`;
 
-function tripHead(t) {
+function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   return `<div class="tripcover">${coverHtml(t, true)}</div>
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
     ${people.length ? `<div class="row"><div class="people">${people.map(avatar).join('')}</div><span class="small muted grow">${people.map(p => esc(p.name)).join('、')}</span></div>` : ''}
+    <div class="dl">${dlLine(S, t)}</div>
   </div>`;
 }
 
@@ -37,11 +63,11 @@ export function renderTrip(S) {
   const VIEWS = { plan: renderPlan, move: renderMove, todo: renderTodo, exp: renderExp, more: renderMore };
   const body = VIEWS[tab] ? VIEWS[tab](S, t) : `<div class="empty">這個分頁會在${LATER[tab]}加入。</div>`;
   return `
-  ${S.offline ? '<div class="banner" role="status"><b>離線中</b><span>只能查看，暫時不能修改。</span></div>' : ''}
+  ${offBanner(S, t)}
   <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1><span class="label">${tabsFor(t).find(x => x[0] === tab)[1]}</span></header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
-    ${tab === 'plan' || S.wide ? tripHead(t) : ''}
+    ${tab === 'plan' || S.wide ? tripHead(S, t) : ''}
     ${body}
   </div>`;
 }

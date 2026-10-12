@@ -86,7 +86,7 @@ export function renderHome(S) {
   const years = [...new Set(trips.map(t => (t.start || '未知').slice(0, 4)))].sort().reverse();
   const loading = S.loadingTrips;
   return `
-  ${S.offline ? '<div class="banner" role="status"><b>離線中</b><span>只能查看，暫時不能修改。</span></div>' : ''}
+  ${S.offline ? `<div class="banner" role="status"><b>離線中</b><span>${S.localOnly ? `只顯示下載到${S.wide ? '這台電腦' : '這支手機'}的旅程，只能查看。` : '只能查看，暫時不能修改。'}</span></div>` : ''}
   <header class="appbar" id="appbar">
     <div class="brand" style="flex:1">沈迷旅行<small>ADDICTED TO YSHEN TRAVEL</small></div>
     ${S.wide ? `<button type="button" class="btn primary" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>` : ''}
@@ -99,7 +99,8 @@ export function renderHome(S) {
     ${loading ? '' : statsHtml(S, st)}
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
-    ${!loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟${S.env !== 'production' ? '，或在帳號選單載入範例旅程' : ''}。</div>` : ''}
+    ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按「下載供離線使用」。</div>' : ''}
+    ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟${S.env !== 'production' ? '，或在帳號選單載入範例旅程' : ''}。</div>` : ''}
     ${years.map(y => {
       const ts = list.filter(t => (t.start || '未知').startsWith(y));
       const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (S.wide || y === years[0]));
