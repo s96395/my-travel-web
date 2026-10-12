@@ -74,6 +74,17 @@ test('公費不夠時保管人先墊，差額照樣加總為零', () => {
   assert.deepEqual(s.tx, [{ from: 'p2', to: 'p1', v: 300 }]);
 });
 
+test('多人一起付：每人照自己付的金額算已付', () => {
+  const ex = [{ amount: 20962, payerId: 'multi', payers: { p1: 962, p2: 20000 }, personalShares: { p1: 962, p2: 20000 } }];
+  const s = settlement(ex, people, { on: false }, []);
+  assert.equal(s.rows.p1.paid, 962);
+  assert.equal(s.rows.p2.paid, 20000);
+  assert.equal(s.noPayer, 0);
+  assert.deepEqual(s.tx, []);
+  const s2 = settlement([{ amount: 900, payerId: 'multi', payers: { p1: 600, p2: 300 }, personalShares: { p1: 300, p2: 300, p3: 300 } }], people, { on: false }, []);
+  assert.deepEqual(s2.tx, [{ from: 'p3', to: 'p1', v: 300 }]);
+});
+
 test('已還款代號', () => {
   assert.equal(repaidKey({ from: 'a', to: 'b', v: 12.5 }), 'a_b_12p5');
 });

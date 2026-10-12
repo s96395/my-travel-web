@@ -5,8 +5,14 @@
 export const CATS = ['交通', '住宿', '餐飲', '景點', '購物', '保險/簽證', '潛水費用', '電信費', '其他'];
 export const PAYS = ['刷卡', '現金', '行動支付', '其他'];
 export const FUND = 'fund'; // 付款人是公費時的代號
+export const MULTI = 'multi'; // 多人一起付，每人付的金額記在 payers
 
 export const amountOf = e => Number(e.amount) || 0;
+// 這筆每人實際付了多少；公費支付或沒填付款人時是空的
+export function paidOf(e) {
+  if (e.payerId === MULTI) return Object.fromEntries(Object.entries(e.payers || {}).map(([k, v]) => [k, Number(v) || 0]));
+  return e.payerId && e.payerId !== FUND ? { [e.payerId]: amountOf(e) } : {};
+}
 export const payMethodOf = e => e.payMethod || e.paymentMethod || '';
 
 // 平均分攤：照舊版規則，除不盡的部分從名單前面的人開始各多分 1（有小數時以最小位數為單位）
@@ -73,7 +79,8 @@ export function settlement(expenses, people, fund, deposits) {
   people.forEach(p => row(p.id));
   const counted = expenses.filter(e => e.payerId && isSplit(e, people) && (e.payerId !== FUND || fund.on));
   counted.forEach(e => {
-    if (e.payerId !== FUND) row(e.payerId).paid += amountOf(e);
+    const pd = paidOf(e);
+    for (const k in pd) row(k).paid += pd[k];
     const s = sharesOf(e, people);
     for (const k in s) row(k).owe += s[k];
   });
