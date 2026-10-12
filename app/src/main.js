@@ -20,6 +20,7 @@ import { missingTemplate } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
+import { diveFormSheet, readDiveForm, totalTanks } from './views/dive.js';
 import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl } from './views/more.js';
 import { renderJoin } from './views/join.js';
 import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll } from './data/people.js';
@@ -39,6 +40,7 @@ const S = {
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
   flightDocs: [], stayDocs: [], loadingMove: false, reveal: {},
   todoDocs: [], loadingTodo: false,
+  diveDocs: [], loadingDive: false,
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
@@ -112,7 +114,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -123,7 +125,7 @@ function syncItineraryWatch() {
 
 function fillFromLocal(rec) {
   const x = rec?.subs || {};
-  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], todoDocs: x.todos || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false });
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], todoDocs: x.todos || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
 }
 
 /* ---------- 下載供離線使用 ---------- */
@@ -181,7 +183,7 @@ function startTripWatch(tripId) {
     itin.stops.forEach(off => off()); itin.stops = [];
     if (++itin.tries <= 3) { setTimeout(() => itin.tripId === tripId && !itin.stops.length && startTripWatch(tripId), 1500 * itin.tries); return; }
     console.error(err);
-    S.loadingItems = false; S.loadingMove = false; S.loadingTodo = false;
+    S.loadingItems = false; S.loadingMove = false; S.loadingTodo = false; S.loadingDive = false;
     toast('讀取旅程資料失敗，請重新整理再試');
     render();
   };
@@ -193,6 +195,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
+    watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
   ];
 }
 
@@ -301,6 +304,13 @@ function syncTotal(change) {
   const list = (S.expenses.get(S.tripId) || []).filter(e => e.id !== change.id);
   const total = [...list, ...(change.amount === undefined ? [] : [change])].reduce((a, e) => a + amountOf(e), 0);
   updateTrip(S.tripId, { totalExpense: total }).catch(err => console.warn('總支出沒有更新', err));
+}
+
+// 潛水紀錄變動後，把累計瓶數寫回旅程主檔（首頁卡片與統計讀這個欄位）
+function syncTanks() {
+  const trip = curTrip(), total = totalTanks(S.diveDocs);
+  if (!trip || trip.type !== '潛旅' || S.offline || trip.tanks === total) return;
+  updateTrip(S.tripId, { totalTanks: total }).catch(err => console.warn('累計瓶數沒有更新', err));
 }
 
 function onDrop(id, t) {
@@ -470,6 +480,14 @@ const actions = {
   saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
   delFlight: el => removeRecord(el, 'flights', '已刪除航段'),
   delStay: el => removeRecord(el, 'stays', '已刪除住宿'),
+  diveForm(el) {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const d = S.diveDocs.find(x => x.id === el.dataset.id);
+    diveFormSheet(trip, d, canDelRecord(trip, d));
+  },
+  saveDive: el => saveRecord(el, 'diveLogs', readDiveForm(), () => S.diveDocs, ['已記下這支', '已更新潛水紀錄']),
+  delDive: el => removeRecord(el, 'diveLogs', '已刪除潛水紀錄'),
   async delTodo(el, ev) {
     ev.preventDefault(); // 按鈕在勾選框的 label 裡，不要順便勾選
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
