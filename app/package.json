@@ -1,0 +1,25 @@
+{
+  "name": "addicted-travel-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "沈迷旅行 新版（PWA）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "emulators": "npx -y firebase-tools@15 emulators:start --project demo-travel",
+    "test": "node --test \"test/**/*.test.js\"",
+    "check": "npm test && vite build",
+    "test:rules": "node --test \"rules-test/**/*.test.js\""
+  },
+  "dependencies": {
+    "firebase": "^12.0.0"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase-admin": "^13.10.0",
+    "vite": "^7.3.0",
+    "vite-plugin-pwa": "^1.0.0"
+  }
+}

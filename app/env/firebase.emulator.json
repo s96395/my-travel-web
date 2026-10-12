@@ -1,0 +1,8 @@
+{
+  "env": "emulator",
+  "apiKey": "demo-key",
+  "authDomain": "demo-travel.firebaseapp.com",
+  "projectId": "demo-travel",
+  "appId": "demo-app",
+  "emulator": { "auth": "http://127.0.0.1:9099", "firestoreHost": "127.0.0.1", "firestorePort": 8080 }
+}

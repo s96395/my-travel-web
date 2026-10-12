@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>加入旅程 - 沈迷旅行</title>
+<!-- 舊版邀請連結 join.html?id=…&key=… 轉到新版的加入旅程頁（規格書 F13） -->
+<script>
+  var q = new URLSearchParams(location.search), id = q.get('id') || '', key = q.get('key') || '';
+  location.replace('/' + (id ? '#/join/' + encodeURIComponent(id) + '/' + encodeURIComponent(key) : ''));
+</script>
+</head>
+<body><p><a href="/">前往沈迷旅行</a></p></body>
+</html>
