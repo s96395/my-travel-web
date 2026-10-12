@@ -86,7 +86,7 @@ export function diveFormSheet(trip, d, canDel) {
 }
 
 // 讀潛水表單；數字欄位沒填就不存，瓶數至少 1
-export function readDiveForm(trip) {
+export function readDiveForm(trip, isNew) {
   const g = id => ($(`#${id}`)?.value || '').trim();
   const num = id => { const x = parseFloat(g(id)); return x >= 0 ? x : null; };
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
@@ -95,8 +95,8 @@ export function readDiveForm(trip) {
   if ($('#df-divers')) {
     if (!picked.length) return { error: '請至少選一位有下水的人' };
     data.divers = picked;
-  } else {
-    // 只有一位同行者時不顯示選項，也記下是他，之後加入的人才不會被算進去
+  } else if (isNew) {
+    // 只有一位同行者時不顯示選項，新增時記下是他，之後加入的人才不會被算進去；編輯時保留原本的潛水者
     data.divers = activePeople(trip).map(p => p.id);
   }
   if (!data.diveDate) { $('#df-date').classList.add('err'); return { error: '請選日期' }; }
