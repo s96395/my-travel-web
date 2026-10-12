@@ -3,7 +3,7 @@
 // 預設只預覽，不寫入：  node scripts/migrate.mjs --project <專案 ID>
 // 只備份（唯讀）：      node scripts/migrate.mjs --project <專案 ID> --backup <備份資料夾>
 // 先備份再寫入：        node scripts/migrate.mjs --project <專案 ID> --apply --backup <備份資料夾>
-// 把備份載入演練環境：  node scripts/migrate.mjs --project <專案 ID> --load <備份檔>（只能載入模擬環境或測試專案）
+// 把備份載入演練環境：  node scripts/migrate.mjs --project <專案 ID> --load <備份檔>（只能載入模擬環境或測試專案，會先清空那裡的旅程）
 //
 // 連本機模擬環境：先設 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
 // 連測試或正式環境：先設 GOOGLE_APPLICATION_CREDENTIALS=<服務帳戶金鑰路徑>
@@ -24,7 +24,9 @@ const apply = flag('--apply');
 const backupDir = opt('--backup');
 const emulator = !!process.env.FIRESTORE_EMULATOR_HOST;
 const loadFile = opt('--load');
-const rehearsal = emulator || projectId?.includes('test');
+// 演練環境只認本機模擬環境與指定的測試專案，不用名稱比對，避免正式專案名稱剛好含 test
+const TEST_PROJECTS = ['my-travel-test-7812e'];
+const rehearsal = emulator || TEST_PROJECTS.includes(projectId);
 
 if (!projectId) fail('請用 --project 指定專案 ID');
 if (apply && !backupDir) fail('寫入前一定要備份：請加上 --backup <資料夾>');
@@ -62,6 +64,8 @@ function revive(v) {
 
 async function load() {
   const data = JSON.parse(readFileSync(loadFile, 'utf8'));
+  // 先清空演練環境的旅程（含子集合），載入後才會和備份完全一樣，不混到之前演練留下的資料
+  await db.recursiveDelete(db.collection('trips'));
   for (const item of data) {
     const { id, ...trip } = item.trip;
     const ref = db.collection('trips').doc(id);
