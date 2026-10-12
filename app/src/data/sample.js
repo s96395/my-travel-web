@@ -48,6 +48,7 @@ const KYOTO_STAYS = [
   { name: 'Hotel Resol 京都四條室町', address: '京都府京都市下京區四條通室町東入函谷鉾町 82', checkInDate: '2026-11-20', checkOutDate: '2026-11-23', confirmCode: 'HR-558201', pin: '4826', note: '雙床房 ×2' },
   { name: '嵐山溫泉 花傳抄', address: '京都府京都市西京區嵐山上河原町 1', checkInDate: '2026-11-23', checkOutDate: '2026-11-25', confirmCode: 'KD-20931', pin: '', note: '含早晚餐' },
 ];
+const KYOTO_TODOS = [['確認護照效期', true], ['保旅平險', true], ['預約和服體驗', true], ['嵐山小火車劃位', true], ['換匯', false], ['買 eSIM', false], ['充好行動電源', false]];
 // 首爾用舊版的單筆格式，方便檢查舊資料的顯示
 const SEOUL_LEGACY = {
   flight: { airline: '台灣虎航', flightCode: 'T7K2PQ', depFlightNo: 'IT602', depDate: '2025-10-02', depAirport: '桃園 TPE（第 1 航廈）', depTime: '06.50', depArrAirport: '首爾 ICN（第 1 航廈）', arrTime: '10:25', retFlightNo: 'IT603', retDate: '2025-10-06', retAirport: '首爾 ICN（第 1 航廈）', retDepTime: '11:45', retArrTime: '13:30' },
@@ -84,6 +85,7 @@ export async function addSampleTrips(user, nickname) {
       const by = { createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
       KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, ...by }));
       KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, ...by }));
+      KYOTO_TODOS.forEach(([text, done], i) => later.set(doc(collection(db, `trips/${ref.id}/todos`)), { text, done, order: i + 1, ...by }));
       const orders = {};
       for (const [day, type, title, note, priority, reservationTime, area] of KYOTO_PLAN) {
         orders[day] = (orders[day] || 0) + 1;
