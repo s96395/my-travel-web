@@ -30,6 +30,19 @@ test('舊版班機轉成去程、回程兩筆', () => {
   assert.deepEqual(legacyFlights({}), []);
 });
 
+test('早期舊班機沒有日期：用旅程起訖日，機場名稱對到代碼，跨日抵達算隔天', () => {
+  const trip = { startDate: '2026-03-13', endDate: '2026-03-16' };
+  const [go, back] = legacyFlights({ airline: '華航', depAirport: '桃園機場', depTime: '16:50', arrTime: '19:20', retAirport: '那霸機場', retDepTime: '23:55', retArrTime: '00:35' }, trip);
+  assert.equal(go.dep, '2026-03-13 16:50');
+  assert.equal(go.from, 'TPE');
+  assert.equal(go.to, 'OKA');
+  assert.equal(go.toTz, '+9');
+  assert.equal(back.dep, '2026-03-16 23:55');
+  assert.equal(back.arr, '2026-03-17 00:35');
+  assert.equal(parseAirport('首爾機場').code, ''); // 對到兩個機場時不猜
+  assert.equal(legacyFlights({ airline: '星宇' }, trip).length, 0);
+});
+
 test('舊版住宿與轉換後隱藏', () => {
   const [s] = legacyStays({ hotelName: 'A 飯店', hotelCode: 'X1', checkIn: '15:00' }, { startDate: '2026-11-21', endDate: '2026-11-25' });
   assert.equal(nights(s), 4);

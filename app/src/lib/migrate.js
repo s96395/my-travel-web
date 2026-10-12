@@ -15,7 +15,7 @@ export function planTrip({ trip, expenses = [], images = [], flights = [], stays
 
   // 班機、住宿：已經轉過（子集合有 fromLegacy）的不重複建立
   const doneF = new Set(flights.map(f => f.fromLegacy).filter(Boolean));
-  plan.newFlights = legacyFlights(trip.flight).filter(f => !doneF.has(f.legacy)).map(strip);
+  plan.newFlights = legacyFlights(trip.flight, trip).filter(f => !doneF.has(f.legacy)).map(strip);
   const doneS = new Set(stays.map(s => s.fromLegacy).filter(Boolean));
   plan.newStays = legacyStays(trip.hotel, trip).filter(s => !doneS.has(s.legacy)).map(strip);
 

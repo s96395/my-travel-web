@@ -58,33 +58,48 @@ export const sortStays = list => [...list].sort((a, b) => String(a.checkInDate |
 /* ---------- 舊版單筆資料（規格書 F32）：畫面上當作第一筆，舊欄位不動 ---------- */
 const time = t => String(t || '').trim().replace('.', ':').replace(/^(\d):/, '0$1:');
 
+// 舊資料常只寫「釜山機場」「桃園機場」：去掉「機場」後，只對到一個常用機場時才採用它的代碼
+function codeByName(text) {
+  const name = String(text || '').replace(/(國際)?機場$/, '').trim();
+  if (name.length < 2) return '';
+  const hits = Object.keys(AIRPORTS).filter(c => AIRPORTS[c][0].includes(name));
+  return hits.length === 1 ? hits[0] : '';
+}
+
 // 「臺中 RMQ（第 2 航廈）」→ 代碼 RMQ、城市 臺中、航廈 第 2 航廈
 export function parseAirport(text, local) {
   const s = String(text || '').trim();
   const code = (s.match(/\b([A-Z]{3})\b/) || [])[1] || '';
   const term = (s.match(/[（(]([^）)]*)[）)]/) || [])[1] || '';
   const city = s.replace(/[（(][^）)]*[）)]/, '').replace(code, '').trim() || (AIRPORTS[code] || [''])[0];
-  return { code, city, term, tz: airportTz(code, local) || '+8' };
+  return { code: code || codeByName(city), city, term, tz: airportTz(code || codeByName(city), local) || '+8' };
 }
 
-function legacyLeg(key, leg, f, p) {
-  const date = f[p.date] || '';
+// 早期的舊資料沒有航班日期：去程用旅程開始日、回程用結束日；抵達時間比起飛早就算隔天到
+function legacyLeg(key, leg, f, p, fallbackDate) {
+  const date = f[p.date] || fallbackDate || '';
   const from = parseAirport(f[p.from], date), to = parseAirport(f[p.to] || f[p.toFallback], date);
   const at = (d, t) => (d && time(t) ? `${d} ${time(t)}` : '');
-  if (![f[p.no], date, f[p.from], f[p.depTime]].some(Boolean)) return null;
+  if (![f[p.no], f[p.date], f[p.from], f[p.depTime]].some(Boolean)) return null;
+  const dep = at(date, f[p.depTime]);
+  let arr = at(date, f[p.arrTime]);
+  if (dep && arr && toInstant(arr, to.tz) <= toInstant(dep, from.tz)) {
+    const next = parseDate(date); next.setDate(next.getDate() + 1);
+    arr = at(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`, f[p.arrTime]);
+  }
   return {
     id: `legacy-${key}`, legacy: key, leg, airline: f.airline || '', flightNo: f[p.no] || '',
-    from: from.code, fromCity: from.city, fromTerminal: from.term, fromTz: from.tz, dep: at(date, f[p.depTime]),
-    to: to.code, toCity: to.city, toTerminal: to.term, toTz: to.tz, arr: at(date, f[p.arrTime]),
+    from: from.code, fromCity: from.city, fromTerminal: from.term, fromTz: from.tz, dep,
+    to: to.code, toCity: to.city, toTerminal: to.term, toTz: to.tz, arr,
     pnr: f.flightCode || '', note: '',
   };
 }
 
-export function legacyFlights(flight) {
+export function legacyFlights(flight, trip = {}) {
   if (!flight || typeof flight !== 'object') return [];
   return [
-    legacyLeg('dep', '去程', flight, { no: 'depFlightNo', date: 'depDate', from: 'depAirport', depTime: 'depTime', to: 'depArrAirport', toFallback: 'retAirport', arrTime: 'arrTime' }),
-    legacyLeg('ret', '回程', flight, { no: 'retFlightNo', date: 'retDate', from: 'retAirport', depTime: 'retDepTime', to: 'retArrAirport', toFallback: 'depAirport', arrTime: 'retArrTime' }),
+    legacyLeg('dep', '去程', flight, { no: 'depFlightNo', date: 'depDate', from: 'depAirport', depTime: 'depTime', to: 'depArrAirport', toFallback: 'retAirport', arrTime: 'arrTime' }, trip.startDate),
+    legacyLeg('ret', '回程', flight, { no: 'retFlightNo', date: 'retDate', from: 'retAirport', depTime: 'retDepTime', to: 'retArrAirport', toFallback: 'depAirport', arrTime: 'retArrTime' }, trip.endDate),
   ].filter(Boolean);
 }
 
