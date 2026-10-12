@@ -39,6 +39,9 @@ test('早期舊班機沒有日期：用旅程起訖日，機場名稱對到代�
   assert.equal(go.toTz, '+9');
   assert.equal(back.dep, '2026-03-16 23:55');
   assert.equal(back.arr, '2026-03-17 00:35');
+  const [london] = legacyFlights({ retAirport: 'TPE', retDepTime: '23:00', retArrAirport: 'LHR', retArrTime: '07:00' }, { endDate: '2026-03-28' });
+  assert.equal(london.arr, '2026-03-29 07:00');
+  assert.equal(london.toTz, '+1'); // 3/29 起英國夏令時間
   assert.equal(parseAirport('首爾機場').code, ''); // 對到兩個機場時不猜
   assert.equal(legacyFlights({ airline: '星宇' }, trip).length, 0);
 });
