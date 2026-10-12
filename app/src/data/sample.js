@@ -39,6 +39,20 @@ const KYOTO_PLAN = [
   [6, 'transport', '關西機場 → 桃園機場', 'JX821，12:35 起飛', '', '', ''],
 ];
 
+// 京都的班機與住宿（同雛形）
+const KYOTO_FLIGHTS = [
+  { leg: '去程', airline: '中華航空', flightNo: 'CI152', from: 'TPE', fromCity: '台北桃園', fromTerminal: '第 1 航廈', fromTz: '+8', dep: '2026-11-20 07:10', to: 'KIX', toCity: '大阪關西', toTerminal: '第 1 航廈', toTz: '+9', arr: '2026-11-20 10:50', pnr: '6KXQ2M', note: '託運 23 公斤' },
+  { leg: '回程', airline: '星宇航空', flightNo: 'JX821', from: 'KIX', fromCity: '大阪關西', fromTerminal: '第 1 航廈', fromTz: '+9', dep: '2026-11-25 12:35', to: 'TPE', toCity: '台北桃園', toTerminal: '第 1 航廈', toTz: '+8', arr: '2026-11-25 14:40', pnr: 'Q8T3VA', note: '' },
+];
+const KYOTO_STAYS = [
+  { name: 'Hotel Resol 京都四條室町', address: '京都府京都市下京區四條通室町東入函谷鉾町 82', checkInDate: '2026-11-20', checkOutDate: '2026-11-23', confirmCode: 'HR-558201', pin: '4826', note: '雙床房 ×2' },
+  { name: '嵐山溫泉 花傳抄', address: '京都府京都市西京區嵐山上河原町 1', checkInDate: '2026-11-23', checkOutDate: '2026-11-25', confirmCode: 'KD-20931', pin: '', note: '含早晚餐' },
+];
+// 首爾用舊版的單筆格式，方便檢查舊資料的顯示
+const SEOUL_LEGACY = {
+  flight: { airline: '台灣虎航', flightCode: 'T7K2PQ', depFlightNo: 'IT602', depDate: '2025-10-02', depAirport: '桃園 TPE（第 1 航廈）', depTime: '06.50', depArrAirport: '首爾 ICN（第 1 航廈）', arrTime: '10:25', retFlightNo: 'IT603', retDate: '2025-10-06', retAirport: '首爾 ICN（第 1 航廈）', retDepTime: '11:45', retArrTime: '13:30' },
+  hotel: { hotelName: 'L7 明洞', hotelAddr: '首爾特別市中區退溪路 137', hotelCode: 'L7-99812', hotelPin: '', checkIn: '15:00', checkOut: '11:00' },
+};
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
 // 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
 export async function addSampleTrips(user, nickname) {
@@ -50,7 +64,7 @@ export async function addSampleTrips(user, nickname) {
     const people = [me, an, rou];
     const { expenses, ...fields } = t;
     batch.set(ref, {
-      ...fields, totalTanks: fields.totalTanks || 0, totalExpense: expenses.reduce((a, e) => a + e[1], 0),
+      ...fields, ...(fields.code === 'ICN' ? SEOUL_LEGACY : {}), totalTanks: fields.totalTanks || 0, totalExpense: expenses.reduce((a, e) => a + e[1], 0),
       shareKey: newShareKey(), ownerId: user.uid, ownerName: nickname, memberIds: [user.uid],
       participants: {
         [me]: { name: nickname, uid: user.uid, order: 1, status: 'active' },
@@ -67,6 +81,9 @@ export async function addSampleTrips(user, nickname) {
       later.set(doc(collection(db, `trips/${ref.id}/expenses`)), e);
     }
     if (t.code === 'KIX') {
+      const by = { createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
+      KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, ...by }));
+      KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, ...by }));
       const orders = {};
       for (const [day, type, title, note, priority, reservationTime, area] of KYOTO_PLAN) {
         orders[day] = (orders[day] || 0) + 1;

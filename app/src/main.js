@@ -14,6 +14,8 @@ import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
+import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
+import { allFlights, allStays, flightFormSheet, stayFormSheet, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
@@ -24,6 +26,7 @@ const S = {
   trips: [], expenses: new Map(), loadingTrips: true,
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
+  flightDocs: [], stayDocs: [], loadingMove: false, reveal: {},
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
@@ -33,7 +36,7 @@ const S = {
 let stopTrips = null;
 const expenseWatch = new Map(); // tripId → 取消監看函式
 const retries = new Map();
-let itin = { tripId: null, stop: null, tries: 0 }; // 目前開著的旅程行程監看
+let itin = { tripId: null, stops: [], tries: 0 }; // 目前開著的旅程資料監看
 
 /* ---------- 畫面 ---------- */
 function render() {
@@ -79,31 +82,35 @@ function go(hash) {
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
 const findItem = id => S.items.find(it => it.id === id);
 
-// 進入旅程時開始監看行程，離開時停止；換旅程時分頁與展開狀態歸零
+// 進入旅程時開始監看行程、班機、住宿，離開時停止；換旅程時分頁與展開狀態歸零
 function syncItineraryWatch() {
   const want = S.user && S.view === 'trip' ? S.tripId : null;
   if (want === itin.tripId) return;
-  itin.stop?.();
-  itin = { tripId: want, stop: null, tries: 0 };
-  Object.assign(S, { items: [], days: {}, pday: 1, tab: 'plan', loadingItems: !!want });
-  if (want) startItinerary(want);
+  itin.stops.forEach(off => off());
+  itin = { tripId: want, stops: [], tries: 0 };
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want });
+  if (want) startTripWatch(want);
 }
 
-function startItinerary(tripId) {
-  itin.stop = watchItinerary(tripId, list => {
+function startTripWatch(tripId) {
+  const ok = fn => list => { if (itin.tripId === tripId) { fn(list); render(); } };
+  const fail = err => {
+    // 剛建立的旅程還沒寫到伺服器時會被安全規則擋下，稍後全部重來
     if (itin.tripId !== tripId) return;
-    S.items = list.map(normalizeItem);
-    S.loadingItems = false;
-    render();
-  }, err => {
-    // 剛建立的旅程還沒寫到伺服器時會被安全規則擋下，稍後再試
-    if (itin.tripId !== tripId) return;
-    if (++itin.tries <= 3) { setTimeout(() => itin.tripId === tripId && startItinerary(tripId), 1500 * itin.tries); return; }
+    itin.stops.forEach(off => off()); itin.stops = [];
+    if (++itin.tries <= 3) { setTimeout(() => itin.tripId === tripId && !itin.stops.length && startTripWatch(tripId), 1500 * itin.tries); return; }
     console.error(err);
-    S.loadingItems = false;
-    toast('讀取行程失敗，請重新整理再試');
+    S.loadingItems = false; S.loadingMove = false;
+    toast('讀取旅程資料失敗，請重新整理再試');
     render();
-  });
+  };
+  let got = 0;
+  const moveLoaded = () => { if (++got >= 2) S.loadingMove = false; };
+  itin.stops = [
+    watchItinerary(tripId, ok(list => { S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
+    watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
+    watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
+  ];
 }
 
 // 移動行程：先更新畫面，再寫回資料庫
@@ -119,6 +126,32 @@ async function moveItem(id, target) {
   render();
   toast(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`);
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
+}
+
+const isOwner = trip => trip.raw.ownerId === S.user.uid;
+
+// 儲存班機或住宿；舊版資料第一次儲存時新增一筆，並記下是從哪個舊欄位轉來的
+async function saveRecord(el, name, form, all, [addedMsg, updatedMsg]) {
+  if (form.error) { toast(form.error); return; }
+  if (S.busy) return;
+  const trip = curTrip(), old = all(S, trip).find(r => r.id === el.dataset.id);
+  S.busy = true; el.disabled = true;
+  try {
+    if (old && !old.legacy) await updateRecord(S.tripId, name, old.id, form.data, S.user, S.nickname);
+    else await addRecord(S.tripId, name, old?.legacy ? { ...form.data, fromLegacy: old.legacy } : form.data, S.user, S.nickname);
+    closeSheet();
+    toast(old ? updatedMsg : addedMsg);
+  } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+  S.busy = false;
+}
+
+async function removeRecord(el, name, msg) {
+  // 第一次按只換成確認文字，再按一次才真的刪除
+  if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
+  if (S.busy) return;
+  S.busy = true;
+  try { await deleteRecord(S.tripId, name, el.dataset.id); closeSheet(); toast(msg); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+  S.busy = false;
 }
 
 function onDrop(id, t) {
@@ -227,7 +260,7 @@ const actions = {
   },
   itemMenu(el) {
     const it = findItem(el.dataset.id), trip = curTrip();
-    if (it && trip && !S.offline) itemMenuSheet(S, trip, it, trip.raw.ownerId === S.user.uid);
+    if (it && trip && !S.offline) itemMenuSheet(S, trip, it, isOwner(trip));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
@@ -254,6 +287,22 @@ const actions = {
     try { await deleteItem(S.tripId, el.dataset.id); closeSheet(); toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
     S.busy = false;
   },
+  reveal(el) { S.reveal[el.dataset.k] = !S.reveal[el.dataset.k]; render(); },
+  pickSeg(el) { el.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); },
+  flightForm(el) {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    flightFormSheet(trip, allFlights(S, trip).find(f => f.id === el.dataset.id), isOwner(trip));
+  },
+  stayForm(el) {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    stayFormSheet(trip, allStays(S, trip).find(s => s.id === el.dataset.id), isOwner(trip));
+  },
+  saveFlight: el => saveRecord(el, 'flights', readFlightForm(), allFlights, ['已新增航段，會依起飛時間排序', '已更新航段']),
+  saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
+  delFlight: el => removeRecord(el, 'flights', '已刪除航段'),
+  delStay: el => removeRecord(el, 'stays', '已刪除住宿'),
   close: () => closeSheet(),
   bg(el, ev) { if (ev.target === el) closeSheet(); },
   reload: () => updateSW?.(true),
@@ -267,7 +316,16 @@ document.addEventListener('click', ev => {
 });
 // 中文輸入法組字時不重畫，否則會打斷組字；組完字再更新列表
 document.addEventListener('input', ev => {
-  if (ev.target.id === 'q' && !ev.isComposing) { S.q = ev.target.value; render(); }
+  const t = ev.target;
+  if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
+  if (t.dataset?.ap) fillAirport(t);
+  if (['ff-fromCity', 'ff-toCity'].includes(t.id)) delete t.dataset.auto;
+  if (['ff-dep', 'ff-arr'].includes(t.id)) updateDuration();
+  if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
+});
+document.addEventListener('change', ev => {
+  if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(ev.target.id)) updateDuration();
+  if (['sf-in', 'sf-out'].includes(ev.target.id)) updateNights();
 });
 document.addEventListener('compositionend', ev => {
   if (ev.target.id === 'q') { S.q = ev.target.value; render(); }
