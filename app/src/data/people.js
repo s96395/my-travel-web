@@ -1,7 +1,7 @@
 // 同行者、共編成員、加入旅程與旅程設定的讀寫
 import { collection, doc, getDoc, getDocs, updateDoc, deleteDoc, runTransaction, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
-import { bindProblem, nextOrder, cleanName } from '../lib/people.js';
+import { bindProblem, boundTo, nextOrder, cleanName } from '../lib/people.js';
 
 const tripRef = id => doc(db, 'trips', id);
 
@@ -17,7 +17,28 @@ export function patchParticipants(tripId, fields) {
   return updateDoc(tripRef(tripId), out);
 }
 
-export const removeMember = (tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid) });
+// 常用旅伴（在你其他旅程綁定過帳號的人）：建立者直接新增並綁定，同時加進共編成員，不用再傳邀請連結
+export const addCompanion = (trip, c) => updateDoc(tripRef(trip.id), {
+  [`participants.${doc(collection(db, 'trips')).id}`]: { name: cleanName(c.name), uid: c.uid, order: nextOrder(trip), status: 'active' },
+  memberIds: arrayUnion(c.uid), updatedAt: serverTimestamp(),
+});
+// 把名單上沒有帳號的同行者綁到常用旅伴，名字改成對方最近一趟用的名字
+// 寫入前重讀一次，對方剛好自己用連結綁定時不會被蓋掉
+export function bindCompanion(tripId, pid, c) {
+  return runTransaction(db, async tx => {
+    const s = await tx.get(tripRef(tripId));
+    const trip = s.exists() ? { id: s.id, ...s.data() } : null;
+    const p = trip?.participants?.[pid];
+    const problem = !p ? '找不到這位同行者，可能已經被移除' : p.uid ? '這位同行者剛綁定了帳號，請重新整理' : boundTo(trip, c.uid) ? `${c.name} 已經在這趟旅程裡` : '';
+    if (problem) throw Object.assign(new Error(problem), { friendly: true });
+    tx.update(tripRef(tripId), {
+      [`participants.${pid}.uid`]: c.uid, [`participants.${pid}.name`]: cleanName(c.name),
+      memberIds: arrayUnion(c.uid), updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+export const removeMember =(tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid) });
 export const updateTripInfo = (tripId, form) => updateDoc(tripRef(tripId), { ...form, updatedAt: serverTimestamp() });
 
 // 帳號暱稱（共編成員名單用；讀不到時回傳空字串）
