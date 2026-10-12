@@ -294,7 +294,7 @@ async function companionAct(el, write, done) {
   const trip = curTrip(), c = trip && companionsOf(S, trip).find(x => x.uid === el.dataset.uid);
   if (!c || S.busy || S.offline) return;
   S.busy = true; el.disabled = true;
-  try { await write(trip, c); closeSheet(); toast(done(c)); } catch (err) { console.error(err); el.disabled = false; toast('沒有成功，請稍後再試'); }
+  try { await write(trip, c); closeSheet(); toast(done(c)); } catch (err) { console.error(err); el.disabled = false; toast(joinErr(err)); }
   S.busy = false;
 }
 const joinErr = err => (err?.friendly ? err.message : '沒有成功，請稍後再試');
