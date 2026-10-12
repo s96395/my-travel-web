@@ -488,7 +488,7 @@ const actions = {
     const d = S.diveDocs.find(x => x.id === el.dataset.id);
     diveFormSheet(trip, d, canDelRecord(trip, d));
   },
-  saveDive: el => saveRecord(el, 'diveLogs', readDiveForm(curTrip()), () => S.diveDocs, ['已記下這支', '已更新潛水紀錄']),
+  saveDive: el => saveRecord(el, 'diveLogs', readDiveForm(curTrip(), !el.dataset.id), () => S.diveDocs, ['已記下這支', '已更新潛水紀錄']),
   delDive: el => removeRecord(el, 'diveLogs', '已刪除潛水紀錄'),
   pickDiver(el) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true'); },
   async delTodo(el, ev) {
