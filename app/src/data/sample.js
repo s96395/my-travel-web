@@ -18,6 +18,27 @@ const TRIPS = [
     expenses: [['飯店', 18000, 'equal'], ['夜市', 6500, 'none'], ['按摩', 3000, 'none']] },
 ];
 
+// 京都的每日行程（同雛形）：[天, 類型, 名稱, 備註, 優先度, 預約時間, 區域]
+const KYOTO_PLAN = [
+  [1, 'transport', '桃園機場 → 關西機場', 'CI152，07:10 起飛', '', '', ''],
+  [1, 'transport', 'HARUKA 到京都車站', '四人用公費買票', '', '', ''],
+  [1, 'stay', '入住四條室町飯店', '15:00 後可入住', '', '', '四條'],
+  [1, 'restaurant', '錦市場邊走邊吃', '玉子燒、豆乳甜甜圈', 'want', '', '四條'],
+  [2, 'attraction', '清水寺', '早上 8 點前人比較少', 'must', '', '東山'],
+  [2, 'attraction', '和服體驗', '芳佑、小安兩人', 'must', '10:00', '東山'],
+  [2, 'attraction', '二年坂、三年坂', '', 'want', '', '東山'],
+  [2, 'restaurant', '祇園晚餐', '', 'optional', '', '祇園'],
+  [3, 'attraction', '嵐山竹林小徑', '', 'must', '', '嵐山'],
+  [3, 'attraction', '嵐山小火車', '已劃位 2 車', 'must', '13:32', '嵐山'],
+  [3, 'attraction', '天龍寺', '', 'want', '', '嵐山'],
+  [4, 'attraction', '東福寺通天橋', '楓葉最佳觀賞點', 'must', '', '伏見'],
+  [4, 'attraction', '伏見稻荷大社', '', 'want', '', '伏見'],
+  [4, 'restaurant', '燒肉晚餐', '肉格請客先付', '', '18:30', ''],
+  [5, 'attraction', '永觀堂夜楓', '需排隊入場', 'must', '17:30', '左京'],
+  [5, 'shopping', '京都車站買伴手禮', '八橋、抹茶', 'want', '', '京都車站'],
+  [6, 'transport', '關西機場 → 桃園機場', 'JX821，12:35 起飛', '', '', ''],
+];
+
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
 // 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
 export async function addSampleTrips(user, nickname) {
@@ -44,6 +65,16 @@ export async function addSampleTrips(user, nickname) {
       if (mode === 'custom') e.personalShares = { [me]: amount / 2, [an]: amount / 2 };
       if (mode === 'me') e.personalShares = { [me]: amount };
       later.set(doc(collection(db, `trips/${ref.id}/expenses`)), e);
+    }
+    if (t.code === 'KIX') {
+      const orders = {};
+      for (const [day, type, title, note, priority, reservationTime, area] of KYOTO_PLAN) {
+        orders[day] = (orders[day] || 0) + 1;
+        later.set(doc(collection(db, `trips/${ref.id}/itinerary`)), {
+          day, order: orders[day], type, title, note, priority, reservationTime, area,
+          createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp(),
+        });
+      }
     }
   }
   await batch.commit();
