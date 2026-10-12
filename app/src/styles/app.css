@@ -535,3 +535,5 @@ textarea.input{resize:vertical;font-family:inherit}
   .device.wide .stats:not(:has(.stat:nth-child(4))){grid-template-columns:repeat(3,1fr)}
   .device.wide .stats .stat:nth-child(3):last-child{grid-column:auto}
 }
+/* 有底部分頁列時，環境標籤往上移，不要蓋住分頁 */
+body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
