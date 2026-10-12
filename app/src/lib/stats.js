@@ -2,7 +2,7 @@
 // - 去過的國家：只算已完成、已封存的旅程（照舊版）
 // - 我的支出：分攤給「登入者對應同行者」的金額；舊資料以帳號 UID 為鍵時也認得
 // - 未確認：只算還沒分攤的支出
-// - 依類型、年度旅程總支出：自己建立的旅程算整趟支出，加入別人的旅程只算分給自己的
+// - 依類型、年度旅程總支出：每趟只算分給自己的金額（不論是不是自己建立的）
 import { myParticipantId } from './trips.js';
 
 export const isSplit = e => !!e.personalShares && typeof e.personalShares === 'object' && !Array.isArray(e.personalShares);
@@ -38,8 +38,8 @@ export function computeStats(trips, expensesByTrip, uid) {
     const y = t.start ? t.start.slice(0, 4) : '未知';
     const ex = expensesByTrip.get(t.id);
     const pid = myParticipantId(t.raw || {}, uid);
-    // 加入別人的旅程只算分給自己的金額，自己建立的才算整趟
-    const total = t.raw?.ownerId === uid ? tripTotal(t, ex) : (ex || []).reduce((a, e) => a + myShare(e, pid, uid), 0);
+    // 只算分給自己的金額，和「我的旅行支出」同一個算法；還沒分攤的不算
+    const total = (ex || []).reduce((a, e) => a + myShare(e, pid, uid), 0);
     yearTotals[y] = (yearTotals[y] || 0) + total;
     typeTotals[t.type] = (typeTotals[t.type] || 0) + total;
     const row = years[y] || (years[y] = { year: y, mine: 0, unconfirmed: 0 });

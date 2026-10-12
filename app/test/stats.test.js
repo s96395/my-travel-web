@@ -22,22 +22,22 @@ test('未確認只算還沒分攤的支出', () => {
   ]]]);
   const s = computeStats(trips, ex, 'U1');
   assert.deepEqual(s.yearly, [{ year: '2026', mine: 500, unconfirmed: 1 }]);
-  assert.equal(s.typeTotal, 1500);
-  assert.equal(s.yearTotals['2026'], 1500);
+  assert.equal(s.typeTotal, 500);
+  assert.equal(s.yearTotals['2026'], 500);
 });
 
-test('依類型加總等於各年度旅程總支出合計', () => {
+test('依類型加總等於各年度旅程總支出合計，只算分給自己的', () => {
   const trips = [viewTrip(raw('a')), viewTrip(raw('b', { tripType: '潛旅', startDate: '2025-05-01', endDate: '2025-05-03', totalTanks: 6, city: '墾丁', country: '台灣' })), viewTrip(raw('c', { tripType: '跟團', totalExpense: 9000 }))];
   const ex = new Map([['a', [{ amount: 1000 }]], ['b', [{ amount: 2500, personalShares: { U1: 2500 } }]]]);
   const s = computeStats(trips, ex, 'U1');
   const yearSum = Object.values(s.yearTotals).reduce((a, b) => a + b, 0);
   assert.equal(s.typeTotal, yearSum);
-  assert.equal(s.typeTotal, 12500);
+  assert.equal(s.typeTotal, 2500);
   assert.deepEqual(s.tanks, [['墾丁', 6]]);
   assert.equal(s.tankTotal, 6);
 });
 
-test('加入別人的旅程，依類型與年度旅程總支出只算分給自己的', () => {
+test('加入別人的旅程也只算分給自己的', () => {
   const trips = [viewTrip(raw('a', { ownerId: 'U9', tripType: '潛旅', participants: { pO: { name: 'Y SHEN', uid: 'U9', order: 1 }, pMe: { name: '俞皓', uid: 'U1', order: 2 } } }))];
   const ex = new Map([['a', [{ amount: 16000, personalShares: { pO: 16000 } }, { amount: 600, personalShares: { pO: 300, pMe: 300 } }, { amount: 100 }]]]);
   const s = computeStats(trips, ex, 'U1');
