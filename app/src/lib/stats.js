@@ -14,6 +14,12 @@ export function myShare(expense, pid, uid) {
   return Number(v) || 0;
 }
 
+// 我在這趟下水的瓶數：有記每個人的瓶數就用自己的，否則用整趟瓶數（舊資料）
+export function myTanks(trip, uid) {
+  const by = trip.raw?.tanksBy, pid = myParticipantId(trip.raw || {}, uid);
+  return by && pid && Object.hasOwn(by, pid) ? Number(by[pid]) || 0 : trip.tanks;
+}
+
 export function tripTotal(trip, expenses) {
   if (!expenses) return Number(trip.raw?.totalExpense) || 0;
   return expenses.reduce((a, e) => a + (Number(e.amount) || 0), 0);
@@ -47,9 +53,9 @@ export function computeStats(trips, expensesByTrip, uid) {
   const tankMap = {};
   trips.filter(t => t.type === '潛旅' && t.tanks).forEach(t => {
     const loc = t.city || t.country || '未知';
-    tankMap[loc] = (tankMap[loc] || 0) + t.tanks;
+    tankMap[loc] = (tankMap[loc] || 0) + myTanks(t, uid);
   });
-  const tanks = Object.entries(tankMap).sort((a, b) => b[1] - a[1]);
+  const tanks = Object.entries(tankMap).filter(t => t[1]).sort((a, b) => b[1] - a[1]);
 
   return {
     countries,
