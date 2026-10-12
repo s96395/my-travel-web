@@ -359,7 +359,7 @@ textarea.input{resize:vertical;font-family:inherit}
 .todo input{width:22px;height:22px;accent-color:var(--accent);flex:none;margin:0}
 .todo.done span{text-decoration:line-through;color:var(--muted)}
 .todo .grow{min-width:0}
-.todo .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
+.todo .more.sure,.pertable .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
 
 .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .summary .card{display:grid;gap:2px}
@@ -376,7 +376,7 @@ textarea.input{resize:vertical;font-family:inherit}
 .pertable .r .who{display:flex;align-items:center;gap:8px;min-width:0}
 .pertable .r b{font-family:var(--font-data)}
 .catbars{display:grid;gap:8px}
-.catbars .r{display:grid;grid-template-columns:48px 1fr 88px;gap:8px;align-items:center;font-size:13px}
+.catbars .r{display:grid;grid-template-columns:72px 1fr 88px;gap:8px;align-items:center;font-size:13px}
 .catbars .r span:last-child{text-align:right;font-family:var(--font-data)}
 .settle .r{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:12px 0;align-items:center}
 .settle .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
