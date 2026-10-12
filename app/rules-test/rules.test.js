@@ -9,7 +9,7 @@ import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
 let env;
 const TRIP = {
   title: '京都賞楓', ownerId: 'owner', memberIds: ['owner', 'member'], shareKey: 'k1',
-  participants: { p1: { name: '芳佑', uid: 'owner', order: 1 }, p2: { name: '小安', uid: '', order: 2 }, p3: { name: '肉格', order: 3 } },
+  participants: { p1: { name: '芳佑', uid: 'owner', order: 1 }, p2: { name: '小安', uid: '', order: 2 }, p3: { name: '肉格', order: 3 }, p4: { name: '男友', uid: null, order: 4 } },
 };
 const as = uid => (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).firestore();
 const trip = uid => doc(as(uid), 'trips/t1');
@@ -102,6 +102,7 @@ test('共編成員：只能把沒有帳號的同行者綁成自己', async () =>
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p3.uid': 'member', bindPid: 'p3' }));
   await assertSucceeds(updateDoc(trip('owner'), { 'participants.p3.uid': '' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p3.uid': 'member', 'participants.p3.name': '俞皓', bindPid: 'p3' }));
+  await assertSucceeds(updateDoc(trip('member'), { 'participants.p4.uid': 'member', 'participants.p4.name': '俞皓', bindPid: 'p4' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p9': { name: '新朋友', uid: 'member', order: 9 }, bindPid: 'p9' }));
 });
 test('共編成員：可以看、上傳與刪除這趟的照片，但不能放非圖片', async () => {
