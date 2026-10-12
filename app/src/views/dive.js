@@ -13,7 +13,8 @@ const dove = (d, pid, trip) => (Array.isArray(d.divers) ? d.divers.includes(pid)
   : pid === (uidPid(trip, d.createdByUid) || uidPid(trip, trip.raw.ownerId)));
 
 // 每位同行者自己下水的瓶數，寫回旅程主檔 tanksBy，首頁的累計氣瓶數只算登入者自己的
-export const tanksByPerson = (list, trip) => Object.fromEntries(activePeople(trip).map(p => [p.id, totalTanks(list.filter(d => dove(d, p.id, trip)))]));
+// 停用的同行者也要保留，首頁才不會改用整趟的瓶數
+export const tanksByPerson = (list, trip) => Object.fromEntries(participantsOf(trip.raw).map(p => [p.id, totalTanks(list.filter(d => dove(d, p.id, trip)))]));
 
 // 依日期排序，同一天依建立時間
 const ms = t => (t?.toMillis ? t.toMillis() : Infinity);
@@ -85,7 +86,7 @@ export function diveFormSheet(trip, d, canDel) {
 }
 
 // 讀潛水表單；數字欄位沒填就不存，瓶數至少 1
-export function readDiveForm() {
+export function readDiveForm(trip) {
   const g = id => ($(`#${id}`)?.value || '').trim();
   const num = id => { const x = parseFloat(g(id)); return x >= 0 ? x : null; };
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
@@ -94,6 +95,9 @@ export function readDiveForm() {
   if ($('#df-divers')) {
     if (!picked.length) return { error: '請至少選一位有下水的人' };
     data.divers = picked;
+  } else {
+    // 只有一位同行者時不顯示選項，也記下是他，之後加入的人才不會被算進去
+    data.divers = activePeople(trip).map(p => p.id);
   }
   if (!data.diveDate) { $('#df-date').classList.add('err'); return { error: '請選日期' }; }
   if (!data.diveSite) { $('#df-site').classList.add('err'); $('#df-site').focus(); return { error: '請填潛點' }; }
