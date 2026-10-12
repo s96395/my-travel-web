@@ -30,8 +30,8 @@ export async function readJoinTrip(tripId) {
   const s = await getDoc(tripRef(tripId));
   return s.exists() ? { id: s.id, ...s.data() } : null;
 }
-// 先成為共編成員（安全規則只允許這一步改 memberIds），之後才讀得到支出、才能綁定同行者
-export const joinAsMember = (tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayUnion(uid) });
+// 用邀請碼成為共編成員：安全規則只允許非成員改 memberIds 與 joinKey，而且 joinKey 要等於旅程的邀請碼
+export const joinAsMember = (tripId, uid, key) => updateDoc(tripRef(tripId), { memberIds: arrayUnion(uid), joinKey: key });
 
 export async function sharesNow(tripId) {
   const s = await getDocs(collection(db, `trips/${tripId}/expenses`));
@@ -50,7 +50,8 @@ export function bindParticipant(tripId, uid, pid, newName) {
     const field = pid === 'new'
       ? { [`participants.${id}`]: { name: cleanName(newName), uid, order: nextOrder(trip), status: 'active' } }
       : { [`participants.${id}.uid`]: uid };
-    tx.update(tripRef(tripId), { ...field, updatedAt: serverTimestamp() });
+    // bindPid 讓安全規則確認共編成員只動到自己綁定的那一位
+    tx.update(tripRef(tripId), { ...field, bindPid: id, updatedAt: serverTimestamp() });
     return id;
   });
 }

@@ -274,11 +274,14 @@ async function maybeLoadJoin() {
   J.loading = true;
   const fail = msg => { Object.assign(J, { step: 'error', error: msg }); render(); };
   if (S.localOnly) return fail('目前沒有網路，連上網路後再打開邀請連結。');
-  let trip;
-  try { trip = await readJoinTrip(J.tripId); } catch (err) { console.error(err); return fail('找不到這趟旅程，或邀請連結已經失效。請向建立者要最新的連結。'); }
-  if (!trip) return fail('找不到這趟旅程，可能已經被刪除。');
+  // 安全規則不讓非成員讀旅程（N04）：讀不到時先用連結裡的邀請碼加入，再讀一次
+  let trip = null;
+  try { trip = await readJoinTrip(J.tripId); } catch (err) { if (err?.code !== 'permission-denied') { console.error(err); return fail('沒有成功讀到旅程，請稍後再試。'); } }
+  if (!trip) {
+    try { await joinAsMember(J.tripId, S.user.uid, J.key); trip = await readJoinTrip(J.tripId); } catch (err) { console.warn(err); }
+    if (!trip) return fail('邀請連結不正確，或旅程已經被刪除。請向建立者要最新的連結。');
+  }
   const member = isMember(trip, S.user.uid);
-  if (!member && (!trip.shareKey || trip.shareKey !== J.key)) return fail('邀請連結不正確，請向建立者要最新的連結。');
   const mine = boundTo(trip, S.user.uid);
   Object.assign(J, { trip, member, step: mine ? 'already' : 'pick', boundName: mine?.name || '', newName: S.nickname });
   render();
@@ -644,7 +647,7 @@ const actions = {
     if (J.pick === 'new' && !cleanName(J.newName)) { $('#joinName')?.classList.add('err'); $('#joinName')?.focus(); toast('請填你的名字'); return; }
     J.busy = true; render();
     try {
-      if (!J.member) { await joinAsMember(J.tripId, S.user.uid); J.member = true; }
+      if (!J.member) { await joinAsMember(J.tripId, S.user.uid, J.key); J.member = true; }
       J.amount = J.pick === 'new' ? 0 : perPerson(await sharesNow(J.tripId), participantsOf(J.trip))[J.pick] || 0;
       J.step = 'confirm';
     } catch (err) { console.error(err); toast(joinErr(err)); }
@@ -671,7 +674,7 @@ const actions = {
     if (J.busy) return;
     if (!J.member) {
       J.busy = true; render();
-      try { await joinAsMember(J.tripId, S.user.uid); J.member = true; } catch (err) { console.error(err); toast(joinErr(err)); }
+      try { await joinAsMember(J.tripId, S.user.uid, J.key); J.member = true; } catch (err) { console.error(err); toast(joinErr(err)); }
       J.busy = false;
       if (!J.member) return render();
     }

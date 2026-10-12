@@ -1,0 +1,30 @@
+// 新版第一版照片空間規則（規格書 N01）：只有旅程的建立者與共編成員能看、上傳與刪除
+// 第一版還沒用到照片空間；舊版網站在用，所以正式環境等舊資料轉換（第 9 批）時再換上。
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function tripOf(tripId) {
+      return firestore.get(/databases/(default)/documents/trips/$(tripId)).data;
+    }
+
+    function canAccess(tripId) {
+      return request.auth != null
+        && (tripOf(tripId).ownerId == request.auth.uid
+          || request.auth.uid in tripOf(tripId).get('memberIds', []));
+    }
+
+    // 路徑：trips/{tripId}/{種類}/{檔名}
+    match /trips/{tripId}/{allPaths=**} {
+      allow read: if canAccess(tripId);
+      allow create, update: if canAccess(tripId)
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if canAccess(tripId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
