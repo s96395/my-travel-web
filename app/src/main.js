@@ -88,9 +88,11 @@ function readRoute() {
   const q = new URLSearchParams(location.search);
   if (/\/join\.html$/.test(location.pathname) && q.get('id')) history.replaceState(null, '', `/#/join/${q.get('id')}/${q.get('key') || ''}`);
   const m = location.hash.match(/^#\/trip\/([\w-]+)$/), j = location.hash.match(/^#\/join\/([\w-]+)\/([\w-]*)$/);
+  const was = S.view;
   S.view = m ? 'trip' : j ? 'join' : 'home';
   S.tripId = m ? m[1] : null;
-  if (j && (S.join?.tripId !== j[1] || S.join?.key !== j[2])) S.join = { tripId: j[1], key: j[2], step: 'load', pick: null, newName: '', amount: 0 };
+  // 從別的頁面回到加入頁時重新讀一次，避免停在上次的步驟
+  if (j && (was !== 'join' || S.join?.tripId !== j[1] || S.join?.key !== j[2])) S.join = { tripId: j[1], key: j[2], step: 'load', pick: null, newName: '', amount: 0 };
 }
 function go(hash) {
   if (location.hash === hash) return;
@@ -586,7 +588,18 @@ const actions = {
     }
     J.busy = false; render();
   },
-  joinEnter() { go(`#/trip/${S.join.tripId}`); },
+  // 之前綁定過、後來退出或被移除的人，重新打開邀請連結時先加回共編成員
+  async joinEnter() {
+    const J = S.join;
+    if (J.busy) return;
+    if (!J.member) {
+      J.busy = true; render();
+      try { await joinAsMember(J.tripId, S.user.uid); J.member = true; } catch (err) { console.error(err); toast(joinErr(err)); }
+      J.busy = false;
+      if (!J.member) return render();
+    }
+    go(`#/trip/${J.tripId}`);
+  },
   close: () => tryClose(),
   bg(el, ev) { if (ev.target === el) tryClose(); },
   reload: () => updateSW?.(true),
