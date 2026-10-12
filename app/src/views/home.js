@@ -2,7 +2,7 @@
 import { esc, money, ICON } from '../ui/dom.js';
 import { scene, coverHtml } from '../ui/scene.js';
 import { TYPE_ICON, pickNextTrip, countdown, tripDays } from '../lib/trips.js';
-import { computeStats, tripTotal } from '../lib/stats.js';
+import { computeStats } from '../lib/stats.js';
 import { slashDate, todayString } from '../lib/dates.js';
 
 const ti = t => `${TYPE_ICON[t] || ''} ${t}`;
@@ -104,7 +104,7 @@ export function renderHome(S) {
     ${years.map(y => {
       const ts = list.filter(t => (t.start || '未知').startsWith(y));
       const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (S.wide || y === years[0]));
-      const ytot = trips.filter(t => (t.start || '未知').startsWith(y)).reduce((a, t) => a + tripTotal(t, S.expenses.get(t.id)), 0);
+      const ytot = st.yearTotals[y] || 0;
       return `<section class="year" data-open="${open}">
         <button type="button" data-act="year" data-y="${esc(y)}" aria-expanded="${open}"><span class="chev">${ICON.chev}</span><h3>${esc(y)}</h3><span class="tag">${ts.length} 趟</span><span class="ytotal">年度旅程總支出 <b class="num">$${money(ytot)}</b></span></button>
         ${open ? (ts.length ? `<div class="list">${ts.map(tripCard).join('')}</div>` : '<div class="empty">沒有符合的旅程</div>') : ''}
