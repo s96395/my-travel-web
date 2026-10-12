@@ -8,11 +8,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // 管理者看 users/{uid}.role，不在規則裡寫死 Email（N03）
+    // 管理者看 roles/{uid}.role，不在規則裡寫死 Email（N03）
+    // 角色放在獨立的 roles 集合，只能從 Firebase 主控台設定；users 是使用者自己可寫的，舊資料裡的欄位不能拿來判斷權限
     function isAdmin() {
       return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin';
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.get('role', '') == 'admin';
     }
 
     function isOwnerOf(trip) {
@@ -60,7 +61,8 @@ service cloud.firestore {
         || (pid is string && pid != ''
           && after.diff(before).affectedKeys().hasOnly([pid])
           && after[pid].get('uid', '') == request.auth.uid
-          && (!(pid in before) || before[pid].get('uid', '') == ''));
+          && (!(pid in before)
+            || (before[pid].get('uid', '') == '' && after[pid].diff(before[pid]).affectedKeys().hasOnly(['uid']))));
     }
 
     // 共編成員一般修改（支出總額、公費、行程以外的欄位）：不能改建立者、邀請碼與別人的成員身分
@@ -96,14 +98,19 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // users：登入者可讀暱稱；只能寫自己的，而且不能自己改 role
+    // users：登入者可讀暱稱；只能寫自己的
     // ============================================================
     match /users/{userId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == userId
-        && !('role' in request.resource.data);
-      allow update: if signedIn() && request.auth.uid == userId
-        && request.resource.data.get('role', '') == resource.data.get('role', '');
+      allow write: if signedIn() && request.auth.uid == userId;
+    }
+
+    // ============================================================
+    // roles：管理者名單，只能從 Firebase 主控台設定
+    // ============================================================
+    match /roles/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
     }
 
     // ============================================================

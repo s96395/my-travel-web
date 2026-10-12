@@ -29,7 +29,9 @@ beforeEach(async () => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'trips/t1'), TRIP);
     await setDoc(doc(db, 'trips/t1/expenses/e1'), { name: '晚餐', amount: 1200 });
-    await setDoc(doc(db, 'users/admin'), { nickname: '管理者', role: 'admin' });
+    await setDoc(doc(db, 'users/admin'), { nickname: '管理者' });
+    await setDoc(doc(db, 'roles/admin'), { role: 'admin' });
+    await setDoc(doc(db, 'users/oldfake'), { nickname: '舊資料', role: 'admin' });
     await setDoc(doc(db, 'users/member'), { nickname: '小安' });
     await setDoc(doc(db, 'optionSets/o1'), { list: [] });
     await uploadBytes(ref(ctx.storage(), 'trips/t1/cover/a.png'), png, { contentType: 'image/png' });
@@ -94,6 +96,8 @@ test('共編成員：只能把沒有帳號的同行者綁成自己', async () =>
   await assertFails(updateDoc(trip('member'), { 'participants.p1.uid': 'member', bindPid: 'p1' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'member', 'participants.p3.name': '改名', bindPid: 'p2' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p1.uid': deleteField(), bindPid: 'p1' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2': { name: '改掉名字', uid: 'member', order: 2 }, bindPid: 'p2' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p3.uid': 'member', 'participants.p3.status': 'inactive', bindPid: 'p3' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p3.uid': 'member', bindPid: 'p3' }));
   await assertSucceeds(updateDoc(trip('member'), { 'participants.p9': { name: '新朋友', uid: 'member', order: 9 }, bindPid: 'p9' }));
 });
@@ -117,10 +121,13 @@ test('建立者：可以管理同行者、移除成員與刪除旅程，但不�
 test('使用者資料：只能改自己的暱稱，不能給自己管理者身分', async () => {
   await assertSucceeds(getDoc(doc(as('stranger'), 'users/member')));
   await assertSucceeds(updateDoc(doc(as('member'), 'users/member'), { nickname: '安安' }));
-  await assertFails(updateDoc(doc(as('member'), 'users/member'), { role: 'admin' }));
-  await assertFails(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人', role: 'admin' }));
   await assertSucceeds(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人' }));
   await assertFails(updateDoc(doc(as('stranger'), 'users/member'), { nickname: '亂改' }));
+  await assertFails(setDoc(doc(as('member'), 'roles/member'), { role: 'admin' }));
+  await assertFails(getDoc(doc(as('member'), 'roles/admin')));
+  // users 裡自己寫的 role 不算數
+  await assertFails(getDoc(doc(as('oldfake'), 'trips/t1')));
+  await assertFails(setDoc(doc(as('oldfake'), 'optionSets/o1'), { list: ['x'] }));
 });
 test('選項與設定：登入才可讀，只有管理者可寫', async () => {
   await assertSucceeds(getDoc(doc(as('member'), 'optionSets/o1')));
