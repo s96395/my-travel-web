@@ -391,8 +391,9 @@ const actions = {
     const fields = draftFields(S, trip, d);
     S.busy = true; d.saving = true; expSheet();
     try {
-      await saveExpense(S.tripId, d.id, fields, S.user, S.nickname);
-      syncTotal({ id: d.id, amount: fields.amount });
+      const ref = await saveExpense(S.tripId, d.id, fields, S.user, S.nickname);
+      // 新增時畫面可能已經先收到這筆，用新編號排除，避免重複加總
+      syncTotal({ id: d.id || ref?.id, amount: fields.amount });
       dropDraft();
       toast(d.id ? '已儲存' : '已記下這筆支出');
     } catch (err) {
