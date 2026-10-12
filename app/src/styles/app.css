@@ -101,10 +101,11 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .stat[data-open="true"]{grid-column:1/-1}
 .stat-h{border:0;background:none;padding:0;text-align:left;display:grid;gap:2px;width:100%;align-content:start;align-self:stretch}
 .stat-h .big{display:flex;align-items:center;gap:8px;min-height:30px}
-.stat-h .ico{font-size:24px;line-height:1}
+.stat-h .ico{font-size:18px;line-height:1}
+.stat-h .label{font-size:14px;font-weight:600;color:var(--fg);letter-spacing:0}
 .stat-h .label .chev{display:inline-block;vertical-align:-2px;transition:transform .2s}
 .stat[data-open="true"] .stat-h .label .chev{transform:rotate(90deg)}
-.stat-h b{font-family:var(--font-data);font-size:22px;font-weight:700;line-height:1.3}
+.stat-h b{font-family:var(--font-data);font-size:20px;font-weight:700;line-height:1.3}
 .stat-d{border-top:1px var(--divider) var(--line);padding-top:6px;display:grid}
 .sr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:6px 0;font-size:14px;align-items:center}
 .sr .note{grid-column:1/-1;text-align:right;font-size:12px;color:var(--muted)}
@@ -478,8 +479,8 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .stat{background:var(--surface);border-color:transparent;border-radius:18px;box-shadow:0 6px 20px -12px var(--shade)}
 :root[data-style="i"] .stat-h{justify-items:center;text-align:center}
 :root[data-style="i"] .stat-h .big{justify-content:center}
-:root[data-style="i"] .stat-h .ico{display:inline;font-size:22px}
-:root[data-style="i"] .stat-h b{font-size:22px;font-weight:800;white-space:nowrap}
+:root[data-style="i"] .stat-h .ico{display:inline;font-size:18px}
+:root[data-style="i"] .stat-h b{font-size:20px;font-weight:700;white-space:nowrap}
 /* ---------- I 照片＋登機證：H 的照片與走過的路，下一趟和旅程卡加上登機證票根 ---------- */
 :root[data-style="i"] .hero.bpi{display:grid;gap:0;padding:0;position:relative;background:#2a110c;color:#fff;border-radius:var(--r);overflow:hidden;box-shadow:0 14px 30px -18px var(--shade)}
 :root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{position:absolute;inset:0}
