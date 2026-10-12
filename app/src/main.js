@@ -20,7 +20,7 @@ import { missingTemplate } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
-import { diveFormSheet, readDiveForm, totalTanks } from './views/dive.js';
+import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
 import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl } from './views/more.js';
 import { renderJoin } from './views/join.js';
 import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll } from './data/people.js';
@@ -306,11 +306,13 @@ function syncTotal(change) {
   updateTrip(S.tripId, { totalExpense: total }).catch(err => console.warn('總支出沒有更新', err));
 }
 
-// 潛水紀錄變動後，把累計瓶數寫回旅程主檔（首頁卡片與統計讀這個欄位）
+// 潛水紀錄變動後，把整趟瓶數與每個人的瓶數寫回旅程主檔（首頁卡片與統計讀這兩個欄位）
 function syncTanks() {
-  const trip = curTrip(), total = totalTanks(S.diveDocs);
-  if (!trip || trip.type !== '潛旅' || S.offline || trip.tanks === total) return;
-  updateTrip(S.tripId, { totalTanks: total }).catch(err => console.warn('累計瓶數沒有更新', err));
+  const trip = curTrip();
+  if (!trip || trip.type !== '潛旅' || S.offline) return;
+  const total = totalTanks(S.diveDocs), by = tanksByPerson(S.diveDocs, trip);
+  if (trip.tanks === total && JSON.stringify(trip.raw.tanksBy || {}) === JSON.stringify(by)) return;
+  updateTrip(S.tripId, { totalTanks: total, tanksBy: by }).catch(err => console.warn('累計瓶數沒有更新', err));
 }
 
 function onDrop(id, t) {
@@ -488,6 +490,7 @@ const actions = {
   },
   saveDive: el => saveRecord(el, 'diveLogs', readDiveForm(), () => S.diveDocs, ['已記下這支', '已更新潛水紀錄']),
   delDive: el => removeRecord(el, 'diveLogs', '已刪除潛水紀錄'),
+  pickDiver(el) { el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true'); },
   async delTodo(el, ev) {
     ev.preventDefault(); // 按鈕在勾選框的 label 裡，不要順便勾選
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
