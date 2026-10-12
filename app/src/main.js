@@ -27,6 +27,7 @@ import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.j
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
+import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -44,7 +45,9 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
+  dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
+let local = new Map(); // 沒網路開啟時，下載的旅程 id → 整份資料
 
 let stopTrips = null;
 const expenseWatch = new Map(); // tripId → 取消監看函式
@@ -62,7 +65,7 @@ function render() {
   else if (S.view === 'join') { maybeLoadJoin(); html = renderJoin(S); }
   else if (!S.user) html = renderLogin(S);
   else html = S.view === 'trip' ? renderTrip(S) : renderHome(S);
-  if (S.view === 'trip' && S.tab === 'more') loadNames();
+  if (S.view === 'trip' && S.tab === 'more' && !S.localOnly) loadNames();
   syncItineraryWatch();
   $('#scroller').innerHTML = html + envTag();
   const trip = curTrip();
@@ -110,7 +113,64 @@ function syncItineraryWatch() {
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
   Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want });
-  if (want) startTripWatch(want);
+  if (!want) return;
+  // 這裡在畫完畫面之後才執行，填好資料要再畫一次
+  if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
+  startTripWatch(want);
+  // 連線中途斷網、這趟還沒讀到時，先顯示下載的資料
+  if (S.offline && S.dl[want]) listOffline(S.user.uid).then(list => { if (itin.tripId === want && S.loadingItems) { fillFromLocal(list.find(r => r.id === want)); render(); } }).catch(() => {});
+}
+
+function fillFromLocal(rec) {
+  const x = rec?.subs || {};
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], todoDocs: x.todos || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false });
+}
+
+/* ---------- 下載供離線使用 ---------- */
+// 開啟時：換了帳號就清掉前一個帳號的資料（P07），記下這次的帳號，讀出下載過哪些旅程
+async function loadOffline(user) {
+  try {
+    const acc = await readAccount();
+    if (acc && acc.uid !== user.uid) await clearOffline();
+    await saveAccount({ uid: user.uid, name: user.displayName || '', email: user.email || '', nickname: S.nickname });
+    const list = await listOffline(user.uid);
+    if (S.user?.uid === user.uid) { S.dl = Object.fromEntries(list.map(r => [r.id, r.savedAt])); dlReady = true; refreshOffline(); render(); }
+  } catch (err) { console.warn('讀取離線資料失敗', err); }
+}
+// 每次讀到旅程清單：已被移出或刪除的旅程刪掉離線資料（P08）；開啟後第一次讀到時，其他下載過的旅程重新下載一次
+let dlChecked = false, dlReady = false; // dlReady：已讀出這台裝置下載過哪些旅程
+async function refreshOffline() {
+  if (S.offline || !dlReady || S.loadingTrips) return;
+  const uid = S.user.uid, mine = new Set(S.trips.map(t => t.id));
+  const gone = Object.keys(S.dl).filter(id => !mine.has(id));
+  for (const id of gone) {
+    try { await removeOffline(id); delete S.dl[id]; } catch (err) { console.warn('刪除離線資料失敗', id, err); }
+  }
+  if (!dlChecked) {
+    dlChecked = true;
+    for (const id of Object.keys(S.dl)) {
+      try { S.dl[id] = await downloadTrip(id, uid); } catch (err) { console.warn('更新離線資料失敗', id, err); }
+    }
+  }
+  render();
+}
+// 沒有網路、讀不到連線設定時，改顯示上次登入的帳號下載的旅程
+async function enterLocal() {
+  try {
+    const acc = await readAccount();
+    if (!acc) return false;
+    const list = await listOffline(acc.uid);
+    local = new Map(list.map(r => [r.id, r]));
+    Object.assign(S, {
+      localOnly: true, offline: true, ready: true, loadingTrips: false,
+      user: { uid: acc.uid, displayName: acc.name, email: acc.email }, nickname: acc.nickname,
+      trips: list.map(r => viewTrip(r.raw)).sort((a, b) => (b.raw.startDate || '').localeCompare(a.raw.startDate || '')),
+      expenses: new Map(list.map(r => [r.id, r.subs.expenses || []])),
+      dl: Object.fromEntries(list.map(r => [r.id, r.savedAt])),
+    });
+    render();
+    return true;
+  } catch (err) { console.warn('讀取離線資料失敗', err); return false; }
 }
 
 function startTripWatch(tripId) {
@@ -213,6 +273,7 @@ async function maybeLoadJoin() {
   if (!J || !S.user || J.step !== 'load' || J.loading) return;
   J.loading = true;
   const fail = msg => { Object.assign(J, { step: 'error', error: msg }); render(); };
+  if (S.localOnly) return fail('目前沒有網路，連上網路後再打開邀請連結。');
   let trip;
   try { trip = await readJoinTrip(J.tripId); } catch (err) { console.error(err); return fail('找不到這趟旅程，或邀請連結已經失效。請向建立者要最新的連結。'); }
   if (!trip) return fail('找不到這趟旅程，可能已經被刪除。');
@@ -279,6 +340,7 @@ function startWatching(user) {
     S.loadingTrips = false;
     syncExpenseWatch();
     render();
+    refreshOffline();
   }, err => {
     console.error(err);
     S.loadingTrips = false;
@@ -296,6 +358,10 @@ const actions = {
   },
   async signOut() {
     closeSheet();
+    // 登出時清掉手機上的旅程資料（P07）
+    await clearOffline().catch(err => console.warn('清除離線資料失敗', err));
+    // 沒網路開啟時還沒連上 Firebase，記下來等下次連線時再真的登出
+    if (S.localOnly) { store.set('pendingLogout', '1'); location.reload(); return; }
     await logOut();
     go('#/');
     toast('已登出');
@@ -328,6 +394,17 @@ const actions = {
   },
   open(el) { go(`#/trip/${el.dataset.id}`); },
   home() { go('#/'); },
+  async download() {
+    const trip = curTrip();
+    if (!trip || S.offline || S.dlBusy) return;
+    S.dlBusy = trip.id; render();
+    try {
+      S.dl[trip.id] = await downloadTrip(trip.id, S.user.uid);
+      toast('已下載，沒有網路也能查看這趟旅程');
+    } catch (err) { console.error(err); toast('下載失敗，請稍後再試'); }
+    S.dlBusy = null; render();
+  },
+  reloadPage: () => location.reload(),
   stat(el) { S.stats[el.dataset.k] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   filter(el) { S.filter = el.dataset.v; render(); },
   year(el) {
@@ -670,7 +747,11 @@ initDrag({
   onDrop,
 });
 WIDE.addEventListener('change', e => { S.wide = e.matches; render(); });
-window.addEventListener('online', () => { S.offline = false; render(); });
+window.addEventListener('online', () => {
+  // 沒網路開啟的要重新整理才會連線
+  if (S.localOnly) { toast('已連上網路，重新整理後就能修改', ['重新整理', 'reloadPage']); return; }
+  S.offline = false; render();
+});
 window.addEventListener('offline', () => { S.offline = true; render(); });
 
 /* ---------- 新版提示（規格書 P03）：有新版時問使用者要不要重新整理 ---------- */
@@ -686,16 +767,21 @@ async function boot() {
     S.env = await initFirebase();
   } catch (err) {
     console.error(err);
+    if (err.message !== 'config-missing' && await enterLocal()) return;
     fatal(navigator.onLine ? '無法讀取連線設定，已停止連線。請稍後再試，或通知管理者。' : '目前沒有網路，連上網路後再開啟。');
     return;
   }
   exposeTestSignIn();
+  if (store.get('pendingLogout') === '1') {
+    try { await logOut(); store.set('pendingLogout', ''); } catch (err) { console.warn('登出失敗', err); }
+  }
   watchUser(async user => {
     stopAll();
     S.user = user;
     S.nickname = user ? await nicknameOf(user) : '';
     S.ready = true;
-    if (user) startWatching(user);
+    S.dl = {}; dlChecked = false; dlReady = false;
+    if (user) { startWatching(user); loadOffline(user); }
     render();
   });
 }
