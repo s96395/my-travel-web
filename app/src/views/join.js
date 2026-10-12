@@ -26,8 +26,9 @@ export function renderJoin(S) {
     <span class="small muted num">${range}・${esc([t.country, t.city].filter(Boolean).join('・') || '未填地點')}</span>
     <div class="row"><div class="people">${people.map(avatar).join('')}</div><span class="small muted">${people.length} 位同行者</span></div></div>`;
   if (J.step === 'already') {
-    return page(`${tripBox}<p style="margin:0">你已經加入這趟旅程${J.boundName ? `，帳號綁定為「${esc(J.boundName)}」` : ''}。</p>
-      <button type="button" class="btn primary block" data-act="joinEnter">進入旅程</button>`);
+    const back = !J.member;
+    return page(`${tripBox}<p style="margin:0">${back ? `你的帳號之前綁定為「${esc(J.boundName)}」，按下面的按鈕就能重新加入。` : `你已經加入這趟旅程${J.boundName ? `，帳號綁定為「${esc(J.boundName)}」` : ''}。`}</p>
+      <button type="button" class="btn primary block" data-act="joinEnter" ${J.busy ? 'disabled' : ''}>${J.busy ? '處理中…' : back ? '重新加入旅程' : '進入旅程'}</button>`);
   }
   if (J.step === 'pick') {
     return page(`${tripBox}
