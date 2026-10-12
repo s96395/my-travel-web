@@ -7,6 +7,15 @@ import { memberUids, boundTo } from '../lib/people.js';
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const avatar = (p, i) => `<span class="avatar${p?.uid ? '' : ' unbound'}" data-c="${i % 3}">${esc((p?.name || '?').slice(0, 1))}</span>`;
 
+// 常用旅伴：其他旅程裡綁定過帳號的人（不含自己，也不含這趟已經綁定的），名字用最近一趟的
+export function companionsOf(S, trip) {
+  const here = new Set(participantsOf(trip.raw).map(p => p.uid).filter(Boolean)), seen = new Map();
+  [...S.trips].sort((a, b) => (b.raw.startDate || '').localeCompare(a.raw.startDate || '')).forEach(t => participantsOf(t.raw).forEach(p => {
+    if (p.uid && p.uid !== S.user.uid && !here.has(p.uid) && !seen.has(p.uid)) seen.set(p.uid, { uid: p.uid, name: p.name || '未命名' });
+  }));
+  return [...seen.values()];
+}
+
 export const inviteUrl = trip => `${location.origin}${location.pathname}#/join/${trip.id}/${trip.raw.shareKey || ''}`;
 
 export function renderMore(S, trip) {
@@ -26,7 +35,7 @@ export function renderMore(S, trip) {
           ${p.status === 'inactive' ? '<span class="tag warn">已停用</span>' : ''}</span>
         ${owner ? `<span class="row" style="gap:4px">
           ${i > 0 ? `<button type="button" class="more" data-act="moveP" data-id="${esc(p.id)}" ${off} aria-label="${esc(p.name)} 往上移">↑</button>` : ''}
-          <button type="button" class="btn sm" data-act="renameP" data-id="${esc(p.id)}" ${off}>改名</button>
+          <button type="button" class="btn sm" data-act="renameP" data-id="${esc(p.id)}" ${off}>${p.uid ? '改名' : '編輯'}</button>
           ${p.uid && p.uid === t.ownerId ? '' : `<button type="button" class="btn sm" data-act="toggleP" data-id="${esc(p.id)}" ${off}>${p.status === 'inactive' ? '啟用' : '停用'}</button>`}
         </span>` : ''}
       </div>`).join('') || '<p class="small muted">還沒有同行者</p>'}</div>
@@ -52,10 +61,16 @@ export function renderMore(S, trip) {
   </div>`;
 }
 
-export function personSheet(p) {
-  openSheet(`${head(p ? '修改同行者名字' : '新增同行者')}
-    <div class="field"><label for="pp-name">名字</label><input class="input" id="pp-name" maxlength="40" value="${esc(p?.name || '')}" placeholder="例如：媽媽"></div>
-    <button type="button" class="btn primary" data-act="savePerson" data-id="${esc(p?.id || '')}">${p ? '儲存' : '新增'}</button>`);
+// companions：常用旅伴；新增時可以直接選，沒有帳號的同行者可以綁到其中一位
+export function personSheet(p, companions = []) {
+  const act = p ? 'bindCompanion' : 'addCompanion';
+  const pick = companions.length && !p?.uid ? `<div class="field"><span class="label">${p ? '綁定到常用旅伴' : '從常用旅伴加入'}</span>
+    <div class="row" style="flex-wrap:wrap;gap:6px">${companions.map(c => `<button type="button" class="chip" data-act="${act}" data-id="${esc(p?.id || '')}" data-uid="${esc(c.uid)}">${esc(c.name)}</button>`).join('')}</div>
+    <span class="small muted">${p ? `綁定後「${esc(p.name)}」會改成對方的名字，` : ''}對方不用打開邀請連結，就會成為共編成員。</span></div>` : '';
+  openSheet(`${head(p ? (p.uid ? '修改同行者名字' : '編輯同行者') : '新增同行者')}
+    ${pick}
+    <div class="field"><label for="pp-name">${pick && !p ? '或只填名字' : '名字'}</label><input class="input" id="pp-name" maxlength="40" value="${esc(p?.name || '')}" placeholder="例如：媽媽"></div>
+    <button type="button" class="btn primary" data-act="savePerson" data-id="${esc(p?.id || '')}">${p ? '儲存名字' : '新增'}</button>`);
 }
 
 export function confirmSheet(title, body, act, label, id = '') {

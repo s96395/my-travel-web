@@ -17,7 +17,18 @@ export function patchParticipants(tripId, fields) {
   return updateDoc(tripRef(tripId), out);
 }
 
-export const removeMember = (tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid) });
+// 常用旅伴（在你其他旅程綁定過帳號的人）：建立者直接新增並綁定，同時加進共編成員，不用再傳邀請連結
+export const addCompanion = (trip, c) => updateDoc(tripRef(trip.id), {
+  [`participants.${doc(collection(db, 'trips')).id}`]: { name: cleanName(c.name), uid: c.uid, order: nextOrder(trip), status: 'active' },
+  memberIds: arrayUnion(c.uid), updatedAt: serverTimestamp(),
+});
+// 把名單上沒有帳號的同行者綁到常用旅伴，名字改成對方最近一趟用的名字
+export const bindCompanion = (tripId, pid, c) => updateDoc(tripRef(tripId), {
+  [`participants.${pid}.uid`]: c.uid, [`participants.${pid}.name`]: cleanName(c.name),
+  memberIds: arrayUnion(c.uid), updatedAt: serverTimestamp(),
+});
+
+export const removeMember =(tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid) });
 export const updateTripInfo = (tripId, form) => updateDoc(tripRef(tripId), { ...form, updatedAt: serverTimestamp() });
 
 // 帳號暱稱（共編成員名單用；讀不到時回傳空字串）
