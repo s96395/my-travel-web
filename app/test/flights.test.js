@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { flightMinutes, sortFlights, parseAirport, legacyFlights, legacyStays, withLegacy, nights } from '../src/lib/flights.js';
+import { flightMinutes, sortFlights, parseAirport, legacyFlights, legacyStays, withLegacy, nights, airportTz } from '../src/lib/flights.js';
 
 test('跨時區計算飛行時間', () => {
   assert.equal(flightMinutes({ dep: '2026-11-20 07:10', fromTz: '+8', arr: '2026-11-20 10:50', toTz: '+9' }), 160);
@@ -36,4 +36,16 @@ test('舊版住宿與轉換後隱藏', () => {
   assert.equal(s.note, '入住 15:00');
   assert.equal(withLegacy([{ id: 'n1', fromLegacy: 'hotel' }], [s]).length, 1);
   assert.equal(withLegacy([], [s]).length, 1);
+});
+
+test('夏令時間機場依日期換算時區', () => {
+  assert.equal(airportTz('LAX', '2026-07-01 10:00'), '-7');
+  assert.equal(airportTz('LAX', '2026-12-01 10:00'), '-8');
+  assert.equal(airportTz('JFK', '2026-07-01'), '-4');
+  assert.equal(airportTz('LHR', '2026-07-01'), '+1');
+  assert.equal(airportTz('LHR', '2026-01-10'), '0');
+  assert.equal(airportTz('CDG', '2026-07-01'), '+2');
+  assert.equal(airportTz('LAX', ''), '-8');
+  assert.equal(airportTz('TPE', '2026-07-01'), '+8');
+  assert.equal(airportTz('XXX', '2026-07-01'), '');
 });

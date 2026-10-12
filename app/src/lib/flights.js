@@ -8,10 +8,24 @@ export const AIRPORTS = {
   ICN: ['首爾仁川', '+9'], GMP: ['首爾金浦', '+9'], PUS: ['釜山金海', '+9'], CJU: ['濟州', '+9'],
   HKG: ['香港', '+8'], MFM: ['澳門', '+8'], BKK: ['曼谷', '+7'], DMK: ['曼谷廊曼', '+7'], CNX: ['清邁', '+7'], SGN: ['胡志明市', '+7'], HAN: ['河內', '+7'], DAD: ['峴港', '+7'],
   CEB: ['宿霧', '+8'], MNL: ['馬尼拉', '+8'], SIN: ['新加坡', '+8'], KUL: ['吉隆坡', '+8'], DPS: ['峇里島', '+8'],
-  PRG: ['布拉格', '+1'], VIE: ['維也納', '+1'], BUD: ['布達佩斯', '+1'], CDG: ['巴黎', '+1'], FRA: ['法蘭克福', '+1'], LHR: ['倫敦', '0'],
-  LAX: ['洛杉磯', '-8'], SFO: ['舊金山', '-8'], JFK: ['紐約', '-5'],
+  PRG: ['布拉格', '+1', 'Europe/Prague'], VIE: ['維也納', '+1', 'Europe/Vienna'], BUD: ['布達佩斯', '+1', 'Europe/Budapest'], CDG: ['巴黎', '+1', 'Europe/Paris'], FRA: ['法蘭克福', '+1', 'Europe/Berlin'], LHR: ['倫敦', '0', 'Europe/London'],
+  LAX: ['洛杉磯', '-8', 'America/Los_Angeles'], SFO: ['舊金山', '-8', 'America/Los_Angeles'], JFK: ['紐約', '-5', 'America/New_York'],
 };
-export const TIMEZONES = ['-8', '-5', '0', '+1', '+2', '+7', '+8', '+9', '+10'];
+export const TIMEZONES = ['-8', '-7', '-5', '-4', '0', '+1', '+2', '+7', '+8', '+9', '+10'];
+
+// 機場在某個當地日期的時區；有夏令時間的機場依日期換算，其他用固定值
+export function airportTz(code, local) {
+  const a = AIRPORTS[code];
+  if (!a) return '';
+  const day = String(local || '').slice(0, 10);
+  if (!a[2] || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return a[1];
+  try {
+    const name = new Intl.DateTimeFormat('en-US', { timeZone: a[2], timeZoneName: 'longOffset' })
+      .formatToParts(new Date(`${day}T12:00:00Z`)).find(p => p.type === 'timeZoneName').value;
+    const m = name.match(/([+-])(\d{2}):00/);
+    return m ? m[1] + Number(m[2]) : '0';
+  } catch { return a[1]; }
+}
 export const LEGS = ['去程', '回程', '轉機'];
 
 const tzText = z => {
@@ -45,17 +59,17 @@ export const sortStays = list => [...list].sort((a, b) => String(a.checkInDate |
 const time = t => String(t || '').trim().replace('.', ':').replace(/^(\d):/, '0$1:');
 
 // 「臺中 RMQ（第 2 航廈）」→ 代碼 RMQ、城市 臺中、航廈 第 2 航廈
-export function parseAirport(text) {
+export function parseAirport(text, local) {
   const s = String(text || '').trim();
   const code = (s.match(/\b([A-Z]{3})\b/) || [])[1] || '';
   const term = (s.match(/[（(]([^）)]*)[）)]/) || [])[1] || '';
   const city = s.replace(/[（(][^）)]*[）)]/, '').replace(code, '').trim() || (AIRPORTS[code] || [''])[0];
-  return { code, city, term, tz: (AIRPORTS[code] || [, '+8'])[1] };
+  return { code, city, term, tz: airportTz(code, local) || '+8' };
 }
 
 function legacyLeg(key, leg, f, p) {
-  const from = parseAirport(f[p.from]), to = parseAirport(f[p.to] || f[p.toFallback]);
   const date = f[p.date] || '';
+  const from = parseAirport(f[p.from], date), to = parseAirport(f[p.to] || f[p.toFallback], date);
   const at = (d, t) => (d && time(t) ? `${d} ${time(t)}` : '');
   if (![f[p.no], date, f[p.from], f[p.depTime]].some(Boolean)) return null;
   return {

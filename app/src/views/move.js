@@ -1,7 +1,7 @@
 // 交通住宿分頁：班機與住宿都可以多筆（規格書 F30–F32）
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { monthDay } from '../lib/dates.js';
-import { AIRPORTS, TIMEZONES, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
+import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
 
 // 新資料加上還沒轉過的舊版單筆資料
 export const allFlights = (S, trip) => withLegacy(S.flightDocs, legacyFlights(trip.raw.flight));
@@ -61,10 +61,10 @@ export function renderMove(S, trip) {
 /* ---------- 表單 ---------- */
 const fld = (id, label, val, type = 'text', extra = '') => `<div class="field"><label for="${id}">${label}</label><input class="input" id="${id}" type="${type}" value="${esc(val ?? '')}" ${extra}></div>`;
 const tzSel = (id, v) => `<select class="select" id="${id}">${TIMEZONES.map(z => `<option value="${z}" ${z === v ? 'selected' : ''}>UTC${z === '0' ? '' : z}</option>`).join('')}</select>`;
-const delBtn = (r, act, isOwner) => (r && !r.legacy && isOwner ? `<button type="button" class="btn danger" data-act="${act}" data-id="${esc(r.id)}">刪除</button>` : '');
+const delBtn = (r, act, canDel) => (r && !r.legacy && canDel ? `<button type="button" class="btn danger" data-act="${act}" data-id="${esc(r.id)}">刪除</button>` : '');
 const legacyNote = r => (r?.legacy ? '<p class="small muted" style="margin:0">這筆是舊版的資料，儲存後會轉成新格式，舊版網站的內容不會被改動。</p>' : '');
 
-export function flightFormSheet(trip, f, isOwner) {
+export function flightFormSheet(trip, f, canDel) {
   const start = trip.start || '';
   const v = f || { leg: '去程', airline: '', flightNo: '', from: '', fromCity: '', fromTerminal: '', fromTz: '+8', dep: start ? `${start} 08:00` : '', to: '', toCity: '', toTerminal: '', toTz: '+8', arr: start ? `${start} 12:00` : '', pnr: '', note: '' };
   openSheet(`${head(f ? '編輯航段' : '新增航段')}
@@ -84,7 +84,7 @@ export function flightFormSheet(trip, f, isOwner) {
     <div class="grid2">${fld('ff-pnr', '訂位代碼', v.pnr, 'text', 'placeholder="例如：F8FMCW" maxlength="20"')}${fld('ff-note', '備註', v.note, 'text', 'placeholder="例如：託運 23 公斤" maxlength="100"')}</div>
     <p class="small muted" style="margin:0">輸入機場代碼會自動帶入城市和時區。轉機請把每一段分開輸入。</p>
     ${legacyNote(f)}
-    <div class="row">${delBtn(f, 'delFlight', isOwner)}<button type="button" class="btn primary grow" data-act="saveFlight" data-id="${esc(f?.id || '')}">儲存</button></div>`);
+    <div class="row">${delBtn(f, 'delFlight', canDel)}<button type="button" class="btn primary grow" data-act="saveFlight" data-id="${esc(f?.id || '')}">儲存</button></div>`);
   updateDuration();
 }
 
@@ -109,11 +109,11 @@ export function updateDuration() {
 
 // 輸入機場代碼後自動帶入城市與時區（城市已手動填過就不覆蓋）
 export function fillAirport(input) {
-  const a = AIRPORTS[input.value.trim().toUpperCase()], side = input.dataset.ap;
+  const code = input.value.trim().toUpperCase(), a = AIRPORTS[code], side = input.dataset.ap;
   if (!a) return;
   const city = $(`#ff-${side}City`);
   if (!city.value || city.dataset.auto) { city.value = a[0]; city.dataset.auto = '1'; }
-  $(`#ff-${side}Tz`).value = a[1];
+  $(`#ff-${side}Tz`).value = airportTz(code, $(side === 'from' ? '#ff-dep' : '#ff-arr').value);
   updateDuration();
 }
 
@@ -127,7 +127,7 @@ export function readFlightForm() {
   return { data: f };
 }
 
-export function stayFormSheet(trip, s, isOwner) {
+export function stayFormSheet(trip, s, canDel) {
   const v = s || { name: '', address: '', checkInDate: trip.start || '', checkOutDate: trip.end || '', confirmCode: '', pin: '', note: '' };
   openSheet(`${head(s ? '編輯住宿' : '新增住宿')}
     ${fld('sf-name', '名稱', v.name, 'text', 'placeholder="飯店或民宿名稱" maxlength="60"')}
@@ -138,7 +138,7 @@ export function stayFormSheet(trip, s, isOwner) {
     ${fld('sf-note', '備註', v.note, 'text', 'placeholder="例如：含早餐" maxlength="100"')}
     <p class="small muted" style="margin:0">確認碼和 PIN 碼平常會遮起來，點一下才會顯示。</p>
     ${legacyNote(s)}
-    <div class="row">${delBtn(s, 'delStay', isOwner)}<button type="button" class="btn primary grow" data-act="saveStay" data-id="${esc(s?.id || '')}">儲存</button></div>`);
+    <div class="row">${delBtn(s, 'delStay', canDel)}<button type="button" class="btn primary grow" data-act="saveStay" data-id="${esc(s?.id || '')}">儲存</button></div>`);
   updateNights();
 }
 

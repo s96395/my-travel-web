@@ -129,6 +129,8 @@ async function moveItem(id, target) {
 }
 
 const isOwner = trip => trip.raw.ownerId === S.user.uid;
+// 班機、住宿：旅程擁有者或這筆的建立者可以刪除
+const canDelRecord = (trip, r) => isOwner(trip) || (!!r && r.createdByUid === S.user.uid);
 
 // 儲存班機或住宿；舊版資料第一次儲存時新增一筆，並記下是從哪個舊欄位轉來的
 async function saveRecord(el, name, form, all, [addedMsg, updatedMsg]) {
@@ -292,12 +294,14 @@ const actions = {
   flightForm(el) {
     const trip = curTrip();
     if (!trip || S.offline) return;
-    flightFormSheet(trip, allFlights(S, trip).find(f => f.id === el.dataset.id), isOwner(trip));
+    const f = allFlights(S, trip).find(x => x.id === el.dataset.id);
+    flightFormSheet(trip, f, canDelRecord(trip, f));
   },
   stayForm(el) {
     const trip = curTrip();
     if (!trip || S.offline) return;
-    stayFormSheet(trip, allStays(S, trip).find(s => s.id === el.dataset.id), isOwner(trip));
+    const s = allStays(S, trip).find(x => x.id === el.dataset.id);
+    stayFormSheet(trip, s, canDelRecord(trip, s));
   },
   saveFlight: el => saveRecord(el, 'flights', readFlightForm(), allFlights, ['已新增航段，會依起飛時間排序', '已更新航段']),
   saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
@@ -320,6 +324,9 @@ document.addEventListener('input', ev => {
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
   if (t.dataset?.ap) fillAirport(t);
   if (['ff-fromCity', 'ff-toCity'].includes(t.id)) delete t.dataset.auto;
+  // 日期改了，有夏令時間的機場要重算時區
+  if (t.id === 'ff-dep') fillAirport($('#ff-from'));
+  if (t.id === 'ff-arr') fillAirport($('#ff-to'));
   if (['ff-dep', 'ff-arr'].includes(t.id)) updateDuration();
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
 });
