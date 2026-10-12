@@ -85,7 +85,9 @@ function legacyLeg(key, leg, f, p, fallbackDate) {
   let arr = at(date, f[p.arrTime]);
   if (dep && arr && toInstant(arr, to.tz) <= toInstant(dep, from.tz)) {
     const next = parseDate(date); next.setDate(next.getDate() + 1);
-    arr = at(`${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`, f[p.arrTime]);
+    const day = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(next.getDate()).padStart(2, '0')}`;
+    arr = at(day, f[p.arrTime]);
+    to.tz = airportTz(to.code, day) || to.tz; // 隔天剛好換夏令時間時，時區要用抵達日
   }
   return {
     id: `legacy-${key}`, legacy: key, leg, airline: f.airline || '', flightNo: f[p.no] || '',
