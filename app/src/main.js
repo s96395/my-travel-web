@@ -247,6 +247,8 @@ const actions = {
     S.busy = false;
   },
   async delItem(el) {
+    // 第一次按只換成確認文字，再按一次才真的刪除
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
     if (S.busy) return;
     S.busy = true;
     try { await deleteItem(S.tripId, el.dataset.id); closeSheet(); toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }

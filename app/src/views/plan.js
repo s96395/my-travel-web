@@ -8,7 +8,7 @@ const head = title => `<div class="head"><h2>${title}</h2><button type="button" 
 const PRI_TAG = { must: ' bad', want: ' accent', optional: '' };
 
 function dayDate(trip, d) {
-  if (!trip.start || d > tripDays(trip)) return '';
+  if (!d || !trip.start || d > tripDays(trip)) return '';
   const dt = parseDate(trip.start);
   dt.setDate(dt.getDate() + d - 1);
   return monthDay(toDateString(dt));

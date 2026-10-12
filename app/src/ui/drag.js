@@ -45,7 +45,10 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
       if (box) box.insertBefore(DR.line, box.querySelector(':scope > .btn'));
       else day.appendChild(DR.line);
       DR.target = { kind: 'day', d: +day.dataset.dropd };
+      return;
     }
+    // 不在可放的位置：取消目前的目標，放開時不會移動
+    DR.line.remove(); DR.target = null;
   }, { passive: false });
 
   document.addEventListener('touchmove', e => { if (DR.active) e.preventDefault(); }, { passive: false });
