@@ -359,6 +359,7 @@ textarea.input{resize:vertical;font-family:inherit}
 .todo input{width:22px;height:22px;accent-color:var(--accent);flex:none;margin:0}
 .todo.done span{text-decoration:line-through;color:var(--muted)}
 .todo .grow{min-width:0}
+.todo .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
 
 .summary{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .summary .card{display:grid;gap:2px}

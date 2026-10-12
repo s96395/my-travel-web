@@ -16,6 +16,7 @@ import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
+import { missingTemplate } from './lib/todos.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
@@ -27,6 +28,7 @@ const S = {
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
   flightDocs: [], stayDocs: [], loadingMove: false, reveal: {},
+  todoDocs: [], loadingTodo: false,
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
@@ -82,13 +84,13 @@ function go(hash) {
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
 const findItem = id => S.items.find(it => it.id === id);
 
-// 進入旅程時開始監看行程、班機、住宿，離開時停止；換旅程時分頁與展開狀態歸零
+// 進入旅程時開始監看行程、班機、住宿、待辦，離開時停止；換旅程時分頁與展開狀態歸零
 function syncItineraryWatch() {
   const want = S.user && S.view === 'trip' ? S.tripId : null;
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want });
   if (want) startTripWatch(want);
 }
 
@@ -100,7 +102,7 @@ function startTripWatch(tripId) {
     itin.stops.forEach(off => off()); itin.stops = [];
     if (++itin.tries <= 3) { setTimeout(() => itin.tripId === tripId && !itin.stops.length && startTripWatch(tripId), 1500 * itin.tries); return; }
     console.error(err);
-    S.loadingItems = false; S.loadingMove = false;
+    S.loadingItems = false; S.loadingMove = false; S.loadingTodo = false;
     toast('讀取旅程資料失敗，請重新整理再試');
     render();
   };
@@ -110,6 +112,7 @@ function startTripWatch(tripId) {
     watchItinerary(tripId, ok(list => { S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
+    watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
   ];
 }
 
@@ -154,6 +157,23 @@ async function removeRecord(el, name, msg) {
   S.busy = true;
   try { await deleteRecord(S.tripId, name, el.dataset.id); closeSheet(); toast(msg); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
   S.busy = false;
+}
+
+// 待辦：新增一筆或套用範本；order 用加入時間，和舊版相同
+async function addTodos(texts, msg) {
+  if (S.busy || S.offline || !texts.length) return false;
+  S.busy = true;
+  const now = Date.now();
+  try {
+    await Promise.all(texts.map((text, i) => addRecord(S.tripId, 'todos', { text, done: false, order: now + i }, S.user, S.nickname)));
+    toast(msg);
+    return true;
+  } catch (err) { console.error(err); toast('待辦新增失敗，請稍後再試'); return false; } finally { S.busy = false; }
+}
+
+async function toggleTodo(box) {
+  if (S.offline) { box.checked = !box.checked; return; }
+  try { await updateRecord(S.tripId, 'todos', box.dataset.todo, { done: box.checked }, S.user, S.nickname); } catch (err) { console.error(err); box.checked = !box.checked; toast('待辦更新失敗，請稍後再試'); }
 }
 
 function onDrop(id, t) {
@@ -307,6 +327,20 @@ const actions = {
   saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
   delFlight: el => removeRecord(el, 'flights', '已刪除航段'),
   delStay: el => removeRecord(el, 'stays', '已刪除住宿'),
+  async delTodo(el, ev) {
+    ev.preventDefault(); // 按鈕在勾選框的 label 裡，不要順便勾選
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
+    if (S.busy) return;
+    S.busy = true;
+    try { await deleteRecord(S.tripId, 'todos', el.dataset.id); toast('已刪除待辦'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  todoTpl() {
+    const trip = curTrip();
+    if (!trip) return;
+    const miss = missingTemplate(S.todoDocs, trip.type);
+    addTodos(miss, `已加入 ${miss.length} 項`);
+  },
   close: () => closeSheet(),
   bg(el, ev) { if (ev.target === el) closeSheet(); },
   reload: () => updateSW?.(true),
@@ -331,11 +365,19 @@ document.addEventListener('input', ev => {
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
 });
 document.addEventListener('change', ev => {
+  if (ev.target.dataset?.todo) toggleTodo(ev.target);
   if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(ev.target.id)) updateDuration();
   if (['sf-in', 'sf-out'].includes(ev.target.id)) updateNights();
 });
 document.addEventListener('compositionend', ev => {
   if (ev.target.id === 'q') { S.q = ev.target.value; render(); }
+});
+document.addEventListener('submit', async ev => {
+  if (ev.target.dataset.form !== 'todo') return;
+  ev.preventDefault();
+  const input = $('#todoNew'), text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetOpen()) closeSheet(); });
 window.addEventListener('scroll', () => $('#appbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
