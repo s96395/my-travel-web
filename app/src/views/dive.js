@@ -1,17 +1,19 @@
 // 潛水分頁（潛旅才有）：累計瓶數、最深、水下時間，日誌依日期分組（規格書 F33）
 // 欄位名沿用舊版 diveLogs：diveDate、diveSite、maxDepth、duration、visibility、tanks、note
-// divers：有下水的同行者 ID；舊資料沒有這個欄位，當作全部同行者都有下水
+// divers：有下水的同行者 ID；舊資料沒有這個欄位，只算記錄的人（找不到時算建立者）
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { monthDay, parseDate, toDateString, daysBetween } from '../lib/dates.js';
 import { participantsOf } from '../lib/trips.js';
 
 const tanksOf = d => Number(d.tanks) || 1;
 export const totalTanks = list => list.reduce((a, d) => a + tanksOf(d), 0);
-const dove = (d, pid) => !Array.isArray(d.divers) || d.divers.includes(pid);
 const activePeople = trip => participantsOf(trip.raw).filter(p => p.status !== 'inactive');
+const uidPid = (trip, uid) => (uid && participantsOf(trip.raw).find(p => p.uid === uid)?.id) || null;
+const dove = (d, pid, trip) => (Array.isArray(d.divers) ? d.divers.includes(pid)
+  : pid === (uidPid(trip, d.createdByUid) || uidPid(trip, trip.raw.ownerId)));
 
 // 每位同行者自己下水的瓶數，寫回旅程主檔 tanksBy，首頁的累計氣瓶數只算登入者自己的
-export const tanksByPerson = (list, trip) => Object.fromEntries(activePeople(trip).map(p => [p.id, totalTanks(list.filter(d => dove(d, p.id)))]));
+export const tanksByPerson = (list, trip) => Object.fromEntries(activePeople(trip).map(p => [p.id, totalTanks(list.filter(d => dove(d, p.id, trip)))]));
 
 // 依日期排序，同一天依建立時間
 const ms = t => (t?.toMillis ? t.toMillis() : Infinity);
@@ -22,7 +24,7 @@ const head = title => `<div class="head"><h2>${title}</h2><button type="button" 
 export function renderDive(S, trip) {
   if (S.loadingDive) return '<div class="empty">正在讀取潛水紀錄…</div>';
   const dives = sortDives(S.diveDocs), people = activePeople(trip), by = tanksByPerson(dives, trip);
-  const names = d => (Array.isArray(d.divers) && d.divers.length < people.length ? people.filter(p => d.divers.includes(p.id)).map(p => esc(p.name)).join('、') : '');
+  const names = d => { const who = people.filter(p => dove(d, p.id, trip)); return who.length < people.length ? who.map(p => esc(p.name)).join('、') : ''; };
   const deep = Math.max(0, ...dives.map(d => Number(d.maxDepth) || 0));
   const mins = dives.reduce((a, d) => a + (Number(d.duration) || 0), 0);
   const byDate = {};
@@ -77,7 +79,7 @@ export function diveFormSheet(trip, d, canDel) {
     <div class="grid2"><div class="field"><label for="df-date">日期</label>${date}</div>${fld('df-site', '潛點', v.diveSite, 'placeholder="例如：柴口" maxlength="40"')}</div>
     <div class="grid2">${fld('df-depth', '最大深度（m）', v.maxDepth, 'inputmode="decimal"')}${fld('df-min', '潛水時間（分）', v.duration, 'inputmode="numeric"')}</div>
     <div class="grid2">${fld('df-vis', '能見度（m）', v.visibility, 'inputmode="numeric"')}${fld('df-tanks', '瓶數', v.tanks || 1, 'inputmode="numeric"')}</div>
-    ${people.length > 1 ? `<div class="field"><span class="label">誰有下水</span><div class="row" id="df-divers" style="flex-wrap:wrap;gap:6px">${people.map(p => `<button type="button" class="chip" data-act="pickDiver" data-pid="${esc(p.id)}" aria-pressed="${dove(v, p.id)}">${esc(p.name)}</button>`).join('')}</div></div>` : ''}
+    ${people.length > 1 ? `<div class="field"><span class="label">誰有下水</span><div class="row" id="df-divers" style="flex-wrap:wrap;gap:6px">${people.map(p => `<button type="button" class="chip" data-act="pickDiver" data-pid="${esc(p.id)}" aria-pressed="${d ? dove(d, p.id, trip) : true}">${esc(p.name)}</button>`).join('')}</div></div>` : ''}
     <div class="field"><label for="df-note">心得</label><textarea class="input" id="df-note" rows="2" maxlength="200" placeholder="看到什麼生物、水流狀況">${esc(v.note || '')}</textarea></div>
     <div class="row">${d && canDel ? `<button type="button" class="btn danger" data-act="delDive" data-id="${esc(d.id)}">刪除</button>` : ''}<button type="button" class="btn primary grow" data-act="saveDive" data-id="${esc(d?.id || '')}">儲存</button></div>`);
 }
