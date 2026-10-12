@@ -4,7 +4,7 @@ import { computeStats, myShare, isSplit } from '../src/lib/stats.js';
 import { viewTrip, pickNextTrip, countdown, myParticipantId } from '../src/lib/trips.js';
 
 const raw = (id, o) => ({ id, title: id, country: '日本', city: '京都', tripType: '自由行', status: '已完成',
-  startDate: '2026-01-01', endDate: '2026-01-03', participants: { pMe: { name: '我', uid: 'U1', order: 1 }, pB: { name: '肉格', order: 2 } }, ...o });
+  startDate: '2026-01-01', endDate: '2026-01-03', ownerId: 'U1', participants: { pMe: { name: '我', uid: 'U1', order: 1 }, pB: { name: '肉格', order: 2 } }, ...o });
 
 test('我的支出依同行者 ID 計算，舊資料以 UID 為鍵也認得', () => {
   assert.equal(myShare({ personalShares: { pMe: 300, pB: 200 } }, 'pMe', 'U1'), 300);
@@ -35,6 +35,15 @@ test('依類型加總等於各年度旅程總支出合計', () => {
   assert.equal(s.typeTotal, 12500);
   assert.deepEqual(s.tanks, [['墾丁', 6]]);
   assert.equal(s.tankTotal, 6);
+});
+
+test('加入別人的旅程，依類型與年度旅程總支出只算分給自己的', () => {
+  const trips = [viewTrip(raw('a', { ownerId: 'U9', tripType: '潛旅', participants: { pO: { name: 'Y SHEN', uid: 'U9', order: 1 }, pMe: { name: '俞皓', uid: 'U1', order: 2 } } }))];
+  const ex = new Map([['a', [{ amount: 16000, personalShares: { pO: 16000 } }, { amount: 600, personalShares: { pO: 300, pMe: 300 } }, { amount: 100 }]]]);
+  const s = computeStats(trips, ex, 'U1');
+  assert.equal(s.typeTotal, 300);
+  assert.equal(s.yearTotals['2026'], 300);
+  assert.equal(s.yearly[0].mine, 300);
 });
 
 test('去過的國家只算已完成或已封存', () => {
