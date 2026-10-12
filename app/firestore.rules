@@ -1,85 +1,128 @@
-// 測試環境用：沿用舊版規則，拿掉對所有人開放寫入的 optionSets、settings。
-// 第一版正式規則在第 8 批重寫。
+// 新版第一版資料庫安全規則（規格書 N02–N04）
+// 先用在本機模擬環境與測試環境；正式環境等舊資料轉換（第 9 批）時再換上，因為舊版網站的加入流程用不了這份規則。
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isSignedIn() {
+    function signedIn() {
       return request.auth != null;
     }
 
-    function isSystemOwner() {
-      return isSignedIn()
-        && request.auth.token.email == 's96395@gmail.com';
+    // 管理者看 roles/{uid}.role，不在規則裡寫死 Email（N03）
+    // 角色放在獨立的 roles 集合，只能從 Firebase 主控台設定；users 是使用者自己可寫的，舊資料裡的欄位不能拿來判斷權限
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.get('role', '') == 'admin';
     }
 
-    function canAccessTripData(tripData) {
-      return isSignedIn()
-        && (
-          isSystemOwner()
-          || tripData.ownerId == request.auth.uid
-          || (tripData.memberIds is list && request.auth.uid in tripData.memberIds)
-        );
+    function isOwnerOf(trip) {
+      return signedIn() && trip.get('ownerId', '') == request.auth.uid;
     }
 
-    function canListTripData(tripData) {
-      return isSignedIn()
-        && (
-          isSystemOwner()
-          || tripData.ownerId == request.auth.uid
-          || request.auth.uid in tripData.memberIds
-        );
+    function isMemberOf(trip) {
+      return signedIn() && trip.get('memberIds', []) is list && request.auth.uid in trip.get('memberIds', []);
     }
 
-    function canAccessTrip(tripId) {
-      return canAccessTripData(get(/databases/$(database)/documents/trips/$(tripId)).data);
+    function canAccess(trip) {
+      return isOwnerOf(trip) || isMemberOf(trip) || isAdmin();
     }
 
-    function canPreviewJoinTrip() {
-      return isSignedIn()
-        && resource.data.shareKey is string
-        && resource.data.shareKey.size() > 0;
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function canJoinTripByShareKey() {
-      return isSignedIn()
-        && resource.data.shareKey is string
-        && resource.data.shareKey.size() > 0
-        && resource.data.memberIds is list
-        && request.resource.data.memberIds is list
-        && !(request.auth.uid in resource.data.memberIds)
-        && request.auth.uid in request.resource.data.memberIds
-        && request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1
-        && request.resource.data.memberIds.hasAll(resource.data.memberIds)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+    // 拿著邀請連結加入：只能把自己加進 memberIds，並帶上連結裡的邀請碼（N04）
+    function isJoining() {
+      return signedIn()
+        && !isMemberOf(resource.data)
+        && resource.data.get('shareKey', '') is string
+        && resource.data.get('shareKey', '') != ''
+        && request.resource.data.get('joinKey', '') == resource.data.shareKey
+        && changed().hasOnly(['memberIds', 'joinKey'])
+        && request.resource.data.memberIds.toSet() == resource.data.get('memberIds', []).toSet().union([request.auth.uid].toSet())
+        && request.resource.data.memberIds.size() == resource.data.get('memberIds', []).size() + 1;
+    }
+
+    // 共編成員自己退出：只能把自己從 memberIds 拿掉
+    function isLeaving() {
+      return isMemberOf(resource.data)
+        && changed().hasOnly(['memberIds'])
+        && request.resource.data.memberIds.toSet() == resource.data.memberIds.toSet().difference([request.auth.uid].toSet())
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1;
+    }
+
+    // 共編成員綁定同行者：只能動 bindPid 指定的那一位，而且只能綁自己、那一位原本沒有帳號
+    function bindsSelfOnly() {
+      let before = resource.data.get('participants', {});
+      let after = request.resource.data.get('participants', {});
+      let pid = request.resource.data.get('bindPid', '');
+      return after.diff(before).affectedKeys().size() == 0
+        || (pid is string && pid != ''
+          && after.diff(before).affectedKeys().hasOnly([pid])
+          && after[pid].get('uid', '') == request.auth.uid
+          && (!(pid in before)
+            || (before[pid].get('uid', '') == '' && after[pid].diff(before[pid]).affectedKeys().hasOnly(['uid']))));
+    }
+
+    // 共編成員一般修改（支出總額、公費、行程以外的欄位）：不能改建立者、邀請碼與別人的成員身分
+    function memberUpdateOk() {
+      return isMemberOf(resource.data)
+        && !changed().hasAny(['ownerId', 'shareKey', 'memberIds'])
+        && bindsSelfOnly();
     }
 
     // ============================================================
-    // trips 主集合
+    // trips：只有建立者、共編成員（與管理者）讀得到（N04）
     // ============================================================
     match /trips/{tripId} {
-      allow get: if canAccessTripData(resource.data) || canPreviewJoinTrip();
-      allow list: if canListTripData(resource.data);
-      allow update: if canAccessTripData(resource.data) || canJoinTripByShareKey();
-      allow delete: if canAccessTripData(resource.data);
-      allow create: if canAccessTripData(request.resource.data);
+      allow get: if canAccess(resource.data);
+      // 查詢只能用「我建立的」或「我是成員的」條件（寫法要讓規則能直接對應查詢條件）
+      allow list: if signedIn()
+        && (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.memberIds || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.get('memberIds', []) is list
+        && request.auth.uid in request.resource.data.get('memberIds', []);
+      allow update: if (isOwnerOf(resource.data) && request.resource.data.ownerId == resource.data.ownerId)
+        || isAdmin()
+        || memberUpdateOk()
+        || isLeaving()
+        || isJoining();
+      allow delete: if isOwnerOf(resource.data) || isAdmin();
 
-      // 所有 trips/{tripId} 底下的子集合：
-      // itinerary, expenses, images, todos, diveLogs, flights,
-      // accommodations，以及未來新增的 trip 子集合。
+      // 行程、班機、住宿、待辦、支出、公費等子集合：成員才能讀寫
       match /{subCollection}/{documentId=**} {
-        allow read, write: if canAccessTrip(tripId);
+        allow read, write: if canAccess(get(/databases/$(database)/documents/trips/$(tripId)).data);
       }
     }
 
     // ============================================================
-    // users 集合（Google 登入後的使用者暱稱資料）
+    // users：登入者可讀暱稱；只能寫自己的
     // ============================================================
-    // 允許所有登入者讀取使用者公開顯示資料；只允許本人寫入自己的 users/{uid} 文件。
     match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == userId;
     }
 
+    // ============================================================
+    // roles：管理者名單，只能從 Firebase 主控台設定
+    // ============================================================
+    match /roles/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // ============================================================
+    // optionSets、settings：登入才可讀，只有管理者可寫（N02）
+    // ============================================================
+    match /optionSets/{optionId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /settings/{settingId} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
   }
 }
