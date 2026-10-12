@@ -5,7 +5,9 @@ import { newShareKey } from './trips.js';
 
 const TRIPS = [
   { title: '京都賞楓', country: '日本', city: '京都', tripType: '自由行', status: '規劃中', startDate: '2026-11-20', endDate: '2026-11-25', code: 'KIX',
-    expenses: [['京都飯店 3 晚', 27000, 'equal'], ['HARUKA 車票 ×4', 7360, 'equal'], ['錦市場午餐', 2400, 'custom'], ['和服體驗 2 人', 6000, 'none'], ['伏見稻荷御守', 800, 'me']] },
+    // [名稱, 金額, 分攤方式, 分類, 付款人]；付款人 fund 是公費
+    expenses: [['京都飯店 3 晚', 27000, 'equal', '住宿', 'me'], ['HARUKA 車票 ×3', 5520, 'equal', '交通', 'fund'], ['錦市場午餐', 2400, 'custom', '餐飲', 'an'],
+      ['和服體驗 2 人', 6000, 'none', '景點', 'rou'], ['嵐山小火車', 2640, 'equal', '交通', ''], ['燒肉晚餐', 5200, 'equal', '餐飲', 'rou'], ['伏見稻荷御守', 800, 'me', '購物', 'me']] },
   { title: '綠島潛水', country: '台灣', city: '綠島', tripType: '潛旅', status: '已完成', startDate: '2026-07-10', endDate: '2026-07-13', code: 'GNI', totalTanks: 8,
     expenses: [['潛水套裝 8 支', 28800, 'equal'], ['民宿 3 晚', 9800, 'equal']] },
   { title: '北海道雪祭', country: '日本', city: '北海道', tripType: '跟團', status: '已完成', startDate: '2026-02-03', endDate: '2026-02-08', code: 'CTS',
@@ -72,19 +74,23 @@ export async function addSampleTrips(user, nickname) {
         [an]: { name: '小安', uid: '', order: 2, status: 'active' },
         [rou]: { name: '肉格', uid: '', order: 3, status: 'active' },
       },
+      ...(fields.code === 'KIX' ? { fund: { on: true, keeper: an } } : {}),
       createdByName: nickname, createdAt: serverTimestamp(), sample: true,
     });
-    for (const [name, amount, mode] of expenses) {
-      const e = { name, amount, category: '其他', payMethod: '現金', createdByName: nickname, createdAt: serverTimestamp() };
+    const pid = { me, an, rou, fund: 'fund', '': '' };
+    for (const [name, amount, mode, category = '其他', payer = ''] of expenses) {
+      const e = { name, amount, category, payMethod: payer === 'fund' ? '現金' : '刷卡', payerId: pid[payer], createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
       if (mode === 'equal') e.personalShares = splitEqually(amount, people);
       if (mode === 'custom') e.personalShares = { [me]: amount / 2, [an]: amount / 2 };
       if (mode === 'me') e.personalShares = { [me]: amount };
+      if (e.personalShares) e.splitMode = mode === 'equal' ? 'equal' : 'custom';
       later.set(doc(collection(db, `trips/${ref.id}/expenses`)), e);
     }
     if (t.code === 'KIX') {
       const by = { createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
       KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, ...by }));
       KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, ...by }));
+      [me, an, rou].forEach(p => later.set(doc(collection(db, `trips/${ref.id}/fundDeposits`)), { pid: p, amount: 3000, ...by }));
       KYOTO_TODOS.forEach(([text, done], i) => later.set(doc(collection(db, `trips/${ref.id}/todos`)), { text, done, order: i + 1, ...by }));
       const orders = {};
       for (const [day, type, title, note, priority, reservationTime, area] of KYOTO_PLAN) {

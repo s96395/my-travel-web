@@ -17,6 +17,9 @@ import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate } from './lib/todos.js';
+import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
+import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
+import { equalSplit, amountOf } from './lib/expenses.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
@@ -29,6 +32,7 @@ const S = {
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
   flightDocs: [], stayDocs: [], loadingMove: false, reveal: {},
   todoDocs: [], loadingTodo: false,
+  depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
@@ -84,13 +88,13 @@ function go(hash) {
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
 const findItem = id => S.items.find(it => it.id === id);
 
-// 進入旅程時開始監看行程、班機、住宿、待辦，離開時停止；換旅程時分頁與展開狀態歸零
+// 進入旅程時開始監看行程、班機、住宿、待辦、公費放入紀錄，離開時停止（支出在首頁就已經在監看）；換旅程時分頁與展開狀態歸零
 function syncItineraryWatch() {
   const want = S.user && S.view === 'trip' ? S.tripId : null;
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], todoDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want });
   if (want) startTripWatch(want);
 }
 
@@ -113,6 +117,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
+    watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
   ];
 }
 
@@ -174,6 +179,21 @@ async function addTodos(texts, msg) {
 async function toggleTodo(box) {
   if (S.offline) { box.checked = !box.checked; return; }
   try { await updateRecord(S.tripId, 'todos', box.dataset.todo, { done: box.checked }, S.user, S.nickname); } catch (err) { console.error(err); box.checked = !box.checked; toast('待辦更新失敗，請稍後再試'); }
+}
+
+/* ---------- 支出 ---------- */
+const expSheet = () => { const trip = curTrip(); if (trip && S.draft) renderExpSheet(S, trip, S.draft); };
+const dropDraft = () => { S.draft = null; closeSheet(); };
+// 關閉表單：支出表單有沒儲存的修改時先問一次
+function tryClose() {
+  if (S.draft?.dirty && S.draft.edit && !S.draft.askClose && $('#x-name')) { S.draft.askClose = true; expSheet(); return; }
+  dropDraft();
+}
+// 寫完支出後，把總支出寫回旅程主檔（舊版首頁與歷史頁會讀這個欄位）
+function syncTotal(change) {
+  const list = (S.expenses.get(S.tripId) || []).filter(e => e.id !== change.id);
+  const total = [...list, ...(change.amount === undefined ? [] : [change])].reduce((a, e) => a + amountOf(e), 0);
+  updateTrip(S.tripId, { totalExpense: total }).catch(err => console.warn('總支出沒有更新', err));
 }
 
 function onDrop(id, t) {
@@ -341,8 +361,91 @@ const actions = {
     const miss = missingTemplate(S.todoDocs, trip.type);
     addTodos(miss, `已加入 ${miss.length} 項`);
   },
-  close: () => closeSheet(),
-  bg(el, ev) { if (ev.target === el) closeSheet(); },
+  expSeg(el) { S.expSeg = el.dataset.v; render(); },
+  expFilter(el) { S.expFilter = el.dataset.v; render(); },
+  newExp() {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    S.draft = expDraft(S, trip, null); expSheet();
+  },
+  editExp(el) {
+    const trip = curTrip(), e = (S.expenses.get(S.tripId) || []).find(x => x.id === el.dataset.id);
+    if (!trip || !e) return;
+    S.draft = expDraft(S, trip, e); expSheet();
+    if (S.offline) toast('離線中只能查看，連上網路後才能修改');
+  },
+  expMode(el) {
+    const d = S.draft;
+    if (!d) return;
+    d.mode = el.dataset.v; d.dirty = true;
+    if (d.mode === 'custom' && !Object.keys(d.custom).length) {
+      const c = ctxOf(S, curTrip());
+      const eq = equalSplit(Number(d.amt) || 0, c.active.map(p => p.id).filter(id => d.sel.has(id)));
+      for (const k in eq) d.custom[k] = String(eq[k]);
+    }
+    expSheet();
+  },
+  async saveExp(el) {
+    const d = S.draft, trip = curTrip();
+    if (!d || !trip || S.busy || S.offline || el.disabled) return;
+    const fields = draftFields(S, trip, d);
+    S.busy = true; d.saving = true; expSheet();
+    try {
+      const ref = await saveExpense(S.tripId, d.id, fields, S.user, S.nickname);
+      // 新增時畫面可能已經先收到這筆，用新編號排除，避免重複加總
+      syncTotal({ id: d.id || ref?.id, amount: fields.amount });
+      dropDraft();
+      toast(d.id ? '已儲存' : '已記下這筆支出');
+    } catch (err) {
+      console.error(err); d.saving = false; expSheet(); toast('儲存失敗，請稍後再試');
+    }
+    S.busy = false;
+  },
+  askDelExp() { if (S.draft) { S.draft.confirmDel = true; expSheet(); } },
+  noDelExp() { if (S.draft) { S.draft.confirmDel = false; expSheet(); } },
+  async yesDelExp() {
+    const d = S.draft;
+    if (!d?.id || S.busy) return;
+    S.busy = true;
+    try { await deleteRecord(S.tripId, 'expenses', d.id); syncTotal({ id: d.id }); dropDraft(); toast('已刪除支出'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  stayExp() { if (S.draft) { S.draft.askClose = false; expSheet(); } },
+  discardExp: () => dropDraft(),
+  async repaid(el) {
+    if (S.offline) return;
+    const trip = curTrip(), on = !trip?.raw.repaid?.[el.dataset.k];
+    try { await setRepaid(S.tripId, el.dataset.k, on); toast(on ? '已標記還款' : '已取消標記'); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
+  },
+  async fundOn() {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const c = ctxOf(S, trip);
+    const keeper = c.active.some(p => p.id === c.fund.keeper) ? c.fund.keeper : c.me || c.active[0]?.id || '';
+    try { await updateTrip(S.tripId, { fund: { on: true, keeper } }); toast('已開啟公費'); } catch (err) { console.error(err); toast('開啟失敗，請稍後再試'); }
+  },
+  async fundOff(el) {
+    if (S.offline) return;
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定關閉'; return; }
+    try { await updateTrip(S.tripId, { 'fund.on': false }); toast('已關閉公費，公費支付的支出暫不算進結算'); } catch (err) { console.error(err); toast('關閉失敗，請稍後再試'); }
+  },
+  addDeposit() { const trip = curTrip(); if (trip && !S.offline) depositSheet(S, trip); },
+  async saveDeposit(el) {
+    const amt = $('#dp-amt'), n = Number(amt.value);
+    if (!(n > 0)) { amt.classList.add('err'); amt.focus(); toast('請填大於 0 的金額'); return; }
+    if (S.busy) return;
+    S.busy = true; el.disabled = true;
+    try { await addRecord(S.tripId, 'fundDeposits', { pid: $('#dp-who').value, amount: n }, S.user, S.nickname); closeSheet(); toast('已放入公費'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  async delDeposit(el) {
+    const trip = curTrip(), dp = S.depositDocs.find(x => x.id === el.dataset.id);
+    if (!trip || !dp || !canEditRecord(S, trip, dp) || S.offline) return;
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
+    try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除放入紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+  },
+  close: () => tryClose(),
+  bg(el, ev) { if (ev.target === el) tryClose(); },
   reload: () => updateSW?.(true),
 };
 
@@ -353,8 +456,23 @@ document.addEventListener('click', ev => {
   if (fn) fn(el, ev);
 });
 // 中文輸入法組字時不重畫，否則會打斷組字；組完字再更新列表
+// 支出表單：金額只留數字與小數點；名稱、備註打字時不重畫，以免打斷輸入法
+const cleanAmt = v => { const [a, ...b] = v.replace(/[^\d.]/g, '').split('.'); return b.length ? `${a}.${b.join('').slice(0, 2)}` : a; };
+function onDraftInput(t) {
+  const d = S.draft;
+  if (!d || !$('#x-name')) return;
+  if (t.dataset.f) {
+    const v = t.dataset.f === 'amt' ? cleanAmt(t.value) : t.value;
+    d[t.dataset.f] = v; d.dirty = true;
+    if (t.dataset.f === 'amt' && t.value !== v) t.value = v;
+    if (['amt', 'payer', 'cat', 'pay'].includes(t.dataset.f)) expSheet();
+    else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
+  }
+  if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }
+}
 document.addEventListener('input', ev => {
   const t = ev.target;
+  if (!ev.isComposing) onDraftInput(t);
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
   if (t.dataset?.ap) fillAirport(t);
   if (['ff-fromCity', 'ff-toCity'].includes(t.id)) delete t.dataset.auto;
@@ -365,12 +483,19 @@ document.addEventListener('input', ev => {
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
 });
 document.addEventListener('change', ev => {
-  if (ev.target.dataset?.todo) toggleTodo(ev.target);
+  const t = ev.target;
+  if (t.dataset?.todo) toggleTodo(t);
+  if (t.dataset?.sel && S.draft) { t.checked ? S.draft.sel.add(t.dataset.sel) : S.draft.sel.delete(t.dataset.sel); S.draft.dirty = true; expSheet(); }
+  if (t.id === 'keeper' && !S.offline) {
+    const name = t.selectedOptions[0]?.textContent || '';
+    updateTrip(S.tripId, { 'fund.keeper': t.value }).then(() => toast(`保管人改為 ${name}`), err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
+  }
   if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(ev.target.id)) updateDuration();
   if (['sf-in', 'sf-out'].includes(ev.target.id)) updateNights();
 });
 document.addEventListener('compositionend', ev => {
   if (ev.target.id === 'q') { S.q = ev.target.value; render(); }
+  if (ev.target.dataset?.f) onDraftInput(ev.target);
 });
 document.addEventListener('submit', async ev => {
   if (ev.target.dataset.form !== 'todo') return;
@@ -379,7 +504,7 @@ document.addEventListener('submit', async ev => {
   if (!text) { input.focus(); return; }
   if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetOpen()) closeSheet(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetOpen()) tryClose(); });
 window.addEventListener('scroll', () => $('#appbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
 window.addEventListener('hashchange', () => { readRoute(); render(); window.scrollTo(0, 0); });
 initDrag({
