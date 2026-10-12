@@ -661,11 +661,17 @@ const actions = {
     S.busy = false;
   },
   // 加入旅程
-  joinPick(el) { if (el.disabled) return; S.join.pick = el.dataset.id; render(); if (el.dataset.id === 'new') $('#joinName')?.focus(); },
+  joinPick(el) {
+    if (el.disabled) return;
+    const J = S.join, id = el.dataset.id;
+    // 選名單上的人時帶入原本的名字，選「我不在名單上」時帶入帳號暱稱；都可以再改
+    J.pick = id; J.newName = id === 'new' ? S.nickname : participantsOf(J.trip).find(p => p.id === id)?.name || '';
+    render(); if (id === 'new') $('#joinName')?.focus();
+  },
   async joinNext() {
     const J = S.join;
     if (!J?.pick || J.busy) return;
-    if (J.pick === 'new' && !cleanName(J.newName)) { $('#joinName')?.classList.add('err'); $('#joinName')?.focus(); toast('請填你的名字'); return; }
+    if (!cleanName(J.newName)) { $('#joinName')?.classList.add('err'); $('#joinName')?.focus(); toast('請填你的名字'); return; }
     J.busy = true; render();
     try {
       if (!J.member) { await joinAsMember(J.tripId, S.user.uid, J.key); J.member = true; }

@@ -49,7 +49,7 @@ export function bindParticipant(tripId, uid, pid, newName) {
     const id = pid === 'new' ? doc(collection(db, 'trips')).id : pid;
     const field = pid === 'new'
       ? { [`participants.${id}`]: { name: cleanName(newName), uid, order: nextOrder(trip), status: 'active' } }
-      : { [`participants.${id}.uid`]: uid };
+      : { [`participants.${id}.uid`]: uid, ...(cleanName(newName) && cleanName(newName) !== trip.participants[id].name ? { [`participants.${id}.name`]: cleanName(newName) } : {}) };
     // bindPid 讓安全規則確認共編成員只動到自己綁定的那一位
     tx.update(tripRef(tripId), { ...field, bindPid: id, updatedAt: serverTimestamp() });
     return id;

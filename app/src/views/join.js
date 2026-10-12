@@ -36,16 +36,16 @@ export function renderJoin(S) {
       <div class="list">${people.map((p, i) => `<button type="button" class="jpick" data-act="joinPick" data-id="${esc(p.id)}" ${p.uid ? 'disabled' : ''} aria-pressed="${J.pick === p.id}">
           ${avatar(p, i)}<span class="grow"><b>${esc(p.name)}</b><span class="small muted">${p.uid ? '已綁定帳號' : '還沒有帳號'}</span></span><span class="radio"></span></button>`).join('')}
         <button type="button" class="jpick" data-act="joinPick" data-id="new" aria-pressed="${J.pick === 'new'}"><span class="avatar unbound">＋</span><span class="grow"><b>我不在名單上</b><span class="small muted">幫你新增一位同行者</span></span><span class="radio"></span></button>
-        ${J.pick === 'new' ? `<div class="field"><label for="joinName">你的名字</label><input class="input" id="joinName" maxlength="40" value="${esc(J.newName)}" placeholder="其他人會看到這個名字"></div>` : ''}
+        ${J.pick ? `<div class="field"><label for="joinName">你在這趟旅程的名字</label><input class="input" id="joinName" maxlength="40" value="${esc(J.newName)}" placeholder="其他人會看到這個名字"></div>` : ''}
       </div>
       <button type="button" class="btn primary block" data-act="joinNext" ${J.pick && !J.busy ? '' : 'disabled'}>${J.busy ? '處理中…' : '下一步'}</button>`);
   }
-  const isNew = J.pick === 'new', name = isNew ? J.newName : people.find(p => p.id === J.pick)?.name || '';
+  const isNew = J.pick === 'new', name = J.newName, oldName = isNew ? '' : people.find(p => p.id === J.pick)?.name || '';
   if (J.step === 'confirm') {
     return page(`<div class="card" style="display:grid;gap:12px">
         <h2 style="font-size:19px">確認綁定為「${esc(name)}」</h2>
         <ul class="steps">
-          ${isNew ? `<li>會在同行者名單新增「${esc(name)}」</li>` : `<li>之前分給${esc(name)}的 ${money(J.amount)} 元，會算進你首頁的「我的旅行支出」</li>`}
+          ${isNew ? `<li>會在同行者名單新增「${esc(name)}」</li>` : `${oldName !== name ? `<li>名單上的「${esc(oldName)}」會改名為「${esc(name)}」</li>` : ''}<li>之前分給${esc(oldName)}的 ${money(J.amount)} 元，會算進你首頁的「我的旅行支出」</li>`}
           <li>你會成為共編成員，可以一起編輯行程、記支出</li>
           <li>綁定後要改，請找建立者${esc(t.ownerName || '')}處理</li>
         </ul>
