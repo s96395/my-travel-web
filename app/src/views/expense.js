@@ -1,9 +1,9 @@
 // 支出分頁：明細、分攤、結算、公費（規格書 F50–F56、S06、S07）
-// 手機用分段切換；電腦左邊明細、右邊結算與分攤，公費另一頁
+// 手機用分段切換；電腦左邊明細、右邊切換分攤或結算，公費另一頁
 import { esc, ICON, money, openSheet, $ } from '../ui/dom.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
 import {
-  CATS, PAYS, FUND, amountOf, payMethodOf, equalSplit, sharesOf, isSplit, modeOf, perPerson, byCategory,
+  CATS, PAYS, FUND, MULTI, paidOf, amountOf, payMethodOf, equalSplit, sharesOf, isSplit, modeOf, perPerson, byCategory,
   fundOf, fundIn, fundOut, settlement, repaidKey,
 } from '../lib/expenses.js';
 
@@ -24,7 +24,7 @@ export function ctxOf(S, trip) {
     fund: fundOf(trip.raw),
     expenses: S.expenses.get(trip.id),
     deposits: S.depositDocs,
-    name: id => (id === FUND ? '公費' : people.find(p => p.id === id)?.name || '已離開的成員'),
+    name: id => (id === FUND ? '公費' : id === MULTI ? '多人' :people.find(p => p.id === id)?.name || '已離開的成員'),
     av: id => avatar(people.find(p => p.id === id), idx.get(id) ?? 0),
   };
 }
@@ -34,11 +34,12 @@ export const canEdit = (S, trip, r) => trip.raw.ownerId === S.user.uid || (!!r?.
 export function renderExp(S, trip) {
   const c = ctxOf(S, trip);
   if (!c.expenses) return '<div class="empty">正在讀取支出…</div>';
+  // 電腦：左邊固定是明細，右邊一次只看「分攤」或「結算」，和手機的分頁一致
   if (S.wide) {
-    const seg = S.expSeg === 'fund' ? 'fund' : 'list';
-    return `${segs(S, [['list', '明細與結算'], ['fund', '公費']], seg)}
+    const seg = ['settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'share';
+    return `${segs(S, [['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
     ${seg === 'fund' ? `<div class="narrowcol">${expFund(S, c)}</div>`
-      : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${expSettle(S, c)}${expShare(S, c)}</div></div>`}`;
+      : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${seg === 'settle' ? expSettle(S, c) : expShare(S, c)}</div></div>`}`;
   }
   const seg = ['list', 'share', 'settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'list';
   return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
@@ -71,8 +72,9 @@ function expList(S, c) {
 function expRow(c, e) {
   const s = sharesOf(e, c.people), split = isSplit(e, c.people), mode = modeOf(e, c.people);
   const unbound = split ? c.people.filter(p => !p.uid && s[p.id]).map(p => p.name) : [];
+  const who = e.payerId === MULTI ? Object.keys(paidOf(e)).map(c.name).join('、') : c.name(e.payerId);
   const payer = e.payerId
-    ? `<span class="tag${e.payerId === FUND ? ' accent' : ''}">${e.payerId === FUND ? '公費支付' : `${esc(c.name(e.payerId))} 付款`}</span>`
+    ? `<span class="tag${e.payerId === FUND ? ' accent' : ''}">${e.payerId === FUND ? '公費支付' : `${esc(who)} 付款`}</span>`
     : '<span class="tag warn">未填付款人</span>';
   return `<button type="button" class="exp" data-act="editExp" data-id="${esc(e.id)}">
     <span class="cat">${esc((e.category || '其他').slice(0, 1))}</span>
@@ -173,13 +175,14 @@ function expFund(S, c) {
 // 表單的暫存內容；改了任何欄位 dirty 就變成 true，關閉時會提醒
 export function expDraft(S, trip, e) {
   const c = ctxOf(S, trip), active = c.active.map(p => p.id);
-  if (!e) return { id: null, name: '', amt: '', cat: '餐飲', pay: '現金', payer: c.me || '', mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
+  if (!e) return { id: null, name: '', amt: '', cat: '餐飲', pay: '現金', payer: c.me || '', paid: {}, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
   const s = sharesOf(e, c.people) || {}, mode = modeOf(e, c.people);
-  const custom = {};
+  const custom = {}, paid = {};
   for (const k in s) custom[k] = String(s[k]);
+  if (e.payerId === MULTI) { const pd = paidOf(e); for (const k in pd) paid[k] = String(pd[k]); }
   return {
     id: e.id, name: e.name || '', amt: String(amountOf(e) || ''), cat: e.category || '其他', pay: payMethodOf(e) || '其他',
-    payer: e.payerId || '', mode, sel: new Set(mode === 'none' ? active : Object.keys(s)), custom, note: e.note || '',
+    payer: e.payerId || '', paid, mode, sel: new Set(mode === 'none' ? active : Object.keys(s)), custom, note: e.note || '',
     by: e.createdByName || '', edit: canEdit(S, trip, e), dirty: false,
   };
 }
@@ -189,10 +192,20 @@ const round2 = v => Math.round(v * 100) / 100;
 // 依名單順序列出勾選的人（平均分攤的餘數照這個順序分）
 const selected = (list, d) => list.filter(p => d.sel.has(p.id)).map(p => p.id);
 
+// 多人一起付：每人付的金額加總要等於總金額
+export function payerCheck(d) {
+  if (d.payer !== MULTI) return { ok: true, html: '' };
+  const amt = num(d.amt), paid = Object.values(d.paid || {}).map(num).filter(v => v > 0);
+  const sum = round2(paid.reduce((a, v) => a + v, 0)), gap = round2(amt - sum);
+  if (paid.length < 2) return { ok: false, html: '<div class="check bad">請填至少兩位付款人的金額</div>' };
+  return gap === 0 ? { ok: true, html: `<div class="check good"><span>${paid.length} 人付款，加總等於總金額</span><b class="num">${money(amt)}</b></div>` }
+    : { ok: false, html: `<div class="check bad"><span>付款${gap > 0 ? '還差' : '多了'} ${Math.abs(gap).toLocaleString('zh-TW')}，對齊後才能儲存</span><b class="num">${sum.toLocaleString('zh-TW')} / ${amt.toLocaleString('zh-TW')}</b></div>` };
+}
+
 export function draftCheck(d, list) {
   const amt = num(d.amt), ids = selected(list, d);
   const sum = round2(ids.reduce((a, k) => a + num(d.custom[k]), 0)), gap = round2(amt - sum);
-  let ok = !!d.name.trim() && amt > 0, html = '';
+  let ok = !!d.name.trim() && amt > 0 && payerCheck(d).ok, html = '';
   if (d.mode === 'equal') {
     ok = ok && ids.length > 0;
     html = ids.length ? `<div class="check good"><span>${ids.length} 人平均，加總等於總金額</span><b class="num">${money(amt)}</b></div>` : '<div class="check bad">請至少勾選一位分攤對象</div>';
@@ -216,6 +229,8 @@ export function expSheetHtml(S, trip, d) {
   const c = ctxOf(S, trip), list = shareList(c, d), dis = d.edit && !S.offline ? '' : 'disabled';
   const eq = equalSplit(num(d.amt), selected(list, d)), chk = draftCheck(d, list);
   const payers = [['', '還不確定（不算進結算）'], ...c.active.map(p => [p.id, p.name])];
+  if (c.active.length > 1 || d.payer === MULTI) payers.push([MULTI, '多人一起付']);
+  const payIds = d.payer === MULTI ? [...c.active.map(p => p.id), ...Object.keys(d.paid).filter(k => !c.active.some(p => p.id === k))] : [];
   if (c.fund.on || d.payer === FUND) payers.push([FUND, c.fund.on ? '公費' : '公費（已關閉）']);
   if (d.payer && !payers.some(o => o[0] === d.payer)) payers.push([d.payer, c.name(d.payer)]);
   const opt = (list2, v) => list2.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
@@ -233,6 +248,10 @@ export function expSheetHtml(S, trip, d) {
       <div class="field"><label for="x-payer">誰付的錢</label><select class="select" id="x-payer" data-f="payer" ${dis}>${payers.map(o => `<option value="${esc(o[0])}" ${d.payer === o[0] ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></div>
       <div class="field"><label for="x-pay">付款方式</label><select class="select" id="x-pay" data-f="pay" ${dis}>${opt(pays, d.pay)}</select></div>
     </div>
+    ${d.payer === MULTI ? `<div class="field"><span class="label" style="letter-spacing:0;font-size:13px">每人付了多少</span>
+      <div class="split-who divide">${payIds.map(id => `<label class="r"><span class="grow">${esc(c.name(id))}</span>
+        <input class="input" data-paid="${esc(id)}" inputmode="decimal" value="${esc(d.paid[id] ?? '')}" placeholder="0" ${dis} aria-label="${esc(c.name(id))} 付的金額"></label>`).join('')}</div>
+      ${payerCheck(d).html}</div>` : ''}
     <div class="field"><span class="label" style="letter-spacing:0;font-size:13px">費用分攤</span>
       <div class="seg" style="justify-self:start">${[['equal', '平均'], ['custom', '自訂金額'], ['none', '先不分攤']].map(m => `<button type="button" data-act="expMode" data-v="${m[0]}" aria-pressed="${d.mode === m[0]}" ${dis}>${m[1]}</button>`).join('')}</div>
     </div>
@@ -259,9 +278,10 @@ export function expSheetHtml(S, trip, d) {
 export function renderExpSheet(S, trip, d) {
   const html = expSheetHtml(S, trip, d), sheet = $('#layer .sheet');
   if (!sheet) { openSheet(html); return; }
-  const a = document.activeElement, id = a?.id, dc = a?.dataset?.cust, pos = a?.selectionStart;
+  const a = document.activeElement, id = a?.id, dc = a?.dataset?.cust, dp = a?.dataset?.paid, pos = a?.selectionStart;
   sheet.innerHTML = '<div class="grab"></div>' + html;
-  const back = id ? document.getElementById(id) : dc ? sheet.querySelector(`[data-cust="${CSS.escape(dc)}"]`) : null;
+  const back = id ? document.getElementById(id) : dc ? sheet.querySelector(`[data-cust="${CSS.escape(dc)}"]`)
+    : dp ? sheet.querySelector(`[data-paid="${CSS.escape(dp)}"]`) : null;
   if (back) { back.focus(); try { back.setSelectionRange(pos, pos); } catch { /* select 沒有游標 */ } }
 }
 
@@ -272,6 +292,7 @@ export function draftFields(S, trip, d) {
     : d.mode === 'custom' ? Object.fromEntries(ids.map(k => [k, num(d.custom[k])])) : null;
   return {
     name: d.name.trim(), amount, category: d.cat, payMethod: d.pay, note: d.note.trim(), payerId: d.payer,
+    payers: d.payer === MULTI ? Object.fromEntries(Object.entries(d.paid).map(([k, v]) => [k, num(v)]).filter(x => x[1] > 0)) : null,
     splitMode: shares ? d.mode : null, personalShares: shares,
   };
 }
