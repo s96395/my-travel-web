@@ -1,6 +1,6 @@
-// 底部彈出的選單與表單：帳號、加到主畫面、新增旅程
+// 底部彈出的選單與表單：帳號、加到主畫面、新增與編輯旅程
 import { esc, openSheet, $ } from '../ui/dom.js';
-import { TRIP_TYPES, TYPE_ICON } from '../lib/trips.js';
+import { TRIP_TYPES, TRIP_STATUSES, TYPE_ICON } from '../lib/trips.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 
@@ -23,16 +23,19 @@ export function installSheet() {
     <p class="small muted" style="margin:0">Android 會自動跳出安裝提示；iPhone 不會，所以由網站顯示這份說明。</p>`);
 }
 
-export function newTripSheet() {
-  openSheet(`${head('新增旅程')}
-    <div class="field"><span class="label">類型</span><div class="seg" style="justify-self:start" id="ntType">${TRIP_TYPES.map((t, i) => `<button type="button" data-act="ntType" data-t="${t}" aria-pressed="${i === 0}">${TYPE_ICON[t]} ${t}</button>`).join('')}</div></div>
-    <div class="field"><label for="nt-title">旅程名稱</label><input class="input" id="nt-title" maxlength="40" placeholder="例如：京都賞楓"></div>
-    <div class="grid2"><div class="field"><label for="nt-start">開始</label><input class="input" id="nt-start" type="date"></div>
-      <div class="field"><label for="nt-end">結束</label><input class="input" id="nt-end" type="date"></div></div>
-    <div class="grid2"><div class="field"><label for="nt-country">國家</label><input class="input" id="nt-country" maxlength="20" placeholder="日本"></div>
-      <div class="field"><label for="nt-city">城市</label><input class="input" id="nt-city" maxlength="20" placeholder="京都"></div></div>
+// 新增旅程；傳入旅程時改成編輯（多了狀態可選）
+export function newTripSheet(trip) {
+  const r = trip?.raw || {}, type = trip?.type || TRIP_TYPES[0];
+  openSheet(`${head(trip ? '編輯旅程' : '新增旅程')}
+    <div class="field"><span class="label">類型</span><div class="seg" style="justify-self:start" id="ntType">${TRIP_TYPES.map(t => `<button type="button" data-act="ntType" data-t="${t}" aria-pressed="${t === type}">${TYPE_ICON[t]} ${t}</button>`).join('')}</div></div>
+    ${trip ? `<div class="field"><span class="label">狀態</span><div class="seg" style="justify-self:start;max-width:100%;overflow-x:auto" id="ntStatus">${TRIP_STATUSES.map(t => `<button type="button" data-act="ntType" data-t="${t}" aria-pressed="${t === trip.status}">${t}</button>`).join('')}</div></div>` : ''}
+    <div class="field"><label for="nt-title">旅程名稱</label><input class="input" id="nt-title" maxlength="40" placeholder="例如：京都賞楓" value="${esc(r.title || '')}"></div>
+    <div class="grid2"><div class="field"><label for="nt-start">開始</label><input class="input" id="nt-start" type="date" value="${esc(r.startDate || '')}"></div>
+      <div class="field"><label for="nt-end">結束</label><input class="input" id="nt-end" type="date" value="${esc(r.endDate || '')}"></div></div>
+    <div class="grid2"><div class="field"><label for="nt-country">國家</label><input class="input" id="nt-country" maxlength="20" placeholder="日本" value="${esc(r.country || '')}"></div>
+      <div class="field"><label for="nt-city">城市</label><input class="input" id="nt-city" maxlength="20" placeholder="京都" value="${esc(r.city || '')}"></div></div>
     <p class="small err-text" id="nt-err" role="alert" hidden></p>
-    <button type="button" class="btn primary" data-act="saveTrip">建立旅程</button>`);
+    <button type="button" class="btn primary" data-act="${trip ? 'saveTripEdit' : 'saveTrip'}">${trip ? '儲存' : '建立旅程'}</button>`);
 }
 
 // 讀取並檢查新增旅程表單；有錯時標示欄位並回傳 null
@@ -52,6 +55,6 @@ export function readTripForm() {
   if (!form.title) return fail('nt-title', '請填旅程名稱');
   if (!form.startDate) return fail('nt-start', '請選開始日期');
   if (form.endDate < form.startDate) return fail('nt-end', '結束日期不能早於開始日期');
-  form.status = '規劃中';
+  form.status = $('#ntStatus [aria-pressed="true"]')?.dataset.t || '規劃中';
   return form;
 }

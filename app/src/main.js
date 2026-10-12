@@ -6,7 +6,7 @@ import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn } from './auth.
 import { watchMyTrips, watchExpenses, createTrip } from './data/trips.js';
 import { addSampleTrips } from './data/sample.js';
 import { viewTrip } from './lib/trips.js';
-import { $, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
+import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons } from './views/trip.js';
@@ -20,6 +20,12 @@ import { missingTemplate } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
+import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl } from './views/more.js';
+import { renderJoin } from './views/join.js';
+import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll } from './data/people.js';
+import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
+import { perPerson } from './lib/expenses.js';
+import { participantsOf } from './lib/trips.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
@@ -37,6 +43,7 @@ const S = {
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
   signingIn: false, loginError: '', busy: false,
+  userNames: {}, join: null,
 };
 
 let stopTrips = null;
@@ -52,8 +59,10 @@ function render() {
   const keepQ = active?.id === 'q' ? [active.selectionStart, active.selectionEnd] : null;
   let html;
   if (!S.ready) html = '<div class="boot"><div class="brand">沈迷旅行</div><div class="spin" aria-hidden="true"></div><p>載入中…</p></div>';
+  else if (S.view === 'join') { maybeLoadJoin(); html = renderJoin(S); }
   else if (!S.user) html = renderLogin(S);
   else html = S.view === 'trip' ? renderTrip(S) : renderHome(S);
+  if (S.view === 'trip' && S.tab === 'more') loadNames();
   syncItineraryWatch();
   $('#scroller').innerHTML = html + envTag();
   const trip = curTrip();
@@ -73,11 +82,15 @@ function fatal(msg) {
   $('#scroller').innerHTML = `<div class="boot"><div class="brand">沈迷旅行</div><p>${msg}</p><button type="button" class="btn" onclick="location.reload()">重新整理</button></div>`;
 }
 
-/* ---------- 路徑：#/trip/<id> 開旅程，其他回首頁 ---------- */
+/* ---------- 路徑：#/trip/<id> 開旅程，#/join/<id>/<key> 加入旅程，其他回首頁 ---------- */
 function readRoute() {
-  const m = location.hash.match(/^#\/trip\/([\w-]+)$/);
-  S.view = m ? 'trip' : 'home';
+  // 舊版邀請連結 join.html?id=…&key=…（離線快取直接給首頁時也要認得）
+  const q = new URLSearchParams(location.search);
+  if (/\/join\.html$/.test(location.pathname) && q.get('id')) history.replaceState(null, '', `/#/join/${q.get('id')}/${q.get('key') || ''}`);
+  const m = location.hash.match(/^#\/trip\/([\w-]+)$/), j = location.hash.match(/^#\/join\/([\w-]+)\/([\w-]*)$/);
+  S.view = m ? 'trip' : j ? 'join' : 'home';
   S.tripId = m ? m[1] : null;
+  if (j && (S.join?.tripId !== j[1] || S.join?.key !== j[2])) S.join = { tripId: j[1], key: j[2], step: 'load', pick: null, newName: '', amount: 0 };
 }
 function go(hash) {
   if (location.hash === hash) return;
@@ -180,6 +193,34 @@ async function toggleTodo(box) {
   if (S.offline) { box.checked = !box.checked; return; }
   try { await updateRecord(S.tripId, 'todos', box.dataset.todo, { done: box.checked }, S.user, S.nickname); } catch (err) { console.error(err); box.checked = !box.checked; toast('待辦更新失敗，請稍後再試'); }
 }
+
+/* ---------- 共編成員名字：沒綁定同行者的成員讀帳號暱稱 ---------- */
+const nameLoading = new Set();
+function loadNames() {
+  const trip = curTrip();
+  if (!trip) return;
+  memberUids(trip.raw).filter(u => !boundTo(trip.raw, u) && !(u in S.userNames) && !nameLoading.has(u)).forEach(u => {
+    nameLoading.add(u);
+    userName(u).then(n => { S.userNames[u] = n || '未知旅伴'; nameLoading.delete(u); render(); });
+  });
+}
+
+/* ---------- 加入旅程 ---------- */
+async function maybeLoadJoin() {
+  const J = S.join;
+  if (!J || !S.user || J.step !== 'load' || J.loading) return;
+  J.loading = true;
+  const fail = msg => { Object.assign(J, { step: 'error', error: msg }); render(); };
+  let trip;
+  try { trip = await readJoinTrip(J.tripId); } catch (err) { console.error(err); return fail('找不到這趟旅程，或邀請連結已經失效。請向建立者要最新的連結。'); }
+  if (!trip) return fail('找不到這趟旅程，可能已經被刪除。');
+  const member = isMember(trip, S.user.uid);
+  if (!member && (!trip.shareKey || trip.shareKey !== J.key)) return fail('邀請連結不正確，請向建立者要最新的連結。');
+  const mine = boundTo(trip, S.user.uid);
+  Object.assign(J, { trip, member, step: mine ? 'already' : 'pick', boundName: mine?.name || '', newName: S.nickname });
+  render();
+}
+const joinErr = err => (err?.friendly ? err.message : '沒有成功，請稍後再試');
 
 /* ---------- 支出 ---------- */
 const expSheet = () => { const trip = curTrip(); if (trip && S.draft) renderExpSheet(S, trip, S.draft); };
@@ -444,6 +485,108 @@ const actions = {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
     try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除放入紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
   },
+  // 更多：同行者
+  addPerson() { if (!S.offline) personSheet(null); },
+  renameP(el) { const p = participantsOf(curTrip().raw).find(x => x.id === el.dataset.id); if (p && !S.offline) personSheet(p); },
+  async savePerson(el) {
+    const name = cleanName($('#pp-name').value), trip = curTrip();
+    if (!name) { $('#pp-name').classList.add('err'); $('#pp-name').focus(); toast('請填名字'); return; }
+    if (!trip || S.busy) return;
+    S.busy = true; el.disabled = true;
+    try {
+      if (el.dataset.id) await patchParticipants(trip.id, { [`${el.dataset.id}.name`]: name });
+      else await addParticipant(trip.raw, name);
+      closeSheet(); toast(el.dataset.id ? '已改名' : `已新增「${name}」`);
+    } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  async moveP(el) {
+    const trip = curTrip(), changes = moveUp(trip.raw, el.dataset.id), fields = {};
+    for (const k in changes) fields[`${k}.order`] = changes[k];
+    if (Object.keys(fields).length) await patchParticipants(trip.id, fields).catch(err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
+  },
+  async toggleP(el) {
+    const trip = curTrip(), p = participantsOf(trip.raw).find(x => x.id === el.dataset.id);
+    if (!p || (p.uid && p.uid === trip.raw.ownerId)) return;
+    const next = p.status === 'inactive' ? 'active' : 'inactive';
+    try { await patchParticipants(trip.id, { [`${p.id}.status`]: next }); toast(next === 'active' ? `${p.name} 已啟用` : `${p.name} 已停用，不會出現在新支出`); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
+  },
+  async createOwnerP() {
+    const trip = curTrip();
+    if (!trip || boundTo(trip.raw, S.user.uid)) return;
+    try { await addParticipant(trip.raw, S.nickname, S.user.uid); toast('已建立你的同行者'); } catch (err) { console.error(err); toast('沒有成功，請稍後再試'); }
+  },
+  // 更多：共編成員
+  rmMember(el) {
+    const trip = curTrip(), u = el.dataset.id, n = boundTo(trip.raw, u)?.name || S.userNames[u] || '這位成員';
+    confirmSheet(`移除 ${esc(n)}？`, '移除後對方馬上看不到這趟旅程。同行者名單和分攤金額都會保留。', 'yesRm', '移除', u);
+  },
+  async yesRm(el) {
+    try { await removeMember(S.tripId, el.dataset.id); closeSheet(); toast('已移除共編成員'); } catch (err) { console.error(err); toast('移除失敗，請稍後再試'); }
+  },
+  leaveTrip() { confirmSheet('退出這趟旅程？', '退出後你就看不到這趟旅程，之後要再加入，請建立者重新給你邀請連結。你的同行者名字和分攤金額會保留。', 'yesLeave', '退出'); },
+  async yesLeave() {
+    const id = S.tripId;
+    try { await removeMember(id, S.user.uid); closeSheet(); go('#/'); toast('已退出旅程'); } catch (err) { console.error(err); toast('退出失敗，請稍後再試'); }
+  },
+  async copyInvite() {
+    const trip = curTrip(), url = inviteUrl(trip);
+    try { await navigator.clipboard.writeText(url); toast('已複製邀請連結'); } catch { $('#invite')?.select(); toast('請長按連結自行複製'); }
+  },
+  // 更多：旅程設定
+  editTrip() { const trip = curTrip(); if (trip && !S.offline) newTripSheet(trip); },
+  async saveTripEdit(el) {
+    const form = readTripForm();
+    if (!form || S.busy) return;
+    S.busy = true; el.disabled = true;
+    try { await updateTripInfo(S.tripId, form); closeSheet(); toast('已儲存'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  delTrip() { const trip = curTrip(); if (trip && !S.offline) delTripSheet(trip); },
+  async yesDelTrip(el) {
+    const trip = curTrip(), input = $('#delname');
+    if (!trip || input.value.trim() !== trip.name) { input.classList.add('err'); input.focus(); return; }
+    if (S.busy) return;
+    S.busy = true; el.disabled = true; el.textContent = '刪除中…';
+    try {
+      const failed = await deleteTripAll(trip.id);
+      if (failed.length) {
+        const box = $('#del-err'); box.textContent = `這些資料沒有刪掉，旅程先保留：${failed.join('、')}。請稍後再試。`; box.hidden = false;
+        el.disabled = false; el.textContent = '再試一次';
+      } else { closeSheet(); go('#/'); toast('已刪除旅程'); }
+    } catch (err) { console.error(err); el.disabled = false; el.textContent = '刪除旅程'; toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 加入旅程
+  joinPick(el) { if (el.disabled) return; S.join.pick = el.dataset.id; render(); if (el.dataset.id === 'new') $('#joinName')?.focus(); },
+  async joinNext() {
+    const J = S.join;
+    if (!J?.pick || J.busy) return;
+    if (J.pick === 'new' && !cleanName(J.newName)) { $('#joinName')?.classList.add('err'); $('#joinName')?.focus(); toast('請填你的名字'); return; }
+    J.busy = true; render();
+    try {
+      if (!J.member) { await joinAsMember(J.tripId, S.user.uid); J.member = true; }
+      J.amount = J.pick === 'new' ? 0 : perPerson(await sharesNow(J.tripId), participantsOf(J.trip))[J.pick] || 0;
+      J.step = 'confirm';
+    } catch (err) { console.error(err); toast(joinErr(err)); }
+    J.busy = false; render();
+  },
+  joinBack() { S.join.step = 'pick'; render(); },
+  async joinConfirm() {
+    const J = S.join;
+    if (J.busy) return;
+    J.busy = true; render();
+    try {
+      await bindParticipant(J.tripId, S.user.uid, J.pick, J.newName);
+      J.step = 'done';
+    } catch (err) {
+      console.error(err); toast(joinErr(err));
+      // 被別人先選走時回到名單，重新讀一次
+      if (err?.friendly) Object.assign(J, { step: 'load', loading: false, pick: null });
+    }
+    J.busy = false; render();
+  },
+  joinEnter() { go(`#/trip/${S.join.tripId}`); },
   close: () => tryClose(),
   bg(el, ev) { if (ev.target === el) tryClose(); },
   reload: () => updateSW?.(true),
@@ -473,6 +616,7 @@ function onDraftInput(t) {
 document.addEventListener('input', ev => {
   const t = ev.target;
   if (!ev.isComposing) onDraftInput(t);
+  if (t.id === 'joinName' && S.join) S.join.newName = t.value;
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
   if (t.dataset?.ap) fillAirport(t);
   if (['ff-fromCity', 'ff-toCity'].includes(t.id)) delete t.dataset.auto;
