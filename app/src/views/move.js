@@ -47,10 +47,10 @@ function stayCard(S, s) {
   </article>`;
 }
 
-// 其他交通：時間都是當地時間，同一段不跨時區，直接相減
+// 其他交通：時間都是當地時間，同一段不跨時區，當成 UTC 直接相減，不受手機所在時區的夏令時間影響
 export const TRANSIT_MODES = [['船', '⛴️'], ['高鐵', '🚄'], ['火車', '🚆'], ['巴士', '🚌']];
 const modeIcon = m => (TRANSIT_MODES.find(x => x[0] === m) || TRANSIT_MODES[0])[1];
-const localMin = s => { const t = Date.parse((s || '').replace(' ', 'T')); return Number.isNaN(t) ? NaN : t / 60000; };
+const localMin = s => { const t = s ? Date.parse(s.replace(' ', 'T') + 'Z') : NaN; return Number.isNaN(t) ? NaN : t / 60000; };
 const transitMinutes = t => { const m = localMin(t.arr) - localMin(t.dep); return m > 0 ? m : 0; };
 export const sortTransits = list => [...list].sort((a, b) => (a.dep || '').localeCompare(b.dep || ''));
 
