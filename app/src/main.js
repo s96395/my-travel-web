@@ -21,9 +21,9 @@ import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSh
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
-import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl } from './views/more.js';
+import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf } from './views/more.js';
 import { renderJoin } from './views/join.js';
-import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll } from './data/people.js';
+import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, addCompanion, bindCompanion } from './data/people.js';
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
@@ -289,6 +289,13 @@ async function maybeLoadJoin() {
   const mine = boundTo(trip, S.user.uid);
   Object.assign(J, { trip, member, step: mine ? 'already' : 'pick', boundName: mine?.name || '', newName: S.nickname });
   render();
+}
+async function companionAct(el, write, done) {
+  const trip = curTrip(), c = trip && companionsOf(S, trip).find(x => x.uid === el.dataset.uid);
+  if (!c || S.busy || S.offline) return;
+  S.busy = true; el.disabled = true;
+  try { await write(trip, c); closeSheet(); toast(done(c)); } catch (err) { console.error(err); el.disabled = false; toast(joinErr(err)); }
+  S.busy = false;
 }
 const joinErr = err => (err?.friendly ? err.message : '沒有成功，請稍後再試');
 
@@ -598,8 +605,11 @@ const actions = {
     try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除放入紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
   },
   // 更多：同行者
-  addPerson() { if (!S.offline) personSheet(null); },
-  renameP(el) { const p = participantsOf(curTrip().raw).find(x => x.id === el.dataset.id); if (p && !S.offline) personSheet(p); },
+  addPerson() { if (!S.offline) personSheet(null, companionsOf(S, curTrip())); },
+  renameP(el) { const p = participantsOf(curTrip().raw).find(x => x.id === el.dataset.id); if (p && !S.offline) personSheet(p, companionsOf(S, curTrip())); },
+  // 常用旅伴：直接新增，或綁到名單上沒有帳號的那一位
+  addCompanion(el) { return companionAct(el, (trip, c) => addCompanion(trip.raw, c), c => `已加入「${c.name}」`); },
+  bindCompanion(el) { return companionAct(el, (trip, c) => bindCompanion(trip.id, el.dataset.id, c), c => `已綁定為「${c.name}」`); },
   async savePerson(el) {
     const name = cleanName($('#pp-name').value), trip = curTrip();
     if (!name) { $('#pp-name').classList.add('err'); $('#pp-name').focus(); toast('請填名字'); return; }
