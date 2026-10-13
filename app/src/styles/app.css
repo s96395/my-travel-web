@@ -136,7 +136,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .tagrow .tanktag{margin-top:0}
 .tripcover{position:relative}
 .cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none;pointer-events:none;user-select:none}
-.cropframe{position:relative;aspect-ratio:16/7;max-width:100%;border-radius:var(--r-sm);overflow:hidden;background:var(--surface2);cursor:grab;touch-action:none;outline:2px solid var(--accent);outline-offset:2px}
+.cropframe{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:var(--r-sm);overflow:hidden;background:var(--surface2);cursor:grab;touch-action:none;outline:2px solid var(--accent);outline-offset:2px}
 .cropframe.dragging{cursor:grabbing}
 .crophint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px;pointer-events:none;white-space:nowrap}
 .cropframe.dragging .crophint{opacity:0}
