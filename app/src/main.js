@@ -777,10 +777,13 @@ const actions = {
     go(`#/trip/${J.tripId}`);
   },
   close: () => tryClose(),
-  bg(el, ev) { if (ev.target === el) tryClose(); },
+  // 按下和放開都在視窗外面才關閉：拖曳選字、點輸入法的選字框時，放開的位置可能落在外面
+  bg(el, ev) { if (ev.target === el && downOn === el) tryClose(); },
   reload: () => updateSW?.(true),
 };
 
+let downOn = null; // 最後一次按下的位置，用來判斷是不是在視窗外面按的
+document.addEventListener('pointerdown', ev => { downOn = ev.target; }, true);
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
@@ -838,7 +841,8 @@ document.addEventListener('submit', async ev => {
   if (!text) { input.focus(); return; }
   if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetOpen()) tryClose(); });
+// 中文輸入法組字時按 Esc 是取消選字，不關閉視窗
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !ev.isComposing && ev.keyCode !== 229 && sheetOpen()) tryClose(); });
 window.addEventListener('scroll', () => $('#appbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
 window.addEventListener('hashchange', () => { readRoute(); render(); window.scrollTo(0, 0); });
 initDrag({
