@@ -9,7 +9,7 @@ import { viewTrip } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
-import { renderTrip, tabButtons, cropSheet, dlSheet } from './views/trip.js';
+import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
@@ -679,6 +679,19 @@ const actions = {
     try { await navigator.clipboard.writeText(url); toast('已複製邀請連結'); } catch { $('#invite')?.select(); toast('請長按連結自行複製'); }
   },
   // 封面照：選照片後先壓小，再調整位置，按儲存才寫入
+  coverMenu() { const t = curTrip(); if (t && !S.offline) coverSheet(t, S.covers[t.id]); },
+  async pickStyle(el) {
+    const style = el.dataset.v, cur = S.covers[S.tripId];
+    if (S.busy || S.offline || (!cur?.src && (cur?.style || 'auto') === style)) { closeSheet(); return; }
+    S.busy = true;
+    try {
+      const c = { src: '', style };
+      const at = await saveCover(S.tripId, c, S.user);
+      S.covers[S.tripId] = { ...c, at };
+      closeSheet(); render(); toast(cur?.src ? '已拿掉照片，改用預設圖案' : '已換封面');
+    } catch (err) { console.error(err); toast('封面沒有儲存成功，請稍後再試'); }
+    S.busy = false;
+  },
   pickCover() {
     if (S.offline || !curTrip()) return;
     const inp = document.createElement('input');
@@ -697,7 +710,7 @@ const actions = {
   },
   adjustCover() {
     const c = S.covers[S.tripId];
-    if (!c || S.offline) return;
+    if (!c?.src || S.offline) return;
     S.crop = { src: c.src, x: c.x, y: c.y, z: c.z };
     cropSheet(S.crop);
   },

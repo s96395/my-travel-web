@@ -35,11 +35,11 @@ export async function loadCover(tripId) {
   return s.exists() ? s.data() : null;
 }
 
-// c：{ src, x, y, z }，x、y 是照片對齊的位置（%），z 是放大倍數
+// c：{ src, x, y, z, style }，x、y 是照片對齊的位置（%），z 是放大倍數；src 空白表示不用照片，改用 style 預設圖案
 export async function saveCover(tripId, c, user) {
   const at = Date.now();
   const b = writeBatch(db);
-  b.set(ref(tripId), { src: c.src, x: c.x, y: c.y, z: c.z, at, byUid: user.uid });
+  b.set(ref(tripId), { src: c.src || '', x: c.x ?? 50, y: c.y ?? 50, z: c.z ?? 1, style: c.style || 'auto', at, byUid: user.uid });
   b.update(doc(db, 'trips', tripId), { coverAt: at });
   await b.commit();
   return at;
