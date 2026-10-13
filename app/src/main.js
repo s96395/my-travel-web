@@ -2,7 +2,7 @@
 import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 import { initFirebase } from './firebase.js';
-import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn } from './auth.js';
+import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn, confirmIdentity, removeAccount } from './auth.js';
 import { watchMyTrips, watchExpenses, createTrip } from './data/trips.js';
 import { addSampleTrips } from './data/sample.js';
 import { viewTrip } from './lib/trips.js';
@@ -24,11 +24,11 @@ import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
 import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf } from './views/more.js';
 import { renderJoin } from './views/join.js';
-import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, addCompanion, bindCompanion } from './data/people.js';
+import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
-import { accountSheet, installSheet, privacySheet, newTripSheet, readTripForm } from './views/sheets.js';
+import { accountSheet, installSheet, privacySheet, delAccountSheet, newTripSheet, readTripForm } from './views/sheets.js';
 import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
 import { shrinkImage, loadCover, saveCover } from './data/cover.js';
 
@@ -418,6 +418,32 @@ const actions = {
   theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   install: () => installSheet(),
   privacy: () => privacySheet(),
+  delAccount() { if (!S.offline) delAccountSheet(); },
+  async yesDelAccount(el) {
+    const input = $('#delacc'), box = $('#del-err');
+    if (input.value.trim() !== '刪除') { input.classList.add('err'); input.focus(); return; }
+    if (S.busy) return;
+    S.busy = true; el.disabled = true; el.textContent = '刪除中…';
+    try {
+      await confirmIdentity();
+      const failed = await deleteAccountData(S.user.uid);
+      if (failed.length) {
+        box.textContent = `這些旅程沒有處理完，帳號先保留：${failed.join('、')}。請稍後再試。`; box.hidden = false;
+        el.disabled = false; el.textContent = '再試一次';
+        return;
+      }
+      await clearOffline().catch(err => console.warn('清除離線資料失敗', err));
+      await removeAccount();
+      closeSheet(); go('#/'); toast('帳號已刪除');
+    } catch (err) {
+      console.error(err);
+      el.disabled = false; el.textContent = '刪除帳號';
+      box.textContent = err.code === 'auth/requires-recent-login'
+        ? '旅程資料已處理完，但 Google 要求重新登入才能刪除帳號。請登出再登入後，再按一次刪除帳號。'
+        : err.code === 'auth/popup-closed-by-user' ? '沒有完成身分確認，帳號沒有刪除。' : '刪除失敗，請稍後再試。';
+      box.hidden = false;
+    } finally { S.busy = false; }
+  },
   hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
   tipDrag() { S.tipDrag = true; store.set('tipDrag', '1'); render(); },
   newTrip() { if (!S.offline) newTripSheet(); },

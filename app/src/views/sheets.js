@@ -13,7 +13,19 @@ export function accountSheet(S) {
     ${S.env !== 'production' ? `<button type="button" class="btn" data-act="sample" ${S.offline ? 'disabled' : ''}>載入範例旅程</button>
       <p class="small muted" style="margin:0">範例旅程只會出現在測試環境，方便檢查畫面。</p>` : ''}
     <button type="button" class="btn" data-act="privacy">隱私權說明</button>
-    <button type="button" class="btn danger" data-act="signOut">登出</button>`);
+    <button type="button" class="btn danger" data-act="signOut">登出</button>
+    <button type="button" class="linkbtn" style="justify-self:center" data-act="delAccount" ${S.offline ? 'disabled' : ''}>刪除帳號</button>`);
+}
+
+export function delAccountSheet() {
+  openSheet(`${head('刪除帳號？')}
+    <ol class="steps"><li>你自己建立、沒有其他成員的旅程會整趟刪除。</li>
+      <li>還有其他成員的旅程會轉給最早加入的成員，你會退出。</li>
+      <li>你在旅程裡的名字和分攤金額會保留，改成沒有帳號的同行者。</li></ol>
+    <p style="margin:0">刪除後無法復原。Google 可能會請你再登入一次確認身分。</p>
+    <div class="field"><label for="delacc">請輸入「刪除」確認</label><input class="input" id="delacc" autocomplete="off"></div>
+    <p class="small err-text" id="del-err" role="alert" hidden></p>
+    <div class="row"><button type="button" class="btn grow" data-act="close">取消</button><button type="button" class="btn danger grow" data-act="yesDelAccount">刪除帳號</button></div>`);
 }
 
 export function privacySheet() {

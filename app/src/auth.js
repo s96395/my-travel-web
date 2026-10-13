@@ -1,4 +1,4 @@
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInWithCredential, signOut, onAuthStateChanged } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithRedirect, signInWithCredential, signOut, onAuthStateChanged, reauthenticateWithPopup, deleteUser } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db, envName } from './firebase.js';
 
@@ -27,6 +27,18 @@ export function exposeTestSignIn() {
 }
 
 export const logOut = () => signOut(auth);
+
+// 刪除帳號前請 Google 再確認一次身分；擋掉彈出視窗的瀏覽器先跳過，最後刪帳號時若要求重新登入再提示
+export async function confirmIdentity() {
+  if (envName === 'emulator') return;
+  try {
+    await reauthenticateWithPopup(auth.currentUser, new GoogleAuthProvider());
+  } catch (err) {
+    if (err.code === 'auth/popup-blocked' || err.code === 'auth/operation-not-supported-in-this-environment') return;
+    throw err;
+  }
+}
+export const removeAccount = () => deleteUser(auth.currentUser);
 
 // 舊版存在 users/{uid} 的暱稱；沒有時用 Google 名稱
 export async function nicknameOf(user) {
