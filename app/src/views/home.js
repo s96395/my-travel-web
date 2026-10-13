@@ -53,13 +53,15 @@ function statsHtml(S, st) {
   const thisYear = todayString().slice(0, 4);
   const y0 = st.yearly.find(y => y.year === thisYear) || { mine: 0, unconfirmed: 0 };
   const pct = v => (st.typeTotal ? Math.round(v / st.typeTotal * 100) : 0);
+  // 大字顯示花最多的類型，總金額放在展開後的合計
+  const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
     ${statCard(S, 'country', '🌍', st.countries.length, '去過的國家', '',
       st.countries.map(c => line('🗺️ ' + esc(c[0]), c[1] + ' 趟')).join('') || '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
-    ${statCard(S, 'type', '🎒', '$' + money(st.typeTotal), '旅程總支出（依類型）', '',
+    ${statCard(S, 'type', top[1] ? TYPE_ICON[top[0]] : '🎒', top[1] ? `${esc(top[0])} ${pct(top[1])}%` : '$0', '旅程總支出（依類型）', top[1] ? `全部合計 $${money(st.typeTotal)}` : '',
       st.types.map(([t, v]) => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_COLOR[t]}">$${money(v)}</b> <span class="muted">${pct(v)}%</span></span><span class="bar"><i style="width:${pct(v)}%;background:${TYPE_COLOR[t]}"></i></span></div>`).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">$${money(st.typeTotal)}</span></div>`)}
     ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
