@@ -778,12 +778,13 @@ const actions = {
   },
   close: () => tryClose(),
   // 按下和放開都在視窗外面才關閉：拖曳選字、點輸入法的選字框時，放開的位置可能落在外面
-  bg(el, ev) { if (ev.target === el && downOn === el) tryClose(); },
+  bg(el, ev) { if (ev.target === el && downOn === el && upOn === el) tryClose(); },
   reload: () => updateSW?.(true),
 };
 
-let downOn = null; // 最後一次按下的位置，用來判斷是不是在視窗外面按的
+let downOn = null, upOn = null; // 最後一次按下、放開的位置，用來判斷是不是在視窗外面按的
 document.addEventListener('pointerdown', ev => { downOn = ev.target; }, true);
+document.addEventListener('pointerup', ev => { upOn = ev.target; }, true);
 document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
