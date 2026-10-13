@@ -73,7 +73,7 @@ function tripCard(t, S) {
   return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}">
     ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
-      <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${slashDate(t.start)} – ${slashDate(t.end)}</span>
+      <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${esc(slashDate(t.start))} – ${esc(slashDate(t.end))}</span>
         <span class="tagrow"><span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">🫧 ${t.tanks} 瓶</span>` : ''}</span></span>
       <span class="stub"><b>${esc(t.code || (t.city || t.country || '').slice(0, 3))}</b><small>${ti(t.type)}</small></span>
     </span>

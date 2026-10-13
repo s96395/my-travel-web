@@ -69,7 +69,7 @@ function dayOptions(trip, cur) {
     for (let i = 0; i < n; i++) { const x = parseDate(trip.start); x.setDate(x.getDate() + i); days.push([toDateString(x), `第 ${i + 1} 天・${monthDay(toDateString(x))}`]); }
   }
   if (cur && !days.some(d => d[0] === cur)) days.unshift([cur, monthDay(cur)]);
-  return days.map(([v, t]) => `<option value="${v}" ${v === cur ? 'selected' : ''}>${t}</option>`).join('');
+  return days.map(([v, t]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${t}</option>`).join('');
 }
 
 export function diveFormSheet(trip, d, canDel) {
