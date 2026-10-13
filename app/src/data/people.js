@@ -78,7 +78,7 @@ export function bindParticipant(tripId, uid, pid, newName) {
 }
 
 /* ---------- 刪除旅程（規格書 F05）：子資料一筆一筆刪，全部刪完才刪旅程本身 ---------- */
-const SUBS = { itinerary: '行程', flights: '班機', stays: '住宿', todos: '待辦', expenses: '支出', fundDeposits: '公費放入紀錄', transits: '其他交通', diveLogs: '潛水日誌', images: '圖片', accommodations: '舊版住宿' };
+const SUBS = { itinerary: '行程', flights: '班機', stays: '住宿', todos: '待辦', expenses: '支出', fundDeposits: '公費放入紀錄', transits: '其他交通', diveLogs: '潛水日誌', images: '圖片', accommodations: '舊版住宿', cover: '封面照' };
 export async function deleteTripAll(tripId) {
   const failed = [];
   for (const [name, label] of Object.entries(SUBS)) {
