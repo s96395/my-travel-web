@@ -28,7 +28,7 @@ import { addParticipant, patchParticipants, removeMember, updateTripInfo, userNa
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
-import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
+import { accountSheet, installSheet, privacySheet, newTripSheet, readTripForm } from './views/sheets.js';
 import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
 import { shrinkImage, loadCover, saveCover } from './data/cover.js';
 
@@ -417,6 +417,7 @@ const actions = {
   account: () => accountSheet(S),
   theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   install: () => installSheet(),
+  privacy: () => privacySheet(),
   hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
   tipDrag() { S.tipDrag = true; store.set('tipDrag', '1'); render(); },
   newTrip() { if (!S.offline) newTripSheet(); },

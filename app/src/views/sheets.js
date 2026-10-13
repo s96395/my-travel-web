@@ -12,7 +12,23 @@ export function accountSheet(S) {
     <button type="button" class="btn" data-act="install">📲 加到手機主畫面</button>
     ${S.env !== 'production' ? `<button type="button" class="btn" data-act="sample" ${S.offline ? 'disabled' : ''}>載入範例旅程</button>
       <p class="small muted" style="margin:0">範例旅程只會出現在測試環境，方便檢查畫面。</p>` : ''}
+    <button type="button" class="btn" data-act="privacy">隱私權說明</button>
     <button type="button" class="btn danger" data-act="signOut">登出</button>`);
+}
+
+export function privacySheet() {
+  openSheet(`${head('隱私權說明')}
+    <p class="label">我們會存哪些資料</p>
+    <ol class="steps"><li>登入用的 Google 帳號名稱與 Email，由 Google 的 Firebase 負責驗證與保存。</li>
+      <li>你和旅伴輸入的旅程內容：行程、班機、住宿（含訂位代號）、待辦、支出、同行者名字與封面照。</li></ol>
+    <p class="label">用在哪裡、誰看得到</p>
+    <ol class="steps"><li>只用來提供網站功能，不會賣給別人，也不會拿來打廣告。</li>
+      <li>旅程內容只有同一趟的成員看得到；網站管理者只在處理問題時查看。</li>
+      <li>下載供離線使用的旅程存在你的裝置上，登出時會清除。</li></ol>
+    <p class="label">幫沒有帳號的旅伴建名字</p>
+    <p class="small" style="margin:0">對方沒有參與同意，建議填暱稱就好，不要填全名或其他個人資料。</p>
+    <p class="label">查詢、更正或刪除</p>
+    <p class="small" style="margin:0">旅程內容可以自己修改或刪除。要刪除整個帳號，可以在帳號選單按「刪除帳號」；其他問題請寄信到 s96395@gmail.com。</p>`);
 }
 
 export function installSheet() {
