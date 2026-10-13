@@ -53,6 +53,14 @@ export function renderMore(S, trip) {
       <div class="row"><input class="input grow data" id="invite" readonly value="${esc(inviteUrl(trip))}"><button type="button" class="btn sm" data-act="copyInvite">複製</button></div>
       <span class="small muted">對方登入後，可以選擇自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
   </section>
+  <section class="card tips">
+    <b>使用小技巧</b>
+    <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到天數標題上，會放在那天最後。</p>
+    <p><b>離線查看</b>：按旅程標題右邊的下載圖示，把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
+    <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
+    ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
+    <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
+  </section>
   ${owner ? `<section class="card" style="display:grid;gap:10px">
     <b>旅程設定</b>
     <button type="button" class="btn" data-act="editTrip" ${off}>編輯旅程名稱與日期</button>

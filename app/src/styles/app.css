@@ -252,7 +252,6 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
   .device.wide .toptabs svg{width:18px;height:18px}
   .device.wide .toptabs button[aria-current="page"]{color:var(--fg);font-weight:700;border-bottom-color:var(--warm)}
   .device.wide .triphead{grid-template-columns:1fr auto;align-items:center}
-  .device.wide .triphead .dl{grid-column:2;grid-row:1 / span 2}
   .device.wide .planwide{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start}
   .device.wide .daylist{position:sticky;top:130px;display:grid;gap:6px}
   .device.wide .daylist p{margin:8px 4px 0}
@@ -315,8 +314,6 @@ textarea.input{resize:vertical;font-family:inherit}
 .secret .data{letter-spacing:.06em}
 .secret svg{color:var(--muted)}
 .codes{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;justify-items:start}
-.dl{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px}
-.dl .grow{min-width:0}
 
 .tabbar{position:fixed;left:0;right:0;bottom:0;margin-inline:auto;max-width:var(--appw);z-index:7;background:var(--surface);border-top:1px solid var(--line);display:grid;grid-auto-flow:column;grid-auto-columns:1fr;padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
 .tabbar button{border:0;background:none;display:grid;justify-items:center;gap:2px;font-size:11px;color:var(--muted);padding:4px 0}
@@ -341,6 +338,18 @@ textarea.input{resize:vertical;font-family:inherit}
 .item.lifted{position:relative;z-index:15;box-shadow:0 14px 30px -10px var(--shade);border-color:var(--warm);pointer-events:none;transition:none}
 .dropline{height:4px;border-radius:4px;background:var(--warm);margin:-2px 0}
 .item h4{margin:0;font-size:15px;font-weight:700}
+/* 拖曳把手：看到就知道可以拖 */
+.item .grip{color:var(--muted);opacity:.6;display:grid;place-items:center;width:20px;height:28px;flex:none;cursor:grab}
+/* 第一次出現一次的小提示 */
+.tip{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--accent-soft);color:var(--fg);border-radius:var(--r);padding:10px 12px}
+.tip span{flex:1;min-width:0}
+.tip .linkbtn{font-weight:700;color:var(--accent);white-space:nowrap}
+.tips{display:grid;gap:8px}
+.tips p{margin:0;font-size:13px;color:var(--muted)}
+.tips p b{color:var(--fg)}
+/* 標題列的下載圖示：下載好變綠色打勾 */
+.iconbtn.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+.iconbtn .spin{width:16px;height:16px;border-width:2px}
 .item p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 .item .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .more{border:0;background:none;color:var(--muted);padding:2px 4px;font-size:18px;line-height:1}
