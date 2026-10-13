@@ -2,6 +2,7 @@
 // 手機用分段切換；電腦左邊明細、右邊切換分攤或結算，公費另一頁
 import { esc, ICON, money, openSheet, $ } from '../ui/dom.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
+import { isMember } from '../lib/people.js';
 import {
   CATS, PAYS, FUND, MULTI, paidOf, amountOf, payMethodOf, equalSplit, sharesOf, isSplit, modeOf, perPerson, byCategory,
   fundOf, fundIn, fundOut, settlement, repaidKey,
@@ -28,8 +29,8 @@ export function ctxOf(S, trip) {
     av: id => avatar(people.find(p => p.id === id), idx.get(id) ?? 0),
   };
 }
-// 旅程擁有者或這筆的新增者可以修改、刪除（規格書 Q05）
-export const canEdit = (S, trip, r) => trip.raw.ownerId === S.user.uid || (!!r?.createdByUid && r.createdByUid === S.user.uid);
+// 共編成員都可以修改、刪除
+export const canEdit = (S, trip) => isMember(trip.raw, S.user.uid);
 
 export function renderExp(S, trip) {
   const c = ctxOf(S, trip);
@@ -271,7 +272,7 @@ export function expSheetHtml(S, trip, d) {
       ${d.id && !S.offline ? '<button type="button" class="btn danger" data-act="askDelExp">刪除</button>' : ''}
       <button type="button" class="btn primary grow" data-act="saveExp" ${chk.ok && !d.saving && !S.offline ? '' : 'disabled'}>${d.saving ? '儲存中…' : S.offline ? '離線中無法儲存' : '儲存'}</button>
     </div>` : ''}
-    ${d.by ? `<p class="small muted" style="margin:0;text-align:center">${esc(d.by)} 新增・${d.edit ? '旅程建立者可以修改所有人的支出' : '只有新增的人和旅程建立者可以修改'}</p>` : ''}`;
+    ${d.by ? `<p class="small muted" style="margin:0;text-align:center">${esc(d.by)} 新增</p>` : ''}`;
 }
 
 // 重畫表單內容，保留游標位置

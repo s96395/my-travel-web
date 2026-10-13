@@ -21,6 +21,7 @@ export function normalizeItem(raw) {
     time: raw.reservationTime || '',
     note: raw.note || '',
     legacyTime: raw.time || '',
+    createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
   };
 }
 
