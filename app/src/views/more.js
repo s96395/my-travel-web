@@ -26,7 +26,7 @@ export function renderMore(S, trip) {
   return `<div class="moregrid">
   <section class="card">
     <div class="sec-h"><h2>同行者</h2>${owner ? `<button type="button" class="btn sm" data-act="addPerson" ${off}>${ICON.plus}新增</button>` : ''}</div>
-    <p class="small muted" style="margin:4px 0 6px">只填名字就能加入，沒有帳號的人也能被分攤費用。</p>
+    <p class="small muted" style="margin:4px 0 6px">只填名字就能加入（填暱稱就好），沒有帳號的人也能被分攤費用。</p>
     <div class="pertable divide">${people.map((p, i) => `
       <div class="r" style="${p.status === 'inactive' ? 'opacity:.55' : ''}">
         <span class="who" style="flex-wrap:wrap">${avatar(p, i)}<span style="white-space:nowrap">${esc(p.name || '未命名')}</span>
