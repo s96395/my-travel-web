@@ -127,6 +127,9 @@ test('使用者資料：只能改自己的暱稱，不能給自己管理者身�
   await assertSucceeds(updateDoc(doc(as('member'), 'users/member'), { nickname: '安安' }));
   await assertSucceeds(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人' }));
   await assertFails(updateDoc(doc(as('stranger'), 'users/member'), { nickname: '亂改' }));
+  // 不能列出所有使用者，也不能存 Email 等個資
+  await assertFails(getDocs(collection(as('member'), 'users')));
+  await assertFails(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人', email: 'a@b.c' }));
   await assertFails(setDoc(doc(as('member'), 'roles/member'), { role: 'admin' }));
   await assertFails(getDoc(doc(as('member'), 'roles/admin')));
   // users 裡自己寫的 role 不算數
