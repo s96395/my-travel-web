@@ -1,6 +1,6 @@
 // 首頁：下一趟登機證、四張統計、搜尋與類型篩選、依年度分組的旅程卡
 import { esc, money, ICON } from '../ui/dom.js';
-import { scene, coverHtml } from '../ui/scene.js';
+import { scene, art, coverHtml } from '../ui/scene.js';
 import { TYPE_ICON, pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
 import { slashDate, todayString } from '../lib/dates.js';
@@ -22,7 +22,7 @@ function hero(next, S) {
     ? `<span class="bp-route"><span><b>TPE</b><small>台灣</small></span><span class="bp-plane">${ICON.plane}</span><span class="r"><b>${esc(next.code)}</b><small>${esc(next.city || next.country)}</small></span></span>`
     : `<span class="bp-route"><span><b>${esc(next.city || next.country || '目的地')}</b><small>${esc(next.country)}</small></span><span class="bp-plane">${ICON.plane}</span><span></span></span>`;
   return `<button type="button" class="hero bpi" data-act="open" data-id="${esc(next.id)}">
-    ${scene(next)}<span class="bpi-shade"></span>
+    ${art(next, S.covers[next.id])}<span class="bpi-shade"></span>
     <span class="bp-top"><span>BOARDING PASS</span><span>下一趟旅行</span></span>
     <span class="bp-body">
       ${route}
@@ -67,9 +67,9 @@ function statsHtml(S, st) {
   </section>`;
 }
 
-function tripCard(t) {
+function tripCard(t, S) {
   return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}">
-    ${coverHtml(t)}
+    ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
       <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${slashDate(t.start)} – ${slashDate(t.end)}</span>
         <span class="tagrow"><span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">🫧 ${t.tanks} 瓶</span>` : ''}</span></span>
@@ -107,7 +107,7 @@ export function renderHome(S) {
       const ytot = st.yearTotals[y] || 0;
       return `<section class="year" data-open="${open}">
         <button type="button" data-act="year" data-y="${esc(y)}" aria-expanded="${open}"><span class="chev">${ICON.chev}</span><h3>${esc(y)}</h3><span class="tag">${ts.length} 趟</span><span class="ytotal">年度旅程總支出 <b class="num">$${money(ytot)}</b></span></button>
-        ${open ? (ts.length ? `<div class="list">${ts.map(tripCard).join('')}</div>` : '<div class="empty">沒有符合的旅程</div>') : ''}
+        ${open ? (ts.length ? `<div class="list">${ts.map(t => tripCard(t, S)).join('')}</div>` : '<div class="empty">沒有符合的旅程</div>') : ''}
       </section>`;
     }).join('')}
     ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">篩選只影響列表，上方統計不變</p>' : ''}

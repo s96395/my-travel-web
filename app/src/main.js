@@ -9,7 +9,7 @@ import { viewTrip } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
-import { renderTrip, tabButtons } from './views/trip.js';
+import { renderTrip, tabButtons, cropSheet } from './views/trip.js';
 import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
@@ -29,6 +29,7 @@ import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
 import { accountSheet, installSheet, newTripSheet, readTripForm } from './views/sheets.js';
 import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
+import { shrinkImage, loadCover, saveCover } from './data/cover.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
@@ -47,6 +48,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
+  covers: {}, crop: null, // covers：旅程 id → 封面照；crop：正在調整的封面
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
 let local = new Map(); // 沒網路開啟時，下載的旅程 id → 整份資料
@@ -169,6 +171,7 @@ async function enterLocal() {
       trips: list.map(r => viewTrip(r.raw)).sort((a, b) => (b.raw.startDate || '').localeCompare(a.raw.startDate || '')),
       expenses: new Map(list.map(r => [r.id, r.subs.expenses || []])),
       dl: Object.fromEntries(list.map(r => [r.id, r.savedAt])),
+      covers: Object.fromEntries(list.map(r => [r.id, r.subs.cover?.find(d => d.id === 'main')]).filter(x => x[1])),
     });
     render();
     return true;
@@ -338,7 +341,7 @@ function onDrop(id, t) {
 function stopAll() {
   stopTrips?.(); stopTrips = null;
   expenseWatch.forEach(off => off()); expenseWatch.clear(); retries.clear();
-  S.trips = []; S.expenses = new Map(); S.loadingTrips = true;
+  S.trips = []; S.expenses = new Map(); S.loadingTrips = true; S.covers = {};
 }
 
 function syncExpenseWatch() {
@@ -357,11 +360,24 @@ function syncExpenseWatch() {
   });
 }
 
+// 有封面照的旅程（主檔有 coverAt）才去讀照片；別人換了封面 coverAt 會變，再讀一次
+const coverLoading = new Set();
+function syncCovers() {
+  S.trips.forEach(t => {
+    const at = t.raw.coverAt;
+    if (!at || S.covers[t.id]?.at === at || coverLoading.has(t.id)) return;
+    coverLoading.add(t.id);
+    loadCover(t.id).then(c => { if (c) { S.covers[t.id] = c; render(); } }, err => console.warn('讀取封面失敗', t.id, err))
+      .finally(() => coverLoading.delete(t.id));
+  });
+}
+
 function startWatching(user) {
   stopTrips = watchMyTrips(user.uid, raw => {
     S.trips = raw.map(viewTrip);
     S.loadingTrips = false;
     syncExpenseWatch();
+    syncCovers();
     render();
     refreshOffline();
   }, err => {
@@ -654,6 +670,40 @@ const actions = {
   async copyInvite() {
     const trip = curTrip(), url = inviteUrl(trip);
     try { await navigator.clipboard.writeText(url); toast('已複製邀請連結'); } catch { $('#invite')?.select(); toast('請長按連結自行複製'); }
+  },
+  // 封面照：選照片後先壓小，再調整位置，按儲存才寫入
+  pickCover() {
+    if (S.offline || !curTrip()) return;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      if (!f.type.startsWith('image/')) { toast('請選擇照片檔'); return; }
+      try {
+        const src = await shrinkImage(f);
+        S.crop = { src, x: 50, y: 50, z: 1 };
+        cropSheet(S.crop, `照片壓縮後約 ${Math.round(src.length * 0.75 / 1024)} KB。`);
+      } catch { toast('這張照片讀不出來，請換一張'); }
+    };
+    inp.click();
+  },
+  adjustCover() {
+    const c = S.covers[S.tripId];
+    if (!c || S.offline) return;
+    S.crop = { src: c.src, x: c.x, y: c.y, z: c.z };
+    cropSheet(S.crop);
+  },
+  async saveCover(el) {
+    const c = S.crop;
+    if (!c || S.busy || S.offline) return;
+    S.busy = true; el.disabled = true;
+    try {
+      const at = await saveCover(S.tripId, c, S.user);
+      S.covers[S.tripId] = { ...c, at };
+      S.crop = null; closeSheet(); render(); toast('已儲存封面');
+    } catch (err) { console.error(err); el.disabled = false; toast('封面沒有儲存成功，請稍後再試'); }
+    S.busy = false;
   },
   // 更多：旅程設定
   editTrip() { const trip = curTrip(); if (trip && !S.offline) newTripSheet(trip); },

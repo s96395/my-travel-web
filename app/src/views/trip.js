@@ -1,6 +1,6 @@
 // 旅程內頁：上方封面與基本資訊，分頁在手機放底部、電腦放上方
-import { esc, ICON } from '../ui/dom.js';
-import { coverHtml } from '../ui/scene.js';
+import { $, esc, ICON, openSheet } from '../ui/dom.js';
+import { coverHtml, coverImg } from '../ui/scene.js';
 import { monthDay } from '../lib/dates.js';
 import { TYPE_ICON, participantsOf } from '../lib/trips.js';
 import { renderPlan } from './plan.js';
@@ -45,12 +45,38 @@ const avatar = (p, i) => `<span class="avatar${p.uid ? '' : ' unbound'}" data-c=
 function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
-  return `<div class="tripcover">${coverHtml(t, true)}</div>
+  const cover = S.covers[t.id];
+  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="pickCover">📷 更換封面</button>${cover ? '<button type="button" class="btn sm" data-act="adjustCover">調整位置</button>' : ''}</span>`;
+  return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
     ${people.length ? `<div class="row"><div class="people">${people.map(avatar).join('')}</div><span class="small muted grow">${people.map(p => esc(p.name)).join('、')}</span></div>` : ''}
     <div class="dl">${dlLine(S, t)}</div>
   </div>`;
+}
+
+// 調整封面位置：拖曳照片移動、拉桿放大；c 會直接被改，儲存時讀它
+export function cropSheet(c, info = '') {
+  openSheet(`<div class="head"><h2>調整封面位置</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
+    <div class="cropframe" id="cropFrame">${coverImg(c)}<span class="crophint">拖曳照片調整位置</span></div>
+    <div class="field"><label for="cropZoom">放大</label><input type="range" id="cropZoom" min="1" max="2.5" step="0.05" value="${c.z}"></div>
+    <p class="small muted" style="margin:0">首頁卡片和旅程頁上方用同一個位置。${info}</p>
+    <div class="row"><button type="button" class="btn grow" data-act="pickCover">重新選照片</button><button type="button" class="btn primary grow" data-act="saveCover">儲存封面</button></div>`);
+  const f = $('#cropFrame'), im = f.querySelector('img');
+  const paint = () => { im.style.objectPosition = `${c.x}% ${c.y}%`; im.style.transformOrigin = `${c.x}% ${c.y}%`; im.style.transform = `scale(${c.z})`; };
+  const clamp = v => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
+  let start = null;
+  f.addEventListener('pointerdown', e => { start = { x: e.clientX, y: e.clientY, cx: c.x, cy: c.y }; f.setPointerCapture(e.pointerId); f.classList.add('dragging'); });
+  f.addEventListener('pointermove', e => {
+    if (!start) return;
+    const r = f.getBoundingClientRect();
+    c.x = clamp(start.cx - (e.clientX - start.x) / r.width * 100 / c.z * 1.6);
+    c.y = clamp(start.cy - (e.clientY - start.y) / r.height * 100 / c.z * 1.6);
+    paint();
+  });
+  const end = () => { start = null; f.classList.remove('dragging'); };
+  f.addEventListener('pointerup', end); f.addEventListener('pointercancel', end);
+  $('#cropZoom').addEventListener('input', e => { c.z = +e.target.value; paint(); });
 }
 
 export function renderTrip(S) {
