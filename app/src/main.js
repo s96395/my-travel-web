@@ -35,6 +35,10 @@ import { shrinkImage, loadCover, saveCover } from './data/cover.js';
 const WIDE = window.matchMedia('(min-width: 1000px)');
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
+// 外觀：跟著系統、淺色或深色，記在這台裝置上
+const applyTheme = v => { if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; };
+applyTheme(store.get('theme') || '');
+
 const S = {
   env: '', user: null, nickname: '', ready: false,
   trips: [], expenses: new Map(), loadingTrips: true,
@@ -51,6 +55,7 @@ const S = {
   tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
+  theme: store.get('theme') || '', // 外觀：''＝跟著系統
   covers: {}, crop: null, // covers：旅程 id → 封面照；crop：正在調整的封面
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
@@ -411,6 +416,7 @@ const actions = {
     toast('已登出');
   },
   account: () => accountSheet(S),
+  theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   install: () => installSheet(),
   hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
   tipDrag() { S.tipDrag = true; store.set('tipDrag', '1'); render(); },
