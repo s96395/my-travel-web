@@ -510,9 +510,9 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .hero.bpi{min-height:300px;grid-template-rows:auto 1fr auto auto}
 :root[data-style="i"] .hero.bpi .bp-body{align-content:start}
 :root[data-style="i"] .hero.bpi .bp-fields{text-shadow:0 1px 6px rgba(0,0,0,.6)}
-/* 背景圖再淡一點，壓在深色底上，字才不會和圖案打架 */
-:root[data-style="i"] .hero.bpi{background:#0b1220}
-:root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{opacity:.55}
+/* 和旅程卡片一樣用深藍色的霧，字才不會和圖案打架 */
+:root[data-style="i"] .hero.bpi{background:#0f172a}
+:root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{opacity:.75}
 /* 電腦版：高度照原本，字放大 */
 @media (min-width:1000px){
   :root[data-style="i"] .device.wide .hero.bpi .bp-top{font-size:14px;padding:16px 24px 0}
@@ -526,7 +526,7 @@ textarea.input{resize:vertical;font-family:inherit}
   :root[data-style="i"] .device.wide .bp-stub .count{font-size:18px}
   :root[data-style="i"] .device.wide .bp-stub .count b{font-size:56px}
 }
-.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5) 0,rgba(0,0,0,.3) 30%,rgba(0,0,0,.55) 62%,rgba(0,0,0,.8) 100%)}
+.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,23,42,.55) 0,rgba(15,23,42,.45) 30%,rgba(15,23,42,.65) 62%,rgba(15,23,42,.9) 100%)}
 :root[data-style="i"] .hero.bpi>span:not(.bpi-shade){position:relative}
 :root[data-style="i"] .hero.bpi .bp-top{background:none;color:#fff;padding:12px 18px 0}
 :root[data-style="i"] .hero.bpi .bp-body{padding:12px 18px 16px}
@@ -543,8 +543,8 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .tripcard{position:relative;padding-right:82px;background:var(--surface);border-radius:var(--r)}
 :root[data-style="i"] .tripcard .cover{aspect-ratio:4/3;border-radius:var(--r) 0 0 var(--r)}
 :root[data-style="i"] .tripcard .tc-body{position:static;padding:0;background:none;border:0}
-:root[data-style="i"] .tripcard .tc-body .grow{position:absolute;left:0;right:82px;bottom:0;padding:40px 14px 12px;color:#fff;border-radius:0 0 0 var(--r);background:linear-gradient(transparent,rgba(0,0,0,.72))}
-:root[data-style="i"] .tripcard h3{font-size:20px;font-weight:900}
+:root[data-style="i"] .tripcard .tc-body .grow{position:absolute;left:0;right:82px;top:0;bottom:0;align-content:end;padding:40px 14px 12px;color:#fff;border-radius:var(--r) 0 0 var(--r);background:linear-gradient(rgba(15,23,42,0) 18%,rgba(15,23,42,.7) 52%,rgba(15,23,42,.9))}
+:root[data-style="i"] .tripcard h3{font-size:20px;font-weight:900;word-break:keep-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 :root[data-style="i"] .tripcard .place{color:#fff;opacity:.9}
 :root[data-style="i"] .tripcard .muted{color:rgba(255,255,255,.82)}
 :root[data-style="i"] .tripcard .tag,:root[data-style="i"] .tripcard .tanktag{background:rgba(255,255,255,.2);color:#fff;backdrop-filter:blur(4px)}
