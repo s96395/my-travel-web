@@ -1,4 +1,4 @@
-// 沒有上傳封面時，依旅程類型、地點與出發月份畫一張風景（規格書 F06）
+// 封面：有上傳照片就用照片；沒有上傳時，依旅程類型、地點與出發月份畫一張風景（規格書 F06）
 // 目前有海底、雪景、山景（四季配色，京都加五重塔）；其他種類之後再補
 import { esc } from './dom.js';
 
@@ -56,6 +56,10 @@ export function scene(trip) {
   return hills(k, SEASON[season(trip.start)], /京都|奈良|寺/.test(where));
 }
 
-export function coverHtml(trip, big = false) {
-  return `<span class="cover${big ? ' big' : ''}">${scene(trip)}<span class="status">${esc(trip.status)}</span></span>`;
+// 有上傳封面時用照片，照存好的位置與放大倍數顯示
+export const coverImg = c => `<img class="cover-img" alt="" src="${esc(c.src)}" style="object-position:${+c.x}% ${+c.y}%;transform:scale(${+c.z || 1});transform-origin:${+c.x}% ${+c.y}%">`;
+export const art = (trip, cover) => (cover?.src ? coverImg(cover) : scene(trip));
+
+export function coverHtml(trip, big = false, cover = null) {
+  return `<span class="cover${big ? ' big' : ''}">${art(trip, cover)}<span class="status">${esc(trip.status)}</span></span>`;
 }
