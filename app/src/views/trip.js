@@ -47,7 +47,7 @@ function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   const cover = S.covers[t.id];
-  const btns = S.offline ? '' : '<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button></span>';
+  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button>${cover?.src ? '<button type="button" class="btn sm" data-act="adjustCover">調整位置</button>' : ''}</span>`;
   return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
