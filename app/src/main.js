@@ -227,9 +227,8 @@ async function moveItem(id, target) {
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
-const isOwner = trip => trip.raw.ownerId === S.user.uid;
-// 行程、班機、住宿等：旅程擁有者或這筆的建立者可以刪除
-const canDelRecord = (trip, r) => isOwner(trip) || (!!r && r.createdByUid === S.user.uid);
+// 行程、班機、住宿等：同行的共編成員都可以刪除
+const canDelRecord = (trip, r) => !!r && isMember(trip.raw, S.user.uid);
 
 // 儲存班機或住宿；舊版資料第一次儲存時新增一筆，並記下是從哪個舊欄位轉來的
 async function saveRecord(el, name, form, all, [addedMsg, updatedMsg]) {

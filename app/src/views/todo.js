@@ -1,9 +1,10 @@
 // 待辦分頁：新增、勾選、刪除，上方顯示完成進度；下方可套用旅程類型的範本（規格書 F40、F41）
 import { esc } from '../ui/dom.js';
 import { sortTodos, progress, missingTemplate } from '../lib/todos.js';
+import { isMember } from '../lib/people.js';
 
-// 旅程擁有者或這筆的建立者可以刪除
-const canDel = (S, trip, t) => trip.raw.ownerId === S.user.uid || t.createdByUid === S.user.uid;
+// 共編成員都可以刪除
+const canDel = (S, trip) => isMember(trip.raw, S.user.uid);
 
 export function renderTodo(S, trip) {
   if (S.loadingTodo) return '<div class="empty">正在讀取待辦…</div>';
