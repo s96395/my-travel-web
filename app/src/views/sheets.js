@@ -8,6 +8,7 @@ export function accountSheet(S) {
   const name = S.nickname || S.user.displayName || '旅人';
   openSheet(`${head('帳號')}
     <div class="row"><span class="avatar" data-c="0">${esc(name.slice(0, 1))}</span><div class="grow"><b>${esc(name)}</b><div class="small muted">${esc(S.user.email || 'Google 帳號登入')}</div></div></div>
+    <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
     <button type="button" class="btn" data-act="install">📲 加到手機主畫面</button>
     ${S.env !== 'production' ? `<button type="button" class="btn" data-act="sample" ${S.offline ? 'disabled' : ''}>載入範例旅程</button>
       <p class="small muted" style="margin:0">範例旅程只會出現在測試環境，方便檢查畫面。</p>` : ''}

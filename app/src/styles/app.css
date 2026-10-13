@@ -23,6 +23,9 @@
 }
 :root[data-theme="dark"]{ --bg:#0e1716; --surface:#152221; --surface2:#1e2e2c; --fg:#e2eeec; --muted:#93a9a5; --line:#2a3d3a;
   --accent:#4fb8b0; --accent-fg:#062120; --accent-soft:#1c3a37; --warm:#e9b25b; --good:#6cc08e; --bad:#e57e73; --warn:#ddb05a; --shade:rgba(0,0,0,.6); color-scheme:dark }
+:root:is([data-style="e"],[data-style="i"])[data-theme="dark"]{ --bg:#0f1622; --surface:#172131; --surface2:#1f2b3e; --fg:#e6edf7; --muted:#9aa9bd; --line:#2a374b;
+  --accent:#8fb3e8; --accent-fg:#0b1626; --accent-soft:#213250; --warm:#f39a55; --good:#5cc3e0; --bad:#ec7f72; --warn:#f0a35e }
+:root[data-theme="light"]{ color-scheme:light }
 
 html,body{height:100%}
 body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
@@ -503,7 +506,12 @@ textarea.input{resize:vertical;font-family:inherit}
 /* ---------- I 照片＋登機證：H 的照片與走過的路，下一趟和旅程卡加上登機證票根 ---------- */
 :root[data-style="i"] .hero.bpi{display:grid;gap:0;padding:0;position:relative;background:#2a110c;color:#fff;border-radius:var(--r);overflow:hidden;box-shadow:0 14px 30px -18px var(--shade)}
 :root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{position:absolute;inset:0}
-.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0,rgba(0,0,0,.1) 30%,rgba(0,0,0,.45) 62%,rgba(0,0,0,.78) 100%)}
+/* 登機證加高，背景圖淡一點讓字清楚 */
+:root[data-style="i"] .hero.bpi{min-height:300px;grid-template-rows:auto 1fr auto auto}
+:root[data-style="i"] .hero.bpi .bp-body{align-content:start}
+:root[data-style="i"] .hero.bpi .bp-fields{text-shadow:0 1px 6px rgba(0,0,0,.6)}
+@media (min-width:1000px){:root[data-style="i"] .device.wide .hero.bpi{min-height:440px}}
+.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5) 0,rgba(0,0,0,.3) 30%,rgba(0,0,0,.55) 62%,rgba(0,0,0,.8) 100%)}
 :root[data-style="i"] .hero.bpi>span:not(.bpi-shade){position:relative}
 :root[data-style="i"] .hero.bpi .bp-top{background:none;color:#fff;padding:12px 18px 0}
 :root[data-style="i"] .hero.bpi .bp-body{padding:12px 18px 16px}

@@ -35,7 +35,7 @@ function hero(next, S) {
 }
 
 function statCard(S, k, ico, big, label, sub, detail) {
-  const open = S.stats[k] ?? S.wide; // 電腦版預設展開，手機預設收合（規格書 F04）
+  const open = S.stats[k] ?? false; // 預設收合，按標題展開
   return `<div class="stat" data-open="${open}">
     <button type="button" class="stat-h" data-act="stat" data-k="${k}" aria-expanded="${open}">
       <span class="label">${label} <span class="chev">${ICON.chev}</span></span>
