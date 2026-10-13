@@ -45,11 +45,34 @@ service cloud.firestore {
     }
 
     // 共編成員自己退出：只能把自己從 memberIds 拿掉
+    // 刪除帳號時可以順便解除自己綁定的同行者（unbindPid 指定那一位，只能把 uid 清成 null）
     function isLeaving() {
       return isMemberOf(resource.data)
-        && changed().hasOnly(['memberIds'])
+        && changed().hasOnly(['memberIds', 'participants', 'unbindPid', 'updatedAt'])
         && request.resource.data.memberIds.toSet() == resource.data.memberIds.toSet().difference([request.auth.uid].toSet())
-        && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1;
+        && request.resource.data.memberIds.size() == resource.data.memberIds.size() - 1
+        && unbindsSelfOnly();
+    }
+
+    function unbindsSelfOnly() {
+      let before = resource.data.get('participants', {});
+      let after = request.resource.data.get('participants', {});
+      let pid = request.resource.data.get('unbindPid', '');
+      return after.diff(before).affectedKeys().size() == 0
+        || (pid is string && pid in before
+          && after.diff(before).affectedKeys().hasOnly([pid])
+          && before[pid].get('uid', '') == request.auth.uid
+          && after[pid].diff(before[pid]).affectedKeys().hasOnly(['uid'])
+          && after[pid].get('uid', '') == null);
+    }
+
+    // 建立者刪除帳號：把旅程轉給另一位成員，同時把自己從成員拿掉
+    function isHandingOver() {
+      return isOwnerOf(resource.data)
+        && request.resource.data.ownerId != request.auth.uid
+        && request.resource.data.ownerId in resource.data.get('memberIds', [])
+        && request.resource.data.ownerId in request.resource.data.get('memberIds', [])
+        && !(request.auth.uid in request.resource.data.get('memberIds', []));
     }
 
     // 共編成員綁定同行者：只能動 bindPid 指定的那一位，而且只能綁自己、那一位原本沒有帳號；綁定時可以順便改名字
@@ -87,6 +110,7 @@ service cloud.firestore {
         && request.resource.data.get('memberIds', []) is list
         && request.auth.uid in request.resource.data.get('memberIds', []);
       allow update: if (isOwnerOf(resource.data) && request.resource.data.ownerId == resource.data.ownerId)
+        || isHandingOver()
         || isAdmin()
         || memberUpdateOk()
         || isLeaving()

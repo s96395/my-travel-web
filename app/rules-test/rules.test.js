@@ -90,6 +90,20 @@ test('共編成員：可以自己退出', async () => {
   await assertSucceeds(updateDoc(trip('member'), { memberIds: arrayRemove('member') }));
   await assertFails(getDoc(trip('member')));
 });
+test('刪除帳號：共編成員退出時只能解除自己綁定的同行者', async () => {
+  await assertSucceeds(updateDoc(trip('owner'), { 'participants.p2.uid': 'member' }));
+  await assertFails(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p1.uid': null, unbindPid: 'p1' }));
+  await assertFails(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p2.uid': null, 'participants.p2.name': '改名', unbindPid: 'p2' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': null, unbindPid: 'p2' }));
+  await assertSucceeds(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p2.uid': null, unbindPid: 'p2' }));
+});
+test('刪除帳號：建立者可以把旅程轉給成員並同時退出', async () => {
+  await assertFails(updateDoc(trip('owner'), { ownerId: 'stranger', memberIds: arrayRemove('owner') }));
+  await assertFails(updateDoc(trip('member'), { ownerId: 'member', memberIds: arrayRemove('owner') }));
+  await assertSucceeds(updateDoc(trip('owner'), { ownerId: 'member', memberIds: arrayRemove('owner'), 'participants.p1.uid': null }));
+  await assertFails(getDoc(trip('owner')));
+  await assertSucceeds(getDoc(trip('member')));
+});
 test('共編成員：只能把沒有帳號的同行者綁成自己', async () => {
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'member' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'friend', bindPid: 'p2' }));
