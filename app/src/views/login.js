@@ -8,6 +8,7 @@ export function renderLogin(S) {
     <button type="button" class="btn block login-btn" data-act="signIn" ${S.signingIn || S.offline ? 'disabled' : ''}>${ICON.google}${S.signingIn ? '登入中…' : '用 Google 帳號登入'}</button>
     ${S.offline ? '<p class="small">目前沒有網路，連上網路後才能登入。</p>' : ''}
     ${S.loginError ? `<p class="small err-text" role="alert">${esc(S.loginError)}</p>` : ''}
+    <p class="small muted">登入即表示同意<button type="button" class="linkbtn" data-act="privacy">隱私權說明</button></p>
   </div>`;
 }
 
