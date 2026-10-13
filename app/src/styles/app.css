@@ -512,7 +512,7 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .hero.bpi .bp-fields{text-shadow:0 1px 6px rgba(0,0,0,.6)}
 /* 和旅程卡片一樣用深藍色的霧，字才不會和圖案打架 */
 :root[data-style="i"] .hero.bpi{background:#0f172a}
-:root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{opacity:.85}
+:root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{opacity:.75}
 /* 電腦版：高度照原本，字放大 */
 @media (min-width:1000px){
   :root[data-style="i"] .device.wide .hero.bpi .bp-top{font-size:14px;padding:16px 24px 0}
@@ -526,7 +526,7 @@ textarea.input{resize:vertical;font-family:inherit}
   :root[data-style="i"] .device.wide .bp-stub .count{font-size:18px}
   :root[data-style="i"] .device.wide .bp-stub .count b{font-size:56px}
 }
-.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,23,42,.5) 0,rgba(15,23,42,.3) 30%,rgba(15,23,42,.62) 62%,rgba(15,23,42,.9) 100%)}
+.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(15,23,42,.55) 0,rgba(15,23,42,.45) 30%,rgba(15,23,42,.65) 62%,rgba(15,23,42,.9) 100%)}
 :root[data-style="i"] .hero.bpi>span:not(.bpi-shade){position:relative}
 :root[data-style="i"] .hero.bpi .bp-top{background:none;color:#fff;padding:12px 18px 0}
 :root[data-style="i"] .hero.bpi .bp-body{padding:12px 18px 16px}
