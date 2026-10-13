@@ -32,7 +32,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users/admin'), { nickname: '管理者' });
     await setDoc(doc(db, 'roles/admin'), { role: 'admin' });
     await setDoc(doc(db, 'users/oldfake'), { nickname: '舊資料', role: 'admin' });
-    await setDoc(doc(db, 'users/member'), { nickname: '小安' });
+    await setDoc(doc(db, 'users/member'), { uid: 'member', nickname: '小安', createdAt: 1, updatedAt: 1 });
     await setDoc(doc(db, 'optionSets/o1'), { list: [] });
     await uploadBytes(ref(ctx.storage(), 'trips/t1/cover/a.png'), png, { contentType: 'image/png' });
   });
@@ -90,6 +90,20 @@ test('共編成員：可以自己退出', async () => {
   await assertSucceeds(updateDoc(trip('member'), { memberIds: arrayRemove('member') }));
   await assertFails(getDoc(trip('member')));
 });
+test('刪除帳號：共編成員退出時只能解除自己綁定的同行者', async () => {
+  await assertSucceeds(updateDoc(trip('owner'), { 'participants.p2.uid': 'member' }));
+  await assertFails(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p1.uid': null, unbindPid: 'p1' }));
+  await assertFails(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p2.uid': null, 'participants.p2.name': '改名', unbindPid: 'p2' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': null, unbindPid: 'p2' }));
+  await assertSucceeds(updateDoc(trip('member'), { memberIds: arrayRemove('member'), 'participants.p2.uid': null, unbindPid: 'p2' }));
+});
+test('刪除帳號：建立者可以把旅程轉給成員並同時退出', async () => {
+  await assertFails(updateDoc(trip('owner'), { ownerId: 'stranger', memberIds: arrayRemove('owner') }));
+  await assertFails(updateDoc(trip('member'), { ownerId: 'member', memberIds: arrayRemove('owner') }));
+  await assertSucceeds(updateDoc(trip('owner'), { ownerId: 'member', memberIds: arrayRemove('owner'), 'participants.p1.uid': null }));
+  await assertFails(getDoc(trip('owner')));
+  await assertSucceeds(getDoc(trip('member')));
+});
 test('共編成員：只能把沒有帳號的同行者綁成自己', async () => {
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'member' }));
   await assertFails(updateDoc(trip('member'), { 'participants.p2.uid': 'friend', bindPid: 'p2' }));
@@ -127,6 +141,9 @@ test('使用者資料：只能改自己的暱稱，不能給自己管理者身�
   await assertSucceeds(updateDoc(doc(as('member'), 'users/member'), { nickname: '安安' }));
   await assertSucceeds(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人' }));
   await assertFails(updateDoc(doc(as('stranger'), 'users/member'), { nickname: '亂改' }));
+  // 不能列出所有使用者，也不能存 Email 等個資
+  await assertFails(getDocs(collection(as('member'), 'users')));
+  await assertFails(setDoc(doc(as('stranger'), 'users/stranger'), { nickname: '路人', email: 'a@b.c' }));
   await assertFails(setDoc(doc(as('member'), 'roles/member'), { role: 'admin' }));
   await assertFails(getDoc(doc(as('member'), 'roles/admin')));
   // users 裡自己寫的 role 不算數

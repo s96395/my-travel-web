@@ -1,5 +1,5 @@
 // 同行者、共編成員、加入旅程與旅程設定的讀寫
-import { collection, doc, getDoc, getDocs, updateDoc, deleteDoc, runTransaction, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, updateDoc, deleteDoc, runTransaction, arrayUnion, arrayRemove, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { bindProblem, boundTo, nextOrder, cleanName } from '../lib/people.js';
 
@@ -90,5 +90,41 @@ export async function deleteTripAll(tripId) {
     } catch (err) { console.error(err); failed.push(`${label}（讀不到）`); }
   }
   if (!failed.length) await deleteDoc(tripRef(tripId));
+  return failed;
+}
+
+/* ---------- 刪除帳號：處理這個帳號參加的每一趟旅程，再刪掉暱稱資料 ---------- */
+// 自己建立、沒有其他成員的旅程整趟刪除；還有成員的轉給最早加入的那位；別人的旅程就退出
+// 綁定的同行者改回沒有帳號，名字與分攤金額保留，帳才不會亂掉
+export async function deleteAccountData(uid) {
+  const ref = collection(db, 'trips');
+  const [owned, member] = await Promise.all([
+    getDocs(query(ref, where('ownerId', '==', uid))),
+    getDocs(query(ref, where('memberIds', 'array-contains', uid))),
+  ]);
+  const trips = new Map();
+  [...owned.docs, ...member.docs].forEach(d => trips.set(d.id, { id: d.id, ...d.data() }));
+  const failed = [];
+  for (const trip of trips.values()) {
+    try {
+      const mine = boundTo(trip, uid);
+      // 舊版潛水日誌沒有 divers，靠記錄者的帳號找人；解除綁定前先寫成同行者 ID，瓶數才不會算到別人頭上
+      if (mine) {
+        const logs = await getDocs(query(collection(db, `trips/${trip.id}/diveLogs`), where('createdByUid', '==', uid)));
+        await Promise.all(logs.docs.filter(d => !Array.isArray(d.data().divers)).map(d => updateDoc(d.ref, { divers: [mine.id] })));
+      }
+      const unbind = mine ? { [`participants.${mine.id}.uid`]: null } : {};
+      const left = (trip.memberIds || []).filter(u => u !== uid);
+      if (trip.ownerId !== uid) {
+        await updateDoc(tripRef(trip.id), { memberIds: arrayRemove(uid), ...unbind, ...(mine ? { unbindPid: mine.id } : {}) });
+      } else if (left.length) {
+        await updateDoc(tripRef(trip.id), { ownerId: left[0], memberIds: arrayRemove(uid), ...unbind, updatedAt: serverTimestamp() });
+      } else {
+        const bad = await deleteTripAll(trip.id);
+        if (bad.length) failed.push(trip.title || trip.id);
+      }
+    } catch (err) { console.error(err); failed.push(trip.title || trip.id); }
+  }
+  if (!failed.length) await deleteDoc(doc(db, 'users', uid));
   return failed;
 }
