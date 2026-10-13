@@ -108,6 +108,11 @@ export async function deleteAccountData(uid) {
   for (const trip of trips.values()) {
     try {
       const mine = boundTo(trip, uid);
+      // 舊版潛水日誌沒有 divers，靠記錄者的帳號找人；解除綁定前先寫成同行者 ID，瓶數才不會算到別人頭上
+      if (mine) {
+        const logs = await getDocs(query(collection(db, `trips/${trip.id}/diveLogs`), where('createdByUid', '==', uid)));
+        await Promise.all(logs.docs.filter(d => !Array.isArray(d.data().divers)).map(d => updateDoc(d.ref, { divers: [mine.id] })));
+      }
       const unbind = mine ? { [`participants.${mine.id}.uid`]: null } : {};
       const left = (trip.memberIds || []).filter(u => u !== uid);
       if (trip.ownerId !== uid) {
