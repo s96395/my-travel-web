@@ -1,5 +1,5 @@
 // 封面：有上傳照片就用照片；沒有上傳時，用使用者挑的預設圖案，或依旅程類型、地點與出發月份畫一張風景（規格書 F06）
-// 共 33 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
+// 共 34 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
 import { esc } from './dom.js';
 
 let n = 0;
@@ -167,6 +167,20 @@ function palace(k) {
     <path d="M0 242H400V300H0Z" fill="#cfc6b3"/><path d="M0 270H400" stroke="#bdb39e" stroke-width="2"/></svg>`;
 }
 
+function busan(k) {
+  const cab = (x1, x2) => `<path d="M${x1} 100Q${(x1 + x2) / 2} 214 ${x2} 100" fill="none" stroke="#c8f3ff" stroke-width="2.5"/>${[...Array(13)].map((_, i) => { const t = (i + 1) / 14; return `<path d="M${x1 + (x2 - x1) * t} ${100 + 57 * 4 * t * (1 - t)}V190"/>`; }).join('')}`;
+  const lights = [...Array(20)].map((_, i) => `<circle cx="${10 + i * 20}" cy="189" r="2"/>`).join('');
+  return `<svg ${V}>${grad(k, '#071228', '#152a5c')}
+    <g fill="#3b4a6e" opacity=".5"><ellipse cx="90" cy="36" rx="90" ry="18"/><ellipse cx="300" cy="28" rx="100" ry="16"/><ellipse cx="200" cy="70" rx="70" ry="12"/></g>
+    <g stroke="#8fe6ff" stroke-width="1.2" opacity=".8">${cab(-70, 110)}${cab(110, 290)}${cab(290, 470)}</g>
+    <g fill="#e6f9ff"><rect x="104" y="92" width="12" height="104"/><rect x="284" y="92" width="12" height="104"/><rect x="100" y="120" width="20" height="4"/><rect x="280" y="120" width="20" height="4"/></g>
+    <rect x="0" y="188" width="400" height="9" fill="#4fd2ff"/><g fill="#fff">${lights}</g>
+    <path d="M0 197H400V255H0Z" fill="#0e2452"/>
+    <g fill="#4fd2ff" opacity=".5">${[...Array(12)].map((_, i) => `<rect x="${(i * 61) % 360}" y="${202 + i * 4}" width="${50 + (i * 23) % 60}" height="3"/>`).join('')}</g>
+    <g fill="#e6f9ff" opacity=".35"><rect x="104" y="200" width="12" height="44"/><rect x="284" y="200" width="12" height="44"/></g>
+    <path d="M0 250Q100 244 200 252T400 248V300H0Z" fill="#cdb68e"/><path d="M0 268Q120 262 240 272T400 266V300H0Z" fill="#b8a07a"/></svg>`;
+}
+
 function thai(k) {
   return `<svg ${V}>${grad(k, '#f39a5c', '#fcd9a8')}
     <g fill="#d9a521"><path d="M200 40L210 110H190Z"/><path d="M170 175Q170 120 200 105Q230 120 230 175Z"/><rect x="160" y="175" width="80" height="18"/><rect x="145" y="193" width="110" height="20"/></g>
@@ -323,11 +337,11 @@ export const STYLES = [
   ['auto', '自動'], ['beach', '海灘'], ['sea', '海底'], ['turtle', '海龜'], ['manta', '鬼蝠魟'], ['whale', '鯨魚'], ['city', '城市'], ['sakura', '櫻花'], ['fuji', '富士山'],
   ['temple', '寺塔'], ['castle', '歐洲古堡'], ['meadow', '草原'], ['desert', '沙漠'], ['snow', '雪景'], ['aurora', '極光'],
   ['taipei101', '台北 101'], ['alishan', '阿里山雲海'], ['camping', '露營'], ['torii', '日本鳥居'], ['tokyotower', '東京鐵塔'],
-  ['palace', '韓國宮殿'], ['thai', '泰國寺廟'], ['cruise', '郵輪'], ['eiffel', '巴黎鐵塔'], ['bigben', '倫敦大笨鐘'],
+  ['palace', '韓國宮殿'], ['busan', '釜山廣安大橋'], ['thai', '泰國寺廟'], ['cruise', '郵輪'], ['eiffel', '巴黎鐵塔'], ['bigben', '倫敦大笨鐘'],
   ['venice', '威尼斯'], ['santorini', '希臘藍白小屋'], ['windmill', '荷蘭風車'], ['sydney', '雪梨歌劇院'], ['ferris', '遊樂園'],
   ['spring', '春天山景'], ['summer', '夏天山景'], ['autumn', '秋天山景'], ['winter', '冬天山景'],
 ];
-const DRAW = { beach, sea, turtle, manta, whale, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
+const DRAW = { beach, sea, turtle, manta, whale, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, busan, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
 
 // 依旅程類型、地點與月份自動挑圖案
 const AUTO = [
@@ -343,6 +357,7 @@ const AUTO = [
   ['alishan', /阿里山/],
   ['taipei101', /台北|臺北/],
   ['tokyotower', /東京/],
+  ['busan', /釜山/],
   ['palace', /韓國|首爾/],
   ['thai', /泰國|曼谷|清邁/],
   ['eiffel', /法國|巴黎/],
