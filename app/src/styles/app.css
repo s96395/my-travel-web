@@ -294,7 +294,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .tour .info>div{display:grid;gap:2px;min-width:0}
 .tour .info .full{grid-column:1/-1}
 .tour .info .num{white-space:nowrap}
-@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:420px}}
+@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:240px}}
 .divesum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .divesum .card{display:grid;gap:2px;padding:10px 12px}
 .divesum b{font-size:16px;white-space:nowrap}
