@@ -82,13 +82,13 @@ export function renderPlan(S, trip) {
 }
 
 /* ---------- 彈出選單與表單 ---------- */
-export function itemMenuSheet(S, trip, it, isOwner) {
+export function itemMenuSheet(S, trip, it, canDel) {
   const days = dayList(S, trip).filter(Boolean);
   openSheet(`${head(esc(it.title))}
     <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     <p class="small muted" style="margin:0">也可以在列表上長按行程，直接拖曳到想放的位置。</p>
-    <div class="row">${isOwner ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
+    <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
 }
 
 export function itemFormSheet(day, it = null) {

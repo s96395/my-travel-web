@@ -228,7 +228,7 @@ async function moveItem(id, target) {
 }
 
 const isOwner = trip => trip.raw.ownerId === S.user.uid;
-// 班機、住宿：旅程擁有者或這筆的建立者可以刪除
+// 行程、班機、住宿等：旅程擁有者或這筆的建立者可以刪除
 const canDelRecord = (trip, r) => isOwner(trip) || (!!r && r.createdByUid === S.user.uid);
 
 // 儲存班機或住宿；舊版資料第一次儲存時新增一筆，並記下是從哪個舊欄位轉來的
@@ -475,7 +475,7 @@ const actions = {
   },
   itemMenu(el) {
     const it = findItem(el.dataset.id), trip = curTrip();
-    if (it && trip && !S.offline) itemMenuSheet(S, trip, it, isOwner(trip));
+    if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
