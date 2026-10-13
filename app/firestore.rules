@@ -100,11 +100,14 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // users：登入者可讀暱稱；只能寫自己的
+    // users：登入者可讀單一使用者的暱稱，不能列出整份清單；只能寫自己的
+    // 只允許存暱稱，不存 Email、大頭照等個資
     // ============================================================
     match /users/{userId} {
-      allow read: if signedIn();
-      allow write: if signedIn() && request.auth.uid == userId;
+      allow get: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'displayName', 'updatedAt']);
+      allow delete: if signedIn() && request.auth.uid == userId;
     }
 
     // ============================================================
