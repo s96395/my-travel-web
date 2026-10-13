@@ -503,7 +503,12 @@ textarea.input{resize:vertical;font-family:inherit}
 /* ---------- I 照片＋登機證：H 的照片與走過的路，下一趟和旅程卡加上登機證票根 ---------- */
 :root[data-style="i"] .hero.bpi{display:grid;gap:0;padding:0;position:relative;background:#2a110c;color:#fff;border-radius:var(--r);overflow:hidden;box-shadow:0 14px 30px -18px var(--shade)}
 :root[data-style="i"] .hero.bpi>.scene,:root[data-style="i"] .hero.bpi>.cover-img{position:absolute;inset:0}
-.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0,rgba(0,0,0,.1) 30%,rgba(0,0,0,.45) 62%,rgba(0,0,0,.78) 100%)}
+/* 登機證加高，背景圖淡一點讓字清楚 */
+:root[data-style="i"] .hero.bpi{min-height:300px;grid-template-rows:auto 1fr auto auto}
+:root[data-style="i"] .hero.bpi .bp-body{align-content:start}
+:root[data-style="i"] .hero.bpi .bp-fields{text-shadow:0 1px 6px rgba(0,0,0,.6)}
+@media (min-width:1000px){:root[data-style="i"] .device.wide .hero.bpi{min-height:440px}}
+.bpi-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5) 0,rgba(0,0,0,.3) 30%,rgba(0,0,0,.55) 62%,rgba(0,0,0,.8) 100%)}
 :root[data-style="i"] .hero.bpi>span:not(.bpi-shade){position:relative}
 :root[data-style="i"] .hero.bpi .bp-top{background:none;color:#fff;padding:12px 18px 0}
 :root[data-style="i"] .hero.bpi .bp-body{padding:12px 18px 16px}
