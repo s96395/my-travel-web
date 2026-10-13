@@ -420,7 +420,6 @@ textarea.input{resize:vertical;font-family:inherit}
 .steps{margin:0;padding-left:20px;display:grid;gap:8px}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;max-width:calc(100% - 32px);box-shadow:0 8px 20px -8px var(--shade);display:flex;gap:12px;align-items:center;animation:fade .2s}
 .toast button{border:0;background:none;color:var(--accent-soft);font-weight:700;padding:0}
-@media (min-width:860px){.toast,.sheet-layer{position:absolute}}
 .v2{font-size:11px;font-weight:700;color:var(--warm);border:1px solid currentColor;border-radius:4px;padding:1px 5px;letter-spacing:.04em;white-space:nowrap}
 
 /* ---------- H 從零設計：照片當主角，一條「走過的路」貫穿全站，卡片和裝飾都減到最少 ---------- */
