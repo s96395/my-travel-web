@@ -10,6 +10,7 @@ import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
+import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
@@ -709,9 +710,10 @@ const actions = {
     inp.click();
   },
   adjustCover() {
-    const c = S.covers[S.tripId];
-    if (!c?.src || S.offline) return;
-    S.crop = { src: c.src, x: c.x, y: c.y, z: c.z };
+    const c = S.covers[S.tripId] || {}, t = curTrip();
+    if (!t || S.offline) return;
+    S.crop = { src: c.src || '', style: c.style || 'auto', x: c.x ?? 50, y: c.y ?? 50, z: c.z ?? 1 };
+    if (!c.src) S.crop.view = sceneUrl(t, S.crop.style);
     cropSheet(S.crop);
   },
   async saveCover(el) {
@@ -720,7 +722,8 @@ const actions = {
     S.busy = true; el.disabled = true;
     try {
       const at = await saveCover(S.tripId, c, S.user);
-      S.covers[S.tripId] = { ...c, at };
+      const { view, ...saved } = c;
+      S.covers[S.tripId] = { ...saved, at };
       S.crop = null; closeSheet(); render(); toast('已儲存封面');
     } catch (err) { console.error(err); el.disabled = false; toast('封面沒有儲存成功，請稍後再試'); }
     S.busy = false;
