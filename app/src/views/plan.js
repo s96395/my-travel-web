@@ -22,9 +22,13 @@ function itemHtml(it, S) {
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
       <div class="tags"><span class="tag">${ITEM_ICON[it.type]} ${ITEM_LABEL[it.type]}</span>${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${it.time ? '<span class="tag warn">已預約</span>' : ''}</div>
     </div>
+    <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
   </div>`;
 }
+
+// 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
+const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
 function dayItems(S, d) {
   const its = itemsOfDay(S.items, d);
@@ -44,7 +48,7 @@ function planNarrow(S, trip) {
   const days = dayList(S, trip);
   return `
   <div class="chips" role="group" aria-label="跳到某一天">${days.filter(Boolean).map(d => `<button type="button" class="chip" data-act="jump" data-d="${d}">第 ${d} 天</button>`).join('')}</div>
-  <p class="small muted" style="margin:-8px 0 0">長按行程就能拖曳，可以換順序，也能拖到別天；拖到收合的天數標題上會放在那天最後。</p>
+  ${dragTip(S)}
   <div class="days">${days.map(d => {
     const open = S.days[d] ?? (d === 0);
     const n = S.items.filter(it => it.day === d).length;
@@ -62,8 +66,9 @@ function planWide(S, trip) {
   const nav = days.map(d => `<button type="button" class="dli" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}>
       <span class="daynum">${d ? 'D' + d : '?'}</span><span class="dl-t"><b>${esc(dayTitle(S.items, d))}</b><span class="small muted num">${dayDate(trip, d) || '未排定'}・${S.items.filter(it => it.day === d).length} 項</span></span></button>`).join('');
   return `<div class="planwide">
-    <nav class="daylist" aria-label="選擇天數">${nav}<p class="small muted">長按行程可拖曳換順序；拖到這裡的某一天，會移到那天最後。</p></nav>
+    <nav class="daylist" aria-label="選擇天數">${nav}</nav>
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+      ${dragTip(S)}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><h3>${esc(dayTitle(S.items, sel))} <span class="small muted num" style="font-weight:400">${dayDate(trip, sel)}</span></h3>
         <span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></span></div>
       ${dayItems(S, sel)}
