@@ -3,7 +3,7 @@
 import { toInstant } from './flights.js';
 import { parseDate, toDateString, daysBetween } from './dates.js';
 
-const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
 const ymd = s => s.replaceAll('-', '');
 const addDays = (s, n) => { const d = parseDate(s); d.setDate(d.getDate() + n); return toDateString(d); };
 const utc = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -42,9 +42,7 @@ export function buildIcs(trip, { items = [], flights = [], stays = [] } = {}, no
         `DESCRIPTION:${esc(list.map(it => `${it.time ? `${it.time} ` : ''}${it.title}`).join('\n'))}`]));
       // 有預約時間的行程另外排一小時，用當地時間（不帶時區）
       list.filter(it => /^\d{2}:\d{2}$/.test(it.time)).forEach(it => {
-        const [h, m] = it.time.split(':').map(Number), start = h * 60 + m, end = Math.min(start + 60, 23 * 60 + 59);
-        const t = min => `${ymd(date)}T${String(Math.floor(min / 60)).padStart(2, '0')}${String(min % 60).padStart(2, '0')}00`;
-        lines.push(...event(`item-${trip.id}-${it.id}`, stamp, [`DTSTART:${t(start)}`, `DTEND:${t(end)}`, `SUMMARY:${esc(it.title)}`, it.area && `LOCATION:${esc(it.area)}`, it.note && `DESCRIPTION:${esc(it.note)}`]));
+        lines.push(...event(`item-${trip.id}-${it.id}`, stamp, [`DTSTART:${ymd(date)}T${it.time.replace(':', '')}00`, 'DURATION:PT1H', `SUMMARY:${esc(it.title)}`, it.area && `LOCATION:${esc(it.area)}`, it.note && `DESCRIPTION:${esc(it.note)}`]));
       });
     }
   }

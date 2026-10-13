@@ -20,9 +20,12 @@ test('整趟旅程是全天事件，結束日要多一天', () => {
 });
 test('每天一則行程摘要，有時間的行程另外排一小時', () => {
   assert.ok(lines.includes('SUMMARY:第 1 天｜東山'));
-  assert.ok(lines.includes('DTSTART:20261120T183000') && lines.includes('DTEND:20261120T193000'));
+  assert.ok(lines.includes('DTSTART:20261120T183000') && lines.includes('DURATION:PT1H'));
   assert.ok(lines.includes('SUMMARY:湯豆腐\\, 晚餐'));
   assert.ok(!ics.includes('還沒排'));
+});
+test('分號、逗號要加反斜線', () => {
+  assert.ok(buildIcs({ ...trip, name: 'a;b,c' }).includes('X-WR-CALNAME:a\\;b\\,c'));
 });
 test('班機換算成實際時間', () => {
   assert.ok(lines.includes('DTSTART:20261119T231000Z') && lines.includes('DTEND:20261120T015000Z'));

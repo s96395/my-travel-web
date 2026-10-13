@@ -422,6 +422,7 @@ const actions = {
   exportIcs() {
     const trip = curTrip();
     if (!trip) return;
+    if (S.loadingItems || S.loadingMove) { toast('行程還在讀取，請稍等一下再下載'); return; }
     const ics = buildIcs(trip, { items: S.items, flights: allFlights(S, trip), stays: allStays(S, trip) });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
