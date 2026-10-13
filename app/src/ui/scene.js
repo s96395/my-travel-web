@@ -390,7 +390,10 @@ export function scene(trip, style = 'auto') {
 
 // 有上傳封面時用照片，照存好的位置與放大倍數顯示
 export const coverImg = c => `<img class="cover-img" alt="" src="${esc(c.src)}" style="object-position:${+c.x}% ${+c.y}%;transform:scale(${+c.z || 1});transform-origin:${+c.x}% ${+c.y}%">`;
-export const art = (trip, cover) => (cover?.src ? coverImg(cover) : scene(trip, cover?.style));
+// 預設圖案轉成圖片網址，才能和照片一樣調整位置與放大
+export const sceneUrl = (trip, style) => 'data:image/svg+xml,' + encodeURIComponent(scene(trip, style).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" '));
+const moved = c => (c.x ?? 50) != 50 || (c.y ?? 50) != 50 || (c.z ?? 1) != 1;
+export const art = (trip, cover) => (cover?.src ? coverImg(cover) : cover && moved(cover) ? coverImg({ ...cover, src: sceneUrl(trip, cover.style) }) : scene(trip, cover?.style));
 
 export function coverHtml(trip, big = false, cover = null) {
   return `<span class="cover${big ? ' big' : ''}">${art(trip, cover)}<span class="status">${esc(trip.status)}</span></span>`;

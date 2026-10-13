@@ -98,7 +98,7 @@ export function renderHome(S) {
     ${loading ? '' : statsHtml(S, st)}
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
-    ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載圖示。</div>' : ''}
+    ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的「離線行程」。</div>' : ''}
     ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟${S.env !== 'production' ? '，或在帳號選單載入範例旅程' : ''}。</div>` : ''}
     ${years.map(y => {
       const ts = list.filter(t => (t.start || '未知').startsWith(y));

@@ -125,7 +125,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .year[data-open="true"]>button .chev{transform:rotate(90deg)}
 .tripcard{display:flex;flex-direction:column;text-align:left;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:0;overflow:hidden}
 .cover{position:relative;display:block;width:100%;aspect-ratio:16/7;max-width:100%;background-size:cover!important;background-position:center!important;overflow:hidden}
-.cover.big{aspect-ratio:16/6;border-radius:var(--r)}
+.cover.big{aspect-ratio:16/9;border-radius:var(--r)}
 .cover-emoji{position:absolute;right:8%;bottom:-6%;font-size:64px;opacity:.9;transform:rotate(-8deg)}
 .cover.big .cover-emoji{font-size:84px}
 .cover .status{position:absolute;top:10px;right:10px;background:var(--surface);color:var(--fg);font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
@@ -136,7 +136,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .tagrow .tanktag{margin-top:0}
 .tripcover{position:relative}
 .cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;max-width:none;pointer-events:none;user-select:none}
-.cropframe{position:relative;aspect-ratio:16/7;max-width:100%;border-radius:var(--r-sm);overflow:hidden;background:var(--surface2);cursor:grab;touch-action:none;outline:2px solid var(--accent);outline-offset:2px}
+.cropframe{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:var(--r-sm);overflow:hidden;background:var(--surface2);cursor:grab;touch-action:none;outline:2px solid var(--accent);outline-offset:2px}
 .cropframe.dragging{cursor:grabbing}
 .crophint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px;pointer-events:none;white-space:nowrap}
 .cropframe.dragging .crophint{opacity:0}
@@ -291,7 +291,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .tour .info>div{display:grid;gap:2px;min-width:0}
 .tour .info .full{grid-column:1/-1}
 .tour .info .num{white-space:nowrap}
-@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:170px}}
+@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:420px}}
 .divesum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .divesum .card{display:grid;gap:2px;padding:10px 12px}
 .divesum b{font-size:16px;white-space:nowrap}
@@ -353,9 +353,12 @@ textarea.input{resize:vertical;font-family:inherit}
 .tips{display:grid;gap:8px}
 .tips p{margin:0;font-size:13px;color:var(--muted)}
 .tips p b{color:var(--fg)}
-/* 標題列的下載圖示：下載好變綠色打勾 */
-.iconbtn.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
-.iconbtn .spin{width:16px;height:16px;border-width:2px}
+/* 標題列的「離線行程」按鈕：下載好變綠色打勾 */
+.dlbtn{height:38px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg);display:inline-flex;align-items:center;gap:6px;padding:0 14px 0 11px;flex:none;font-size:14px;font-weight:600;white-space:nowrap}
+.dlbtn svg{width:18px;height:18px}
+.dlbtn:disabled{opacity:.6}
+.dlbtn.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+.dlbtn .spin{width:16px;height:16px;border-width:2px}
 .item p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 .item .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .more{border:0;background:none;color:var(--muted);padding:2px 4px;font-size:18px;line-height:1}
