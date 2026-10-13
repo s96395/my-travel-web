@@ -32,7 +32,7 @@ beforeEach(async () => {
     await setDoc(doc(db, 'users/admin'), { nickname: '管理者' });
     await setDoc(doc(db, 'roles/admin'), { role: 'admin' });
     await setDoc(doc(db, 'users/oldfake'), { nickname: '舊資料', role: 'admin' });
-    await setDoc(doc(db, 'users/member'), { nickname: '小安' });
+    await setDoc(doc(db, 'users/member'), { uid: 'member', nickname: '小安', createdAt: 1, updatedAt: 1 });
     await setDoc(doc(db, 'optionSets/o1'), { list: [] });
     await uploadBytes(ref(ctx.storage(), 'trips/t1/cover/a.png'), png, { contentType: 'image/png' });
   });

@@ -130,7 +130,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if signedIn();
       allow create, update: if signedIn() && request.auth.uid == userId
-        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'displayName', 'updatedAt']);
+        && request.resource.data.keys().hasOnly(['uid', 'nickname', 'displayName', 'createdAt', 'updatedAt']);
       allow delete: if signedIn() && request.auth.uid == userId;
     }
 
