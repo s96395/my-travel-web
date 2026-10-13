@@ -1,5 +1,5 @@
 // 封面：有上傳照片就用照片；沒有上傳時，用使用者挑的預設圖案，或依旅程類型、地點與出發月份畫一張風景（規格書 F06）
-// 共 34 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
+// 共 33 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
 import { esc } from './dom.js';
 
 let n = 0;
@@ -157,7 +157,6 @@ function tokyotower(k) {
 function palace(k) {
   const pil = [126, 152, 178, 222, 248, 274].map(x => `<rect x="${x - 4}" y="176" width="8" height="38"/>`).join('');
   return `<svg ${V}>${grad(k, '#a9d4f0', '#eef7fc')}
-    <path d="M20 190Q90 90 170 78Q200 60 240 82Q320 100 390 190Z" fill="#6f8f7c"/><path d="M150 100Q185 70 225 90L205 120Z" fill="#8ea89a"/>
     <rect x="40" y="226" width="320" height="16" fill="#ddd5c4"/><rect x="80" y="212" width="240" height="14" fill="#e8e1d2"/>
     <g stroke="#b9ae98" stroke-width="2">${[50, 90, 130, 170, 230, 270, 310, 350].map(x => `<path d="M${x} 226V220"/>`).join('')}</g>
     <g fill="#a33a2a">${pil}</g><rect x="112" y="168" width="176" height="9" fill="#3f7d68"/><rect x="112" y="172" width="176" height="3" fill="#d9a521"/>
@@ -208,15 +207,14 @@ function venice(k) {
 }
 
 function santorini(k) {
-  const hs = [[18, 150, 34, 30], [56, 160, 30, 26], [92, 172, 36, 28], [134, 186, 30, 24], [170, 200, 32, 22], [40, 190, 40, 30], [88, 210, 34, 26], [130, 224, 36, 26], [10, 222, 30, 30], [60, 240, 38, 26]];
-  return `<svg ${V}>${grad(k, '#f39a8a', '#fde0c2')}<circle cx="320" cy="168" r="26" fill="#ffe6b0"/>
-    <path d="M0 170H400V300H0Z" fill="#2e5f9f"/><path d="M240 190H380M270 210H360" stroke="#ffd9a8" stroke-opacity=".6" stroke-width="3"/>
-    <path d="M0 130Q110 150 200 210Q240 240 240 300H0Z" fill="#c89f7a"/>
-    <g fill="#fbfaf6">${hs.map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>`).join('')}</g>
-    <g fill="#2f62b3">${hs.map(([x, y, w, h], i) => (i % 3 === 1 ? `<rect x="${x + w / 2 - 4}" y="${y + h - 14}" width="8" height="12" rx="4"/>` : `<rect x="${x + 6}" y="${y + 8}" width="6" height="6"/>`)).join('')}</g>
-    <path d="M86 172A20 20 0 0 1 126 172Z" fill="#2457a8"/><path d="M106 150V140M102 145H110" stroke="#fbfaf6" stroke-width="2"/>
-    <path d="M128 224A16 16 0 0 1 160 224Z" fill="#2457a8"/>
-    <g fill="#e2559a">${[[30, 152], [70, 238], [150, 204], [118, 226], [52, 188]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7"/><circle cx="${x + 7}" cy="${y + 3}" r="5"/>`).join('')}</g></svg>`;
+  const hs = [[40, 170, 50], [95, 150, 46], [150, 175, 40], [250, 160, 52], [310, 180, 44]];
+  return `<svg ${V}>${grad(k, '#5fb3e8', '#d6eefb')}
+    <path d="M0 190H400V300H0Z" fill="#1b5f9e"/>
+    <path d="M0 210Q100 180 200 205T400 200V300H0Z" fill="#e9dccb"/>
+    <g fill="#fff">${hs.map(([x, y, w]) => `<rect x="${x}" y="${y}" width="${w}" height="${230 - y}"/>`).join('')}</g>
+    <g fill="#1f5fae"><path d="M198 160A22 22 0 0 1 242 160Z"/><rect x="196" y="160" width="48" height="60" fill="#fff"/><path d="M95 150A23 23 0 0 1 141 150Z"/></g>
+    <g fill="#1f5fae"><rect x="58" y="190" width="12" height="16"/><rect x="265" y="180" width="12" height="16"/><rect x="212" y="185" width="16" height="20"/></g>
+    <path d="M0 250Q120 236 240 248T400 242V300H0Z" fill="#d7c6ae"/></svg>`;
 }
 
 function windmill(k) {
@@ -231,7 +229,6 @@ function windmill(k) {
 
 function sydney(k) {
   return `<svg ${V}>${grad(k, '#6ab6e6', '#e3f2fb')}
-    <path d="M230 150Q300 40 380 150" fill="none" stroke="#56616b" stroke-width="7"/><path d="M230 150H400" stroke="#56616b" stroke-width="5"/>
     <g fill="#f7f4ee" stroke="#c8c1b5" stroke-width="1.5"><path d="M60 200Q80 120 140 110Q110 150 112 200Z"/><path d="M100 200Q125 110 190 100Q160 145 160 200Z"/><path d="M150 200Q170 130 225 125Q205 160 205 200Z"/></g>
     <rect x="40" y="200" width="190" height="14" fill="#d9c7a7"/>
     <path d="M0 214H400V300H0Z" fill="#2c7fb8"/><path d="M40 240H160M240 260H380" stroke="#fff" stroke-opacity=".4" stroke-width="3"/></svg>`;
@@ -275,32 +272,32 @@ function turtle(k) {
 }
 
 function manta(k) {
-  return `<svg ${V}>${water(k, '#4fb7dd', '#08304f')}
-    <path d="M200 110Q150 100 70 150Q140 150 186 170L196 252L204 252L214 170Q260 150 330 150Q250 100 200 110Z" fill="#14324d"/>
-    <path d="M188 112Q184 98 190 92M212 112Q216 98 210 92" stroke="#14324d" stroke-width="6" stroke-linecap="round" fill="none"/>
-    <g fill="#0b2338" opacity=".7"><path d="M60 230q10-7 20 0q-10 7-20 0zM80 230l6-5v10z"/><path d="M320 210q8-6 16 0q-8 6-16 0zM336 210l5-4v8z"/></g>
-    <path d="M0 268Q120 254 240 266T400 260V300H0Z" fill="#05233a"/></svg>`;
+  const spots = [[60, 60, 70, 40], [300, 50, 80, 36], [330, 220, 70, 40], [80, 240, 90, 34], [220, 260, 60, 22], [150, 30, 50, 18]];
+  return `<svg ${V}>${grad(k, '#3fbccb', '#14869f')}
+    <g fill="#9be3ea" opacity=".35">${spots.map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"/>`).join('')}</g>
+    <g fill="#0b6a80" opacity=".35"><ellipse cx="340" cy="120" rx="60" ry="26"/><ellipse cx="60" cy="160" rx="50" ry="20"/></g>
+    <g transform="translate(205 140) rotate(-35)">
+      <path d="M2 50Q10 90 4 128Q10 140 6 150" fill="none" stroke="#0d1420" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M-22 -40Q-40 -30 -60 -18Q-90 -2 -118 16Q-72 18 -40 34Q-15 48 0 52Q15 48 40 34Q72 18 118 16Q90 -2 60 -18Q40 -30 22 -40Q0 -32 -22 -40Z" fill="#0d1420"/>
+      <path d="M-22 -40Q-34 -62 -16 -68Q-6 -58 -10 -40Z" fill="#0d1420"/><path d="M22 -40Q34 -62 16 -68Q6 -58 10 -40Z" fill="#0d1420"/>
+      <ellipse cx="-17" cy="-52" rx="4" ry="9" fill="#cfeff5"/><ellipse cx="17" cy="-52" rx="4" ry="9" fill="#cfeff5"/>
+      <g fill="none" stroke="#7fa9c4" stroke-opacity=".45" stroke-width="1.5"><path d="M-60 0Q-30 10 -10 30M60 0Q30 10 10 30M-30 -22Q0 -14 30 -22"/></g>
+    </g>
+    <g fill="#fff" opacity=".7">${[[250, 200], [262, 215], [244, 228], [270, 236], [255, 250]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g></svg>`;
 }
 
 function whale(k) {
-  return `<svg ${V}>${water(k, '#5ec2e6', '#062a47')}
-    <path d="M60 150Q120 100 230 112Q300 120 330 140L370 118Q366 140 378 160L336 156Q300 190 220 192Q120 196 60 150Z" fill="#2d4a66"/>
-    <path d="M70 158Q140 186 230 186Q290 184 326 160" fill="none" stroke="#c9d8e4" stroke-width="10" stroke-opacity=".7"/>
-    <g stroke="#2d4a66" stroke-width="2">${[110, 135, 160, 185, 210, 235, 260].map(x => `<path d="M${x} 168V188"/>`).join('')}</g>
-    <path d="M150 178Q130 230 90 250Q120 222 132 176Z" fill="#3a5c7c"/><circle cx="98" cy="146" r="3" fill="#0d1d2b"/>
-    <path d="M0 270Q120 256 240 268T400 262V300H0Z" fill="#041d33"/></svg>`;
-}
-
-function reef(k) {
-  const fish = [[140, 120, 1], [250, 95, -1], [300, 150, 1]];
-  return `<svg ${V}>${water(k, '#7fe0ef', '#1585b0')}
-    <path d="M0 230Q100 214 200 226T400 222V300H0Z" fill="#e8d5a8"/>
-    <g fill="#ff7a8a"><path d="M40 240Q30 190 50 170Q48 200 58 210Q62 180 80 172Q70 205 70 240Z"/></g>
-    <g fill="#ffb347"><circle cx="120" cy="236" r="22"/><circle cx="104" cy="226" r="12"/></g>
-    <g fill="#b77be0"><path d="M300 245Q296 200 310 180M300 245Q310 205 332 196M300 245Q290 210 276 196" stroke="#b77be0" stroke-width="7" fill="none" stroke-linecap="round"/></g>
-    <g fill="#4fc3a1"><path d="M190 240Q186 210 200 196Q204 220 214 240Z"/><path d="M350 240Q352 214 370 204Q366 224 372 240Z"/></g>
-    ${fish.map(([x, y, d]) => `<g transform="translate(${x} ${y}) scale(${d} 1)"><ellipse rx="18" ry="10" fill="#ff7b1c"/><path d="M-16 0L-28 -9V9Z" fill="#ff7b1c"/><path d="M-4 -10V10M8 -9V9" stroke="#fff" stroke-width="4"/><circle cx="12" cy="-2" r="1.8" fill="#1d1d1d"/></g>`).join('')}
-    <g fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5"><circle cx="270" cy="70" r="4"/><circle cx="276" cy="50" r="3"/></g></svg>`;
+  return `<svg ${V}>${grad(k, '#9cc4e4', '#e8f0f6')}
+    <g fill="#fff" opacity=".8"><ellipse cx="90" cy="60" rx="50" ry="12"/><ellipse cx="320" cy="45" rx="45" ry="10"/></g>
+    <path d="M0 180Q40 150 90 168Q120 178 140 180H0Z" fill="#3f5a48"/><path d="M300 180Q340 158 400 165V180Z" fill="#4c6b55"/>
+    <path d="M0 180H400V300H0Z" fill="#1f4f8f"/><path d="M0 200H400" stroke="#2f66a8" stroke-width="3"/>
+    <path d="M140 238Q168 150 250 84Q276 62 294 70Q304 84 292 102Q244 172 210 240Z" fill="#1d242e"/>
+    <path d="M152 236Q182 160 256 92Q272 80 284 84Q244 150 198 238Z" fill="#eef1f4"/>
+    <g stroke="#aeb8c3" stroke-width="1.6" fill="none">${[0, 1, 2, 3, 4, 5].map(i => `<path d="M${160 + i * 7} ${232 - i * 4}Q${196 + i * 6} ${160 - i * 4} ${262 + i * 3} ${96 + i * 2}"/>`).join('')}</g>
+    <path d="M214 150Q152 112 76 104Q132 132 204 168Z" fill="#eef1f4" stroke="#1d242e" stroke-width="3"/>
+    <circle cx="282" cy="78" r="2.5" fill="#c9785a"/>
+    <g fill="#fff"><ellipse cx="176" cy="240" rx="56" ry="14"/><ellipse cx="140" cy="234" rx="20" ry="12" opacity=".85"/><ellipse cx="222" cy="232" rx="18" ry="10" opacity=".85"/><circle cx="120" cy="220" r="5" opacity=".7"/><circle cx="236" cy="214" r="4" opacity=".7"/></g>
+    <path d="M30 262H130M250 272H370" stroke="#fff" stroke-opacity=".35" stroke-width="3"/></svg>`;
 }
 
 function ferris(k) {
@@ -323,14 +320,14 @@ function ferris(k) {
 
 // 使用者可以自己挑的預設圖案；auto 是依旅程自動決定
 export const STYLES = [
-  ['auto', '自動'], ['beach', '海灘'], ['sea', '海底'], ['turtle', '海龜'], ['manta', '鬼蝠魟'], ['whale', '鯨魚'], ['reef', '珊瑚礁'], ['city', '城市'], ['sakura', '櫻花'], ['fuji', '富士山'],
+  ['auto', '自動'], ['beach', '海灘'], ['sea', '海底'], ['turtle', '海龜'], ['manta', '鬼蝠魟'], ['whale', '鯨魚'], ['city', '城市'], ['sakura', '櫻花'], ['fuji', '富士山'],
   ['temple', '寺塔'], ['castle', '歐洲古堡'], ['meadow', '草原'], ['desert', '沙漠'], ['snow', '雪景'], ['aurora', '極光'],
   ['taipei101', '台北 101'], ['alishan', '阿里山雲海'], ['camping', '露營'], ['torii', '日本鳥居'], ['tokyotower', '東京鐵塔'],
   ['palace', '韓國宮殿'], ['thai', '泰國寺廟'], ['cruise', '郵輪'], ['eiffel', '巴黎鐵塔'], ['bigben', '倫敦大笨鐘'],
   ['venice', '威尼斯'], ['santorini', '希臘藍白小屋'], ['windmill', '荷蘭風車'], ['sydney', '雪梨歌劇院'], ['ferris', '遊樂園'],
   ['spring', '春天山景'], ['summer', '夏天山景'], ['autumn', '秋天山景'], ['winter', '冬天山景'],
 ];
-const DRAW = { beach, sea, turtle, manta, whale, reef, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
+const DRAW = { beach, sea, turtle, manta, whale, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
 
 // 依旅程類型、地點與月份自動挑圖案
 const AUTO = [
