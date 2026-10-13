@@ -326,6 +326,8 @@ textarea.input{resize:vertical;font-family:inherit}
 
 .day{display:grid;gap:8px;scroll-margin-top:110px}
 .day>button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:0;text-align:left;width:100%}
+/* 天數標題加底色，和下面的行程分開 */
+.day>button,.dayhead{background:var(--accent-soft);border-radius:var(--r);padding:10px 12px}
 .daynum{font-family:var(--font-data);font-weight:600;font-size:13px;background:var(--fg);color:var(--bg);border-radius:var(--r-sm);padding:3px 8px;flex:none}
 .day h3{font-size:15px;flex:1}
 .day .chev{transition:transform .2s;color:var(--muted)}
