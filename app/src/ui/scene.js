@@ -1,4 +1,4 @@
-// 封面：有上傳照片就用照片；沒有上傳時，依旅程類型、地點與出發月份畫一張風景（規格書 F06）
+// 封面：有上傳照片就用照片；沒有上傳時，用使用者挑的預設圖案，或依旅程類型、地點與出發月份畫一張風景（規格書 F06）
 // 目前有海底、雪景、山景（四季配色，京都加五重塔）；其他種類之後再補
 import { esc } from './dom.js';
 
@@ -48,9 +48,19 @@ function hills(k, [sky, hill], pagoda) {
     ${tower}<path d="M0 245Q110 205 230 232Q300 180 400 215V300H0Z" fill="#2a110c" opacity=".88"/></svg>`;
 }
 
-export function scene(trip) {
+// 使用者可以自己挑的預設圖案；auto 是依旅程自動決定
+export const STYLES = [
+  ['auto', '自動'], ['sea', '海底'], ['snow', '雪景'], ['spring', '春天山景'],
+  ['summer', '夏天山景'], ['autumn', '秋天山景'], ['winter', '冬天山景'], ['temple', '寺塔'],
+];
+
+export function scene(trip, style = 'auto') {
   const k = 'sc' + (++n);
   const where = `${trip.place}${trip.name}`;
+  if (style === 'sea') return sea(k);
+  if (style === 'snow') return snow(k);
+  if (SEASON[style]) return hills(k, SEASON[style], false);
+  if (style === 'temple') return hills(k, SEASON.autumn, true);
   if (trip.type === '潛旅') return sea(k);
   if (/北海道|雪|滑雪/.test(where)) return snow(k);
   return hills(k, SEASON[season(trip.start)], /京都|奈良|寺/.test(where));
@@ -58,7 +68,7 @@ export function scene(trip) {
 
 // 有上傳封面時用照片，照存好的位置與放大倍數顯示
 export const coverImg = c => `<img class="cover-img" alt="" src="${esc(c.src)}" style="object-position:${+c.x}% ${+c.y}%;transform:scale(${+c.z || 1});transform-origin:${+c.x}% ${+c.y}%">`;
-export const art = (trip, cover) => (cover?.src ? coverImg(cover) : scene(trip));
+export const art = (trip, cover) => (cover?.src ? coverImg(cover) : scene(trip, cover?.style));
 
 export function coverHtml(trip, big = false, cover = null) {
   return `<span class="cover${big ? ' big' : ''}">${art(trip, cover)}<span class="status">${esc(trip.status)}</span></span>`;
