@@ -1,6 +1,6 @@
 // 旅程內頁：上方封面與基本資訊，分頁在手機放底部、電腦放上方
 import { $, esc, ICON, openSheet } from '../ui/dom.js';
-import { coverHtml, coverImg } from '../ui/scene.js';
+import { coverHtml, coverImg, scene, STYLES } from '../ui/scene.js';
 import { monthDay } from '../lib/dates.js';
 import { TYPE_ICON, participantsOf } from '../lib/trips.js';
 import { renderPlan } from './plan.js';
@@ -47,12 +47,22 @@ function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   const cover = S.covers[t.id];
-  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="pickCover">📷 更換封面</button>${cover ? '<button type="button" class="btn sm" data-act="adjustCover">調整位置</button>' : ''}</span>`;
+  const btns = S.offline ? '' : '<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button></span>';
   return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
     ${people.length ? `<div class="row"><div class="people">${people.map(avatar).join('')}</div><span class="small muted grow">${people.map(p => esc(p.name)).join('、')}</span></div>` : ''}
   </div>`;
+}
+
+// 更換封面：上傳照片，或從預設圖案挑一張（挑預設圖案會拿掉照片）
+export function coverSheet(t, cover) {
+  const photo = !!cover?.src, cur = photo ? '' : cover?.style || 'auto';
+  const opts = STYLES.map(([k, name]) => `<button type="button" class="stylepick${k === cur ? ' on' : ''}" data-act="pickStyle" data-v="${k}" aria-pressed="${k === cur}"><span class="thumb">${scene(t, k)}</span><span>${name}</span></button>`).join('');
+  openSheet(`<div class="head"><h2>更換封面</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
+    <div class="row"><button type="button" class="btn primary grow" data-act="pickCover">上傳照片</button>${photo ? '<button type="button" class="btn grow" data-act="adjustCover">調整照片位置</button>' : ''}</div>
+    <p class="small muted" style="margin:0">或選一張預設圖案${photo ? '，選了之後會拿掉目前的照片' : ''}。「自動」會依旅程類型、地點與月份決定。</p>
+    <div class="stylegrid">${opts}</div>`);
 }
 
 // 調整封面位置：拖曳照片移動、拉桿放大；c 會直接被改，儲存時讀它

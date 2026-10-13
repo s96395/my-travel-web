@@ -143,6 +143,12 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 #cropZoom{accent-color:var(--accent);width:100%}
 .covbtns{position:absolute;left:12px;bottom:12px;display:flex;gap:8px}
 .covbtns .btn{background:color-mix(in srgb,var(--surface) 92%,transparent)}
+.stylegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stylepick{border:0;background:none;padding:0;color:var(--fg);font:inherit;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
+.stylepick .thumb{display:block;position:relative;width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;border:2px solid transparent}
+.stylepick .thumb .scene{position:absolute;inset:0;width:100%;height:100%}
+.stylepick.on .thumb{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.stylepick.on{font-weight:700;color:var(--accent)}
 .tripcard .thumb{width:54px;height:54px;border-radius:var(--r-sm);flex:none;display:grid;place-items:center;font-family:var(--font-display);font-weight:var(--display-weight);font-size:20px;color:var(--accent-fg);background:var(--accent)}
 .tripcard .thumb.t2{background:var(--warm)}
 .tripcard .thumb.t3{background:var(--fg);color:var(--bg)}
