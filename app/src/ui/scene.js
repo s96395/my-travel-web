@@ -1,5 +1,5 @@
 // 封面：有上傳照片就用照片；沒有上傳時，用使用者挑的預設圖案，或依旅程類型、地點與出發月份畫一張風景（規格書 F06）
-// 共 30 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
+// 共 34 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
 import { esc } from './dom.js';
 
 let n = 0;
@@ -144,21 +144,28 @@ function torii(k) {
 }
 
 function tokyotower(k) {
-  const bands = [0, 1, 2, 3, 4].map(i => { const y = 250 - i * 40, w = 46 - i * 8; return `<path d="M${200 - w} ${y}L${200 + w} ${y}L${200 + w - 6} ${y - 20}L${200 - w + 6} ${y - 20}Z" fill="#fff"/>`; }).join('');
-  return `<svg ${V}>${grad(k, '#7fc3ee', '#e6f4fc')}
-    <path d="M150 260L196 40H204L250 260Z" fill="#e2482f"/>${bands}
-    <rect x="168" y="150" width="64" height="10" fill="#e2482f"/><rect x="182" y="90" width="36" height="8" fill="#e2482f"/>
-    <g fill="#5b7186"><rect x="0" y="240" width="60" height="60"/><rect x="60" y="255" width="50" height="45"/><rect x="290" y="245" width="50" height="55"/><rect x="340" y="230" width="60" height="70"/><rect x="0" y="268" width="400" height="32"/></g></svg>`;
+  const hw = y => 2.5 + 36 * ((y - 60) / 200) ** 2;
+  const lv = [260, 238, 218, 196, 176, 150, 126, 104, 84, 60];
+  const bands = lv.slice(0, -1).map((y, i) => { const y2 = lv[i + 1]; return `<path d="M${200 - hw(y)} ${y}L${200 + hw(y)} ${y}L${200 + hw(y2)} ${y2}L${200 - hw(y2)} ${y2}Z" fill="${i % 2 ? '#fff' : '#ff5a1f'}"/>`; }).join('');
+  return `<svg ${V}>${grad(k, '#7fc3ee', '#e6f4fc')}${bands}
+    <path d="M186 260Q200 238 214 260Z" fill="#cfe8f7"/>
+    <rect x="182" y="168" width="36" height="12" rx="2" fill="#fff"/><rect x="185" y="171" width="30" height="4" fill="#5a7da0"/>
+    <rect x="192" y="116" width="16" height="8" rx="2" fill="#fff"/><path d="M200 60V24" stroke="#ff5a1f" stroke-width="2.5"/>
+    <g fill="#5b7186"><rect x="0" y="240" width="60" height="60"/><rect x="60" y="255" width="50" height="45"/><rect x="290" y="245" width="50" height="55"/><rect x="340" y="230" width="60" height="70"/><rect x="0" y="262" width="400" height="38"/></g></svg>`;
 }
 
 function palace(k) {
-  return `<svg ${V}>${grad(k, '#9cd0ef', '#eaf6fc')}
-    <path d="M0 170L80 110L150 150L230 90L310 140L400 105V300H0Z" fill="#7a9a86"/>
-    <path d="M70 160Q200 120 330 160L310 168Q200 140 90 168Z" fill="#3b4a52"/>
-    <rect x="110" y="168" width="180" height="16" fill="#4f7d6b"/>
-    <g fill="#b8382c"><rect x="120" y="184" width="10" height="50"/><rect x="160" y="184" width="10" height="50"/><rect x="230" y="184" width="10" height="50"/><rect x="270" y="184" width="10" height="50"/></g>
-    <path d="M50 208Q200 172 350 208L330 216Q200 188 70 216Z" fill="#3b4a52"/>
-    <rect x="80" y="234" width="240" height="14" fill="#d9d2c3"/><path d="M0 248H400V300H0Z" fill="#cfc6b3"/></svg>`;
+  const pil = [126, 152, 178, 222, 248, 274].map(x => `<rect x="${x - 4}" y="176" width="8" height="38"/>`).join('');
+  return `<svg ${V}>${grad(k, '#a9d4f0', '#eef7fc')}
+    <path d="M20 190Q90 90 170 78Q200 60 240 82Q320 100 390 190Z" fill="#6f8f7c"/><path d="M150 100Q185 70 225 90L205 120Z" fill="#8ea89a"/>
+    <rect x="40" y="226" width="320" height="16" fill="#ddd5c4"/><rect x="80" y="212" width="240" height="14" fill="#e8e1d2"/>
+    <g stroke="#b9ae98" stroke-width="2">${[50, 90, 130, 170, 230, 270, 310, 350].map(x => `<path d="M${x} 226V220"/>`).join('')}</g>
+    <g fill="#a33a2a">${pil}</g><rect x="112" y="168" width="176" height="9" fill="#3f7d68"/><rect x="112" y="172" width="176" height="3" fill="#d9a521"/>
+    <path d="M58 176Q92 170 118 150H282Q308 170 342 176Q300 170 200 170Q100 170 58 176Z" fill="#363e46"/>
+    <rect x="140" y="130" width="120" height="20" fill="#3f7d68"/><g fill="#a33a2a">${[150, 175, 200, 225, 250].map(x => `<rect x="${x - 3}" y="134" width="6" height="16"/>`).join('')}</g>
+    <path d="M96 136Q126 130 148 108H252Q274 130 304 136Q262 130 200 130Q138 130 96 136Z" fill="#363e46"/>
+    <rect x="148" y="102" width="104" height="7" rx="2" fill="#262c32"/><path d="M146 102L140 96M254 102L260 96" stroke="#262c32" stroke-width="4" stroke-linecap="round"/>
+    <path d="M0 242H400V300H0Z" fill="#cfc6b3"/><path d="M0 270H400" stroke="#bdb39e" stroke-width="2"/></svg>`;
 }
 
 function thai(k) {
@@ -170,11 +177,17 @@ function thai(k) {
 }
 
 function eiffel(k) {
-  return `<svg ${V}>${grad(k, '#a9cfee', '#f6e6ef')}
-    <g fill="none" stroke="#5b4a46" stroke-width="5" stroke-linejoin="round"><path d="M200 30L196 90L180 160L150 250M200 30L204 90L220 160L250 250"/><path d="M188 120H212M174 175H226"/><path d="M165 250Q200 200 235 250"/></g>
-    <rect x="198" y="18" width="4" height="14" fill="#5b4a46"/>
-    <path d="M0 250H400V300H0Z" fill="#8fbf7a"/>
-    <g fill="#4f8a4f"><circle cx="50" cy="245" r="22"/><circle cx="90" cy="250" r="18"/><circle cx="320" cy="248" r="22"/><circle cx="360" cy="245" r="18"/></g></svg>`;
+  const sp = [[200, 50], [198, 72], [203, 86], [195, 104], [205, 118], [192, 132], [209, 146], [186, 168], [214, 172], [180, 190], [220, 196], [172, 214], [228, 212], [166, 232], [236, 236], [158, 248], [244, 250], [200, 160], [196, 128]];
+  const stars = [[40, 30], [90, 70], [150, 20], [280, 40], [340, 80], [370, 25], [60, 120], [320, 130]];
+  return `<svg ${V}>${grad(k, '#0b1430', '#2a3a6e')}
+    <g fill="#fff" opacity=".8">${stars.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.4"/>`).join('')}</g>
+    <path d="M200 26L120 0H150Z" fill="#fff2b0" opacity=".18"/><path d="M200 26L290 0H260Z" fill="#fff2b0" opacity=".18"/>
+    <path d="M196 40H204L208 92L222 160L258 258H230Q200 214 170 258H142L178 160L192 92Z" fill="#f2b44a"/>
+    <g fill="#ffd76e"><rect x="186" y="90" width="28" height="6"/><rect x="172" y="158" width="56" height="7"/></g>
+    <path d="M198 40V22M202 40V22" stroke="#ffd76e" stroke-width="2"/><circle cx="200" cy="22" r="5" fill="#fff6c8"/>
+    <g fill="#fff">${sp.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.8"/>`).join('')}</g>
+    <g fill="#fff" opacity=".35">${sp.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4"/>`).join('')}</g>
+    <path d="M0 258H400V300H0Z" fill="#0f1830"/><g fill="#ffcf6b" opacity=".8">${[20, 55, 90, 120, 280, 310, 345, 375].map(x => `<rect x="${x}" y="266" width="6" height="5"/>`).join('')}</g></svg>`;
 }
 
 function bigben(k) {
@@ -195,14 +208,15 @@ function venice(k) {
 }
 
 function santorini(k) {
-  const hs = [[40, 170, 50], [95, 150, 46], [150, 175, 40], [250, 160, 52], [310, 180, 44]];
-  return `<svg ${V}>${grad(k, '#5fb3e8', '#d6eefb')}
-    <path d="M0 190H400V300H0Z" fill="#1b5f9e"/>
-    <path d="M0 210Q100 180 200 205T400 200V300H0Z" fill="#e9dccb"/>
-    <g fill="#fff">${hs.map(([x, y, w]) => `<rect x="${x}" y="${y}" width="${w}" height="${230 - y}"/>`).join('')}</g>
-    <g fill="#1f5fae"><path d="M198 160A22 22 0 0 1 242 160Z"/><rect x="196" y="160" width="48" height="60" fill="#fff"/><path d="M95 150A23 23 0 0 1 141 150Z"/></g>
-    <g fill="#1f5fae"><rect x="58" y="190" width="12" height="16"/><rect x="265" y="180" width="12" height="16"/><rect x="212" y="185" width="16" height="20"/></g>
-    <path d="M0 250Q120 236 240 248T400 242V300H0Z" fill="#d7c6ae"/></svg>`;
+  const hs = [[18, 150, 34, 30], [56, 160, 30, 26], [92, 172, 36, 28], [134, 186, 30, 24], [170, 200, 32, 22], [40, 190, 40, 30], [88, 210, 34, 26], [130, 224, 36, 26], [10, 222, 30, 30], [60, 240, 38, 26]];
+  return `<svg ${V}>${grad(k, '#f39a8a', '#fde0c2')}<circle cx="320" cy="168" r="26" fill="#ffe6b0"/>
+    <path d="M0 170H400V300H0Z" fill="#2e5f9f"/><path d="M240 190H380M270 210H360" stroke="#ffd9a8" stroke-opacity=".6" stroke-width="3"/>
+    <path d="M0 130Q110 150 200 210Q240 240 240 300H0Z" fill="#c89f7a"/>
+    <g fill="#fbfaf6">${hs.map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3"/>`).join('')}</g>
+    <g fill="#2f62b3">${hs.map(([x, y, w, h], i) => (i % 3 === 1 ? `<rect x="${x + w / 2 - 4}" y="${y + h - 14}" width="8" height="12" rx="4"/>` : `<rect x="${x + 6}" y="${y + 8}" width="6" height="6"/>`)).join('')}</g>
+    <path d="M86 172A20 20 0 0 1 126 172Z" fill="#2457a8"/><path d="M106 150V140M102 145H110" stroke="#fbfaf6" stroke-width="2"/>
+    <path d="M128 224A16 16 0 0 1 160 224Z" fill="#2457a8"/>
+    <g fill="#e2559a">${[[30, 152], [70, 238], [150, 204], [118, 226], [52, 188]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="7"/><circle cx="${x + 7}" cy="${y + 3}" r="5"/>`).join('')}</g></svg>`;
 }
 
 function windmill(k) {
@@ -244,28 +258,79 @@ function cruise(k) {
     <path d="M40 255H160M230 270H370" stroke="#fff" stroke-opacity=".45" stroke-width="3"/></svg>`;
 }
 
+// 潛水看到的生物：共用海裡的底色與光線
+function water(k, top, bottom) {
+  return `${grad(k, top, bottom)}<g fill="#fff" opacity=".12"><polygon points="110,0 150,0 220,300 140,300"/><polygon points="250,0 266,0 320,300 278,300"/></g>
+    <path d="M0 0H400V8Q350 16 300 8T200 8T100 8T0 8Z" fill="#fff" opacity=".3"/>`;
+}
+
+function turtle(k) {
+  return `<svg ${V}>${water(k, '#6fd3ea', '#0c5f86')}
+    <g transform="rotate(-12 200 150)"><path d="M150 140Q110 110 92 120Q118 140 146 152Z" fill="#6c8a4c"/><path d="M250 140Q290 110 308 120Q282 140 254 152Z" fill="#6c8a4c"/>
+    <path d="M160 175Q140 195 128 196Q144 180 164 168Z" fill="#6c8a4c"/><path d="M240 175Q260 195 272 196Q256 180 236 168Z" fill="#6c8a4c"/>
+    <ellipse cx="200" cy="100" rx="16" ry="18" fill="#7a9a58"/><circle cx="193" cy="96" r="2" fill="#1d2a1a"/><circle cx="207" cy="96" r="2" fill="#1d2a1a"/>
+    <ellipse cx="200" cy="155" rx="56" ry="48" fill="#6b5232"/><g fill="none" stroke="#c9a66b" stroke-width="2.5"><path d="M200 112V198M160 140H240M166 172H234M182 118L176 192M218 118L224 192"/></g></g>
+    <g fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5"><circle cx="230" cy="70" r="4"/><circle cx="238" cy="52" r="3"/></g>
+    <path d="M0 262Q120 246 240 260T400 254V300H0Z" fill="#0a3a55"/></svg>`;
+}
+
+function manta(k) {
+  return `<svg ${V}>${water(k, '#4fb7dd', '#08304f')}
+    <path d="M200 110Q150 100 70 150Q140 150 186 170L196 252L204 252L214 170Q260 150 330 150Q250 100 200 110Z" fill="#14324d"/>
+    <path d="M188 112Q184 98 190 92M212 112Q216 98 210 92" stroke="#14324d" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <g fill="#0b2338" opacity=".7"><path d="M60 230q10-7 20 0q-10 7-20 0zM80 230l6-5v10z"/><path d="M320 210q8-6 16 0q-8 6-16 0zM336 210l5-4v8z"/></g>
+    <path d="M0 268Q120 254 240 266T400 260V300H0Z" fill="#05233a"/></svg>`;
+}
+
+function whale(k) {
+  return `<svg ${V}>${water(k, '#5ec2e6', '#062a47')}
+    <path d="M60 150Q120 100 230 112Q300 120 330 140L370 118Q366 140 378 160L336 156Q300 190 220 192Q120 196 60 150Z" fill="#2d4a66"/>
+    <path d="M70 158Q140 186 230 186Q290 184 326 160" fill="none" stroke="#c9d8e4" stroke-width="10" stroke-opacity=".7"/>
+    <g stroke="#2d4a66" stroke-width="2">${[110, 135, 160, 185, 210, 235, 260].map(x => `<path d="M${x} 168V188"/>`).join('')}</g>
+    <path d="M150 178Q130 230 90 250Q120 222 132 176Z" fill="#3a5c7c"/><circle cx="98" cy="146" r="3" fill="#0d1d2b"/>
+    <path d="M0 270Q120 256 240 268T400 262V300H0Z" fill="#041d33"/></svg>`;
+}
+
+function reef(k) {
+  const fish = [[140, 120, 1], [250, 95, -1], [300, 150, 1]];
+  return `<svg ${V}>${water(k, '#7fe0ef', '#1585b0')}
+    <path d="M0 230Q100 214 200 226T400 222V300H0Z" fill="#e8d5a8"/>
+    <g fill="#ff7a8a"><path d="M40 240Q30 190 50 170Q48 200 58 210Q62 180 80 172Q70 205 70 240Z"/></g>
+    <g fill="#ffb347"><circle cx="120" cy="236" r="22"/><circle cx="104" cy="226" r="12"/></g>
+    <g fill="#b77be0"><path d="M300 245Q296 200 310 180M300 245Q310 205 332 196M300 245Q290 210 276 196" stroke="#b77be0" stroke-width="7" fill="none" stroke-linecap="round"/></g>
+    <g fill="#4fc3a1"><path d="M190 240Q186 210 200 196Q204 220 214 240Z"/><path d="M350 240Q352 214 370 204Q366 224 372 240Z"/></g>
+    ${fish.map(([x, y, d]) => `<g transform="translate(${x} ${y}) scale(${d} 1)"><ellipse rx="18" ry="10" fill="#ff7b1c"/><path d="M-16 0L-28 -9V9Z" fill="#ff7b1c"/><path d="M-4 -10V10M8 -9V9" stroke="#fff" stroke-width="4"/><circle cx="12" cy="-2" r="1.8" fill="#1d1d1d"/></g>`).join('')}
+    <g fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="1.5"><circle cx="270" cy="70" r="4"/><circle cx="276" cy="50" r="3"/></g></svg>`;
+}
+
 function ferris(k) {
-  const cab = [...Array(10)].map((_, i) => { const a = i * Math.PI / 5; return [270 + 70 * Math.cos(a), 130 + 70 * Math.sin(a)]; });
-  const cols = ['#e74c3c', '#f4d03f', '#3498db', '#9b59b6', '#2ecc71'];
-  return `<svg ${V}>${grad(k, '#f6b3c8', '#fde9d6')}
-    <circle cx="270" cy="130" r="70" fill="none" stroke="#5a4a6b" stroke-width="4"/>
-    <g stroke="#5a4a6b" stroke-width="2">${cab.map(([x, y]) => `<path d="M270 130L${x} ${y}"/>`).join('')}</g>
-    <path d="M270 130L235 240M270 130L305 240" stroke="#5a4a6b" stroke-width="6"/>
-    ${cab.map(([x, y], i) => `<rect x="${x - 8}" y="${y - 6}" width="16" height="13" rx="3" fill="${cols[i % 5]}"/>`).join('')}
-    <path d="M60 170L110 120L160 170Z" fill="#e74c3c"/><rect x="66" y="170" width="88" height="70" fill="#fff4e3"/><path d="M60 170H160" stroke="#f4d03f" stroke-width="6"/>
-    <path d="M0 240H400V300H0Z" fill="#8fc27a"/></svg>`;
+  const cab = [...Array(8)].map((_, i) => { const a = i * Math.PI / 4; return [270 + 62 * Math.cos(a), 118 + 62 * Math.sin(a)]; });
+  const cols = ['#ff4d6d', '#ffc23d', '#3db5ff', '#8a5cf6'];
+  const flags = [...Array(14)].map((_, i) => `<path d="M${10 + i * 28} ${14 + Math.abs(7 - i) * 2}l10 14l10 -14z" fill="${cols[i % 4]}"/>`).join('');
+  return `<svg ${V}>${grad(k, '#ffc6d9', '#fff1e0')}
+    <path d="M0 28Q200 42 400 28" fill="none" stroke="#7a5a8a" stroke-width="1.5"/>${flags}
+    <path d="M-10 240Q20 110 60 110Q95 110 105 180Q115 240 150 200Q170 175 190 240" fill="none" stroke="#e8462e" stroke-width="7"/>
+    <g stroke="#b3b8c2" stroke-width="3">${[20, 40, 60, 80, 100, 130, 160].map(x => `<path d="M${x} 240V${x < 70 ? 150 : 205}"/>`).join('')}</g>
+    <rect x="46" y="100" width="22" height="12" rx="4" fill="#3db5ff"/>
+    <circle cx="270" cy="118" r="62" fill="none" stroke="#7a3fa8" stroke-width="6"/><circle cx="270" cy="118" r="44" fill="none" stroke="#ffc23d" stroke-width="2.5"/>
+    <g stroke="#7a3fa8" stroke-width="2.5">${cab.map(([x, y]) => `<path d="M270 118L${x} ${y}"/>`).join('')}</g>
+    <path d="M270 118L236 240M270 118L304 240" stroke="#7a3fa8" stroke-width="7"/><circle cx="270" cy="118" r="8" fill="#ffc23d"/>
+    ${cab.map(([x, y], i) => `<rect x="${x - 9}" y="${y - 2}" width="18" height="15" rx="4" fill="${cols[i % 4]}"/>`).join('')}
+    <path d="M318 240V196L352 158L386 196V240Z" fill="#fff"/><g fill="#ff5c93"><path d="M318 196L352 158L335 196Z"/><path d="M352 158L369 196H386Z"/><rect x="330" y="200" width="10" height="40"/><rect x="364" y="200" width="10" height="40"/></g>
+    <path d="M343 240Q352 214 361 240Z" fill="#7a3fa8"/><path d="M352 158V138" stroke="#7a5a8a" stroke-width="2"/><path d="M352 138l14 5l-14 5z" fill="#ffc23d"/>
+    <path d="M0 240H400V300H0Z" fill="#8fd17a"/><path d="M0 262H400" stroke="#7bbf66" stroke-width="3"/></svg>`;
 }
 
 // 使用者可以自己挑的預設圖案；auto 是依旅程自動決定
 export const STYLES = [
-  ['auto', '自動'], ['beach', '海灘'], ['sea', '海底'], ['city', '城市'], ['sakura', '櫻花'], ['fuji', '富士山'],
+  ['auto', '自動'], ['beach', '海灘'], ['sea', '海底'], ['turtle', '海龜'], ['manta', '鬼蝠魟'], ['whale', '鯨魚'], ['reef', '珊瑚礁'], ['city', '城市'], ['sakura', '櫻花'], ['fuji', '富士山'],
   ['temple', '寺塔'], ['castle', '歐洲古堡'], ['meadow', '草原'], ['desert', '沙漠'], ['snow', '雪景'], ['aurora', '極光'],
   ['taipei101', '台北 101'], ['alishan', '阿里山雲海'], ['camping', '露營'], ['torii', '日本鳥居'], ['tokyotower', '東京鐵塔'],
   ['palace', '韓國宮殿'], ['thai', '泰國寺廟'], ['cruise', '郵輪'], ['eiffel', '巴黎鐵塔'], ['bigben', '倫敦大笨鐘'],
   ['venice', '威尼斯'], ['santorini', '希臘藍白小屋'], ['windmill', '荷蘭風車'], ['sydney', '雪梨歌劇院'], ['ferris', '遊樂園'],
   ['spring', '春天山景'], ['summer', '夏天山景'], ['autumn', '秋天山景'], ['winter', '冬天山景'],
 ];
-const DRAW = { beach, sea, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
+const DRAW = { beach, sea, turtle, manta, whale, reef, city, sakura, fuji, castle, meadow, desert, snow, aurora, taipei101, alishan, camping, cruise, torii, tokyotower, palace, thai, eiffel, bigben, venice, santorini, windmill, sydney, ferris };
 
 // 依旅程類型、地點與月份自動挑圖案
 const AUTO = [
