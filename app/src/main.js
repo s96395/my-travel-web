@@ -9,7 +9,7 @@ import { viewTrip } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
-import { renderTrip, tabButtons, cropSheet } from './views/trip.js';
+import { renderTrip, tabButtons, cropSheet, dlSheet } from './views/trip.js';
 import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
@@ -46,11 +46,14 @@ const S = {
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
+  visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
+  tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   covers: {}, crop: null, // covers：旅程 id → 封面照；crop：正在調整的封面
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
+store.set('visits', String(S.visits));
 let local = new Map(); // 沒網路開啟時，下載的旅程 id → 整份資料
 
 let stopTrips = null;
@@ -213,6 +216,7 @@ async function moveItem(id, target) {
   const byId = new Map(updates.map(u => [u.id, u]));
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
+  if (!S.tipDrag) { S.tipDrag = true; store.set('tipDrag', '1'); }
   render();
   toast(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`);
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
@@ -407,7 +411,8 @@ const actions = {
   },
   account: () => accountSheet(S),
   install: () => installSheet(),
-  hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單找到「加到手機主畫面」'); },
+  hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
+  tipDrag() { S.tipDrag = true; store.set('tipDrag', '1'); render(); },
   newTrip() { if (!S.offline) newTripSheet(); },
   ntType(el) { el.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   async saveTrip(el) {
@@ -433,9 +438,11 @@ const actions = {
   },
   open(el) { go(`#/trip/${el.dataset.id}`); },
   home() { go('#/'); },
+  dlInfo() { const trip = curTrip(); if (trip && S.dl[trip.id]) dlSheet(S, trip); },
   async download() {
     const trip = curTrip();
     if (!trip || S.offline || S.dlBusy) return;
+    closeSheet();
     S.dlBusy = trip.id; render();
     try {
       S.dl[trip.id] = await downloadTrip(trip.id, S.user.uid);
