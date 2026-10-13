@@ -21,11 +21,11 @@ const pad = n => String(n).padStart(2, '0');
 export const dlTime = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 const device = S => (S.wide ? '這台電腦' : '這支手機');
 
-// 下載供離線使用（規格書 P05）：標題列的小圖示，還沒下載是下載箭頭，下載好變打勾，按打勾看下載時間或重新下載
+// 下載供離線使用（規格書 P05）：標題列右邊的「離線行程」按鈕，下載好變打勾，按打勾看下載時間或重新下載
 function dlBtn(S, t) {
-  if (S.dlBusy === t.id) return '<button type="button" class="iconbtn" disabled aria-label="下載中"><span class="spin" aria-hidden="true"></span></button>';
-  if (S.dl[t.id]) return `<button type="button" class="iconbtn done" data-act="dlInfo" aria-label="已可離線查看" title="已可離線查看">${OK}</button>`;
-  return `<button type="button" class="iconbtn" data-act="download" ${S.offline ? 'disabled' : ''} aria-label="下載供離線使用" title="下載供離線使用">${DL}</button>`;
+  if (S.dlBusy === t.id) return '<button type="button" class="dlbtn" disabled><span class="spin" aria-hidden="true"></span><span>下載中</span></button>';
+  if (S.dl[t.id]) return `<button type="button" class="dlbtn done" data-act="dlInfo" title="已可離線查看">${OK}<span>已可離線</span></button>`;
+  return `<button type="button" class="dlbtn" data-act="download" ${S.offline ? 'disabled' : ''} title="下載到${device(S)}，沒網路也能看">${DL}<span>離線行程</span></button>`;
 }
 
 export function dlSheet(S, t) {
@@ -37,7 +37,7 @@ export function dlSheet(S, t) {
 function offBanner(S, t) {
   if (!S.offline) return '';
   const at = S.dl[t?.id];
-  const msg = !t || at ? `只能查看，暫時不能修改。${S.localOnly && at ? `顯示的是 ${dlTime(at)} 下載的資料。` : ''}` : `這趟還沒下載到${device(S)}，連上網路後按標題右邊的下載圖示。`;
+  const msg = !t || at ? `只能查看，暫時不能修改。${S.localOnly && at ? `顯示的是 ${dlTime(at)} 下載的資料。` : ''}` : `這趟還沒下載到${device(S)}，連上網路後按標題右邊的「離線行程」。`;
   return `<div class="banner" role="status"><b>離線中</b><span>${msg}</span></div>`;
 }
 
@@ -47,7 +47,7 @@ function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   const cover = S.covers[t.id];
-  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button>${cover?.src ? '<button type="button" class="btn sm" data-act="adjustCover">調整位置</button>' : ''}</span>`;
+  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button><button type="button" class="btn sm" data-act="adjustCover">調整位置</button></span>`;
   return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
@@ -60,18 +60,18 @@ export function coverSheet(t, cover) {
   const photo = !!cover?.src, cur = photo ? '' : cover?.style || 'auto';
   const opts = STYLES.map(([k, name]) => `<button type="button" class="stylepick${k === cur ? ' on' : ''}" data-act="pickStyle" data-v="${k}" aria-pressed="${k === cur}"><span class="thumb">${scene(t, k)}</span><span>${name}</span></button>`).join('');
   openSheet(`<div class="head"><h2>更換封面</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
-    <div class="row"><button type="button" class="btn primary grow" data-act="pickCover">上傳照片</button>${photo ? '<button type="button" class="btn grow" data-act="adjustCover">調整照片位置</button>' : ''}</div>
+    <div class="row"><button type="button" class="btn primary grow" data-act="pickCover">上傳照片</button><button type="button" class="btn grow" data-act="adjustCover">調整位置</button></div>
     <p class="small muted" style="margin:0">或選一張預設圖案${photo ? '，選了之後會拿掉目前的照片' : ''}。「自動」會依旅程類型、地點與月份決定。</p>
     <div class="stylegrid">${opts}</div>`);
 }
 
-// 調整封面位置：拖曳照片移動、拉桿放大；c 會直接被改，儲存時讀它
+// 調整封面位置：拖曳照片或預設圖案移動、拉桿放大；c 會直接被改，儲存時讀它（預設圖案用 c.view 顯示，不存）
 export function cropSheet(c, info = '') {
   openSheet(`<div class="head"><h2>調整封面位置</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
-    <div class="cropframe" id="cropFrame">${coverImg(c)}<span class="crophint">拖曳照片調整位置</span></div>
+    <div class="cropframe" id="cropFrame">${coverImg({ ...c, src: c.src || c.view })}<span class="crophint">拖曳${c.src ? '照片' : '圖案'}調整位置</span></div>
     <div class="field"><label for="cropZoom">放大</label><input type="range" id="cropZoom" min="1" max="2.5" step="0.05" value="${c.z}"></div>
     <p class="small muted" style="margin:0">首頁卡片和旅程頁上方用同一個位置。${info}</p>
-    <div class="row"><button type="button" class="btn grow" data-act="pickCover">重新選照片</button><button type="button" class="btn primary grow" data-act="saveCover">儲存封面</button></div>`);
+    <div class="row"><button type="button" class="btn grow" data-act="pickCover">${c.src ? '重新選照片' : '上傳照片'}</button><button type="button" class="btn primary grow" data-act="saveCover">儲存封面</button></div>`);
   const f = $('#cropFrame'), im = f.querySelector('img');
   const paint = () => { im.style.objectPosition = `${c.x}% ${c.y}%`; im.style.transformOrigin = `${c.x}% ${c.y}%`; im.style.transform = `scale(${c.z})`; };
   const clamp = v => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
@@ -100,7 +100,7 @@ export function renderTrip(S) {
   const body = VIEWS[tab](S, t);
   return `
   ${offBanner(S, t)}
-  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${dlBtn(S, t)}<span class="label">${tabsFor(t).find(x => x[0] === tab)[1]}</span></header>
+  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
     ${tab === 'plan' || S.wide ? tripHead(S, t) : ''}
