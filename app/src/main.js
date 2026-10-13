@@ -216,7 +216,6 @@ async function moveItem(id, target) {
   const byId = new Map(updates.map(u => [u.id, u]));
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
-  if (!S.tipDrag) { S.tipDrag = true; store.set('tipDrag', '1'); }
   render();
   toast(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`);
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
@@ -331,6 +330,7 @@ function syncTanks() {
 }
 
 function onDrop(id, t) {
+  if (!S.tipDrag) { S.tipDrag = true; store.set('tipDrag', '1'); } // 拖曳過一次就不再提示
   if (t.kind === 'day') { if (t.d) moveItem(id, { day: t.d }); return; }
   const ref = findItem(t.id);
   if (!ref || !ref.day) return;
