@@ -8,7 +8,7 @@ import { ref, uploadBytes, getBytes, deleteObject } from 'firebase/storage';
 
 let env;
 const TRIP = {
-  title: '京都賞楓', ownerId: 'owner', memberIds: ['owner', 'member'], shareKey: 'k1',
+  title: '京都賞楓', ownerId: 'owner', memberIds: ['owner', 'member'], shareKey: 'k1k1k1k1k1k1k1k1',
   participants: { p1: { name: '芳佑', uid: 'owner', order: 1 }, p2: { name: '小安', uid: '', order: 2 }, p3: { name: '肉格', order: 3 }, p4: { name: '男友', uid: null, order: 4 } },
 };
 const as = uid => (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).firestore();
@@ -56,10 +56,10 @@ test('非成員：讀不到旅程與子資料，也不能列出全部旅程', as
 test('非成員：帶正確邀請碼只能把自己加進成員', async () => {
   await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger') }));
   await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'wrong' }));
-  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger', 'friend'), joinKey: 'k1' }));
-  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('friend'), joinKey: 'k1' }));
-  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'k1', title: '改名' }));
-  await assertSucceeds(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'k1' }));
+  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger', 'friend'), joinKey: 'k1k1k1k1k1k1k1k1' }));
+  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('friend'), joinKey: 'k1k1k1k1k1k1k1k1' }));
+  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'k1k1k1k1k1k1k1k1', title: '改名' }));
+  await assertSucceeds(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'k1k1k1k1k1k1k1k1' }));
   await assertSucceeds(getDoc(trip('stranger')));
 });
 test('非成員：不能建立別人的旅程，也不能看或上傳照片', async () => {
@@ -77,6 +77,26 @@ test('共編成員：可以讀寫旅程資料與一般欄位', async () => {
   await assertSucceeds(getDocs(collection(as('member'), 'trips/t1/expenses')));
   await assertSucceeds(setDoc(doc(as('member'), 'trips/t1/expenses/e2'), { name: '車票', amount: 300 }));
   await assertSucceeds(updateDoc(trip('member'), { totalExpense: 1500, fund: { on: true, keeper: 'p1' } }));
+  await assertSucceeds(updateDoc(trip('member'), { totalTanks: 3, tanksBy: { p1: 3 }, 'repaid.k': true, coverAt: 1 }));
+});
+test('共編成員：不能改旅程設定與同行者名單', async () => {
+  await assertFails(updateDoc(trip('member'), { title: '改名' }));
+  await assertFails(updateDoc(trip('member'), { startDate: '2026-01-01' }));
+  await assertFails(updateDoc(trip('member'), { status: '已完成' }));
+  await assertFails(updateDoc(trip('member'), { 'participants.p2.name': '改名' }));
+  await assertFails(updateDoc(trip('member'), { joinKey: 'x' }));
+});
+test('邀請碼：舊版 8 碼邀請碼不能加入，建立者換成新碼後才可以', async () => {
+  await env.withSecurityRulesDisabled(ctx => updateDoc(doc(ctx.firestore(), 'trips/t1'), { shareKey: 'old8code' }));
+  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'old8code' }));
+  await assertSucceeds(updateDoc(trip('owner'), { shareKey: 'n2n2n2n2n2n2n2n2n2n2' }));
+  await assertFails(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'old8code' }));
+  await assertSucceeds(updateDoc(trip('stranger'), { memberIds: arrayUnion('stranger'), joinKey: 'n2n2n2n2n2n2n2n2n2n2' }));
+});
+test('移除成員：建立者移除時換邀請碼，被移除的人用舊連結不能再加入', async () => {
+  await assertSucceeds(updateDoc(trip('owner'), { memberIds: arrayRemove('member'), shareKey: 'n3n3n3n3n3n3n3n3n3n3' }));
+  await assertFails(updateDoc(trip('member'), { memberIds: arrayUnion('member'), joinKey: 'k1k1k1k1k1k1k1k1' }));
+  await assertSucceeds(updateDoc(trip('member'), { memberIds: arrayUnion('member'), joinKey: 'n3n3n3n3n3n3n3n3n3n3' }));
 });
 test('共編成員：不能改建立者、邀請碼與別人的成員身分', async () => {
   await assertFails(updateDoc(trip('member'), { ownerId: 'member' }));

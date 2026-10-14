@@ -33,11 +33,12 @@ service cloud.firestore {
     }
 
     // 拿著邀請連結加入：只能把自己加進 memberIds，並帶上連結裡的邀請碼（N04）
+    // 舊版 8 碼邀請碼太短，要等建立者打開網站自動換成 16 碼以上的新碼才能加入
     function isJoining() {
       return signedIn()
         && !isMemberOf(resource.data)
         && resource.data.get('shareKey', '') is string
-        && resource.data.get('shareKey', '') != ''
+        && resource.data.get('shareKey', '').size() >= 16
         && request.resource.data.get('joinKey', '') == resource.data.shareKey
         && changed().hasOnly(['memberIds', 'joinKey'])
         && request.resource.data.memberIds.toSet() == resource.data.get('memberIds', []).toSet().union([request.auth.uid].toSet())
@@ -90,10 +91,11 @@ service cloud.firestore {
               && after[pid].get('name', '') is string && after[pid].get('name', '').size() > 0 && after[pid].get('name', '').size() <= 40)));
     }
 
-    // 共編成員一般修改（支出總額、公費、行程以外的欄位）：不能改建立者、邀請碼與別人的成員身分
+    // 共編成員一般修改：只能改支出總額、累計瓶數、公費、還款標記、封面時間，以及綁定自己（bindsSelfOnly）
+    // 旅程名稱、日期、狀態、同行者名單等旅程設定只有建立者能改
     function memberUpdateOk() {
       return isMemberOf(resource.data)
-        && !changed().hasAny(['ownerId', 'shareKey', 'memberIds'])
+        && changed().hasOnly(['totalExpense', 'totalTanks', 'tanksBy', 'fund', 'repaid', 'coverAt', 'participants', 'bindPid', 'updatedAt'])
         && bindsSelfOnly();
     }
 
