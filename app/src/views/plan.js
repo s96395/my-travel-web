@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeQuery, placeUrl, placeHref, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
@@ -103,7 +103,7 @@ export function itemMenuSheet(S, trip, it, canDel) {
     <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
 }
 
-export function itemFormSheet(day, it = null, city = '') {
+export function itemFormSheet(day, it = null) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
     <div class="field"><label for="n-title">名稱</label><input class="input" id="n-title" maxlength="60" placeholder="例如：南禪寺" value="${esc(v.title)}"></div>
@@ -111,14 +111,9 @@ export function itemFormSheet(day, it = null, city = '') {
       <div class="field"><label for="n-pri">優先度</label><select class="select" id="n-pri"><option value="">不設定</option>${PRIORITIES.map(p => `<option value="${p}" ${p === v.priority ? 'selected' : ''}>${PRIORITY_LABEL[p]}</option>`).join('')}</select></div></div>
     <div class="grid2"><div class="field"><label for="n-time">預約時間（有預約才填）</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
       <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div></div>
-    <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="沒填就用名稱和區域搜尋" value="${esc(v.address || '')}">
-      <a class="linkbtn small" id="n-find" href="#" target="_blank" rel="noopener" style="justify-self:start">🔍 到 Google 地圖找，按「分享」複製連結貼回來</a></div>
+    <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
     <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
-  // 按下時才用目前填的名稱、區域組搜尋網址
-  $('#n-find').addEventListener('click', ev => {
-    ev.currentTarget.href = placeUrl(placeQuery({ title: $('#n-title').value.trim(), area: $('#n-area').value.trim() }, city));
-  });
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null

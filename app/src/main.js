@@ -518,8 +518,8 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
-  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, curTrip()?.city); },
-  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, curTrip()?.city); },
+  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
+  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d); },
   async saveItem(el) {
     const form = readItemForm();
     if (!form || S.busy) return;
