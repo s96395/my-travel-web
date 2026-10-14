@@ -4,14 +4,16 @@ import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, bro
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
-export let auth, db, envName;
+// mapsKey：Google 地圖嵌入用的金鑰（Maps Embed API，不收費），沒設定時只顯示開啟地圖的按鈕
+export let auth, db, envName, mapsKey = '';
 
 export async function initFirebase() {
   const res = await fetch('/firebase-config.json', { cache: 'no-store' });
   if (!res.ok) throw new Error('config-missing');
   const cfg = await res.json();
   if (!cfg.projectId || !cfg.apiKey) throw new Error('config-missing');
-  const { env, emulator, appCheckSiteKey, ...options } = cfg;
+  const { env, emulator, appCheckSiteKey, mapsKey: key, ...options } = cfg;
+  mapsKey = key || '';
   const app = initializeApp(options);
   // App Check：設定檔有 reCAPTCHA 網站金鑰時才啟用，只讓本站送出的要求能讀寫資料
   if (appCheckSiteKey && !emulator) initializeAppCheck(app, { provider: new ReCaptchaV3Provider(appCheckSiteKey), isTokenAutoRefreshEnabled: true });

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, sortItems, planMove, planDays, nextOrder } from '../src/lib/itinerary.js';
+import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -40,4 +40,30 @@ test('天數與下一個順序', () => {
   assert.equal(planDays([mk('a', 8, 1)], 6), 8);
   assert.equal(planDays([], 0), 1);
   assert.equal(nextOrder([mk('a', 1, 4), mk('b', 1, null), mk('c', 2, 9)], 1), 5);
+});
+
+test('地圖：有地址用地址，沒有用名稱＋區域＋城市；交通類不放進路線', () => {
+  const its = [
+    { title: '南禪寺', area: '東山', type: 'attraction', address: '' },
+    { title: '搭巴士', area: '', type: 'transport', address: '' },
+    { title: '湯豆腐', area: '', type: 'restaurant', address: '京都市左京區南禅寺福地町' },
+    { title: '平安神宮', area: '', type: 'attraction', address: '' },
+  ];
+  const stops = routeStops(its, '京都');
+  assert.deepEqual(stops, ['南禪寺 東山 京都', '京都市左京區南禅寺福地町', '平安神宮 京都']);
+  const u = new URL(routeUrl(stops));
+  assert.equal(u.searchParams.get('origin'), '南禪寺 東山 京都');
+  assert.equal(u.searchParams.get('destination'), '平安神宮 京都');
+  assert.equal(u.searchParams.get('waypoints'), '京都市左京區南禅寺福地町');
+  assert.ok(routeUrl(stops.slice(0, 1)).includes('/maps/search/'));
+  assert.equal(routeUrl([]), '');
+  const many = Array.from({ length: 14 }, (_, i) => `P${i}`);
+  assert.equal(new URL(routeUrl(many)).searchParams.get('waypoints').split('|').length, 9);
+});
+test('地圖：沒有金鑰就不嵌入，一個地點用 place，兩個以上用 directions', () => {
+  assert.equal(embedUrl(['A', 'B'], ''), '');
+  assert.ok(embedUrl(['A'], 'k').includes('/embed/v1/place?'));
+  const u = new URL(embedUrl(['A', 'B', 'C'], 'k'));
+  assert.ok(u.pathname.endsWith('/directions'));
+  assert.equal(u.searchParams.get('waypoints'), 'B');
 });
