@@ -33,7 +33,7 @@ const upgrading = new Set();
 export function upgradeShareKeys(trips, uid) {
   trips.filter(t => t.ownerId === uid && String(t.shareKey || '').length < SHARE_KEY_MIN && !upgrading.has(t.id)).forEach(t => {
     upgrading.add(t.id);
-    updateDoc(doc(db, 'trips', t.id), { shareKey: newShareKey() }).catch(err => console.warn('邀請碼沒有更新', err));
+    updateDoc(doc(db, 'trips', t.id), { shareKey: newShareKey() }).catch(err => { upgrading.delete(t.id); console.warn('邀請碼沒有更新，下次資料更新時再試', err); });
   });
 }
 
