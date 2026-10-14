@@ -71,7 +71,7 @@ function statsHtml(S, st) {
   const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
     ${statCard(S, 'country', '🌍', w.visited.size + w.unmatched.length, '去過的國家', '',
-      st.countries.length ? worldHtml(w) : '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
+      w.visited.size || w.unmatched.length ? worldHtml(w) : '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
