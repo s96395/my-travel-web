@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl } from '../src/lib/itinerary.js';
+import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -66,4 +66,20 @@ test('地圖：沒有金鑰就不嵌入，一個地點用 place，兩個以上�
   const u = new URL(embedUrl(['A', 'B', 'C'], 'k'));
   assert.ok(u.pathname.endsWith('/directions'));
   assert.equal(u.searchParams.get('waypoints'), 'B');
+});
+test('地圖：地址欄貼 Google 地圖連結時，地圖直接開連結，路線改用名稱搜尋', () => {
+  const link = 'https://maps.app.goo.gl/AbC123';
+  const it = { title: '甘川洞文化村', area: '沙下區', type: 'attraction', address: link };
+  assert.ok(isMapLink(link));
+  assert.ok(isMapLink('https://www.google.com/maps/place/Gamcheon/@35.09,129.01,17z'));
+  assert.ok(!isMapLink('釜山廣域市沙下區甘內2路203'));
+  assert.ok(!isMapLink('https://evil.example/maps.app.goo.gl/x'));
+  assert.ok(!isMapLink('javascript:alert(1)'));
+  assert.ok(!isMapLink('https://www.google.com.attacker.example/maps/login'));
+  assert.ok(!isMapLink('https://google.com@evil.example/maps'));
+  assert.ok(!isMapLink('http://maps.app.goo.gl/x'));
+  assert.ok(isMapLink('https://www.google.com.tw/maps/place/x'));
+  assert.equal(placeHref(it, '釜山'), link);
+  assert.deepEqual(routeStops([it], '釜山'), ['甘川洞文化村 沙下區 釜山']);
+  assert.ok(placeHref({ ...it, address: '' }, '釜山').includes('/maps/search/'));
 });

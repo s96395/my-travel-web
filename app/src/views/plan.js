@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeQuery, placeUrl, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
@@ -21,7 +21,7 @@ function itemHtml(it, S, trip) {
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags"><span class="tag">${ITEM_ICON[it.type]} ${ITEM_LABEL[it.type]}</span>${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${it.time ? '<span class="tag warn">已預約</span>' : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeUrl(placeQuery(it, trip.city)))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}</div>
+      <div class="tags"><span class="tag">${ITEM_ICON[it.type]} ${ITEM_LABEL[it.type]}</span>${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${it.time ? '<span class="tag warn">已預約</span>' : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -111,7 +111,7 @@ export function itemFormSheet(day, it = null) {
       <div class="field"><label for="n-pri">優先度</label><select class="select" id="n-pri"><option value="">不設定</option>${PRIORITIES.map(p => `<option value="${p}" ${p === v.priority ? 'selected' : ''}>${PRIORITY_LABEL[p]}</option>`).join('')}</select></div></div>
     <div class="grid2"><div class="field"><label for="n-time">預約時間（有預約才填）</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
       <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div></div>
-    <div class="field"><label for="n-addr">地址或地點（選填，開地圖用）</label><input class="input" id="n-addr" maxlength="120" placeholder="沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
+    <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
     <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
 }
