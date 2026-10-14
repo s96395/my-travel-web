@@ -78,12 +78,16 @@ export function planMove(items, id, target) {
 }
 
 /* ---------- 地圖（規格書 F23）：每個行程可開 Google 地圖，每天串成一條路線 ---------- */
-// 有填地址用地址，沒有就用名稱＋區域＋城市搜尋
-export const placeQuery = (it, city = '') => it.address || [it.title, it.area, city].filter(Boolean).join(' ');
+// 地址欄也可以貼 Google 地圖的分享連結（含 maps.app.goo.gl 短網址）
+export const isMapLink = s => /^https:\/\/((www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+\/|maps\.app\.goo\.gl\/|goo\.gl\/maps\/)/i.test(s || '');
+// 有填地址用地址，沒有（或貼的是連結）就用名稱＋區域＋城市搜尋；連結不能放進路線網址
+export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [it.title, it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 export const routeStops = (items, city) => items.filter(onMap).map(it => placeQuery(it, city));
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+// 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
+export const placeHref = (it, city = '') => (isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));
 
 // 開啟完整路線（Google 地圖網址，不需要金鑰）；中途點 Google 最多收 9 個，超過的只留前 9 個
 export function routeUrl(stops) {
