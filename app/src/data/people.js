@@ -2,6 +2,7 @@
 import { collection, doc, getDoc, getDocs, updateDoc, deleteDoc, runTransaction, arrayUnion, arrayRemove, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { bindProblem, boundTo, nextOrder, cleanName } from '../lib/people.js';
+import { newShareKey } from './trips.js';
 
 const tripRef = id => doc(db, 'trips', id);
 
@@ -39,6 +40,8 @@ export function bindCompanion(tripId, pid, c) {
 }
 
 export const removeMember =(tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid) });
+// 建立者移除成員時同時換一組邀請碼，對方手上的舊連結就不能再加入
+export const kickMember = (tripId, uid) => updateDoc(tripRef(tripId), { memberIds: arrayRemove(uid), shareKey: newShareKey() });
 export const updateTripInfo = (tripId, form) => updateDoc(tripRef(tripId), { ...form, updatedAt: serverTimestamp() });
 
 // 帳號暱稱（共編成員名單用；讀不到時回傳空字串）
