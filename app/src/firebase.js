@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence, browserPopupRedirectResolver, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
 // mapsKey：Google 地圖嵌入用的金鑰（Maps Embed API，不收費），沒設定時只顯示開啟地圖的按鈕
 export let auth, db, envName, mapsKey = '';
@@ -11,9 +12,11 @@ export async function initFirebase() {
   if (!res.ok) throw new Error('config-missing');
   const cfg = await res.json();
   if (!cfg.projectId || !cfg.apiKey) throw new Error('config-missing');
-  const { env, emulator, mapsKey: key, ...options } = cfg;
+  const { env, emulator, appCheckSiteKey, mapsKey: key, ...options } = cfg;
   mapsKey = key || '';
   const app = initializeApp(options);
+  // App Check：設定檔有 reCAPTCHA 網站金鑰時才啟用，只讓本站送出的要求能讀寫資料
+  if (appCheckSiteKey && !emulator) initializeAppCheck(app, { provider: new ReCaptchaV3Provider(appCheckSiteKey), isTokenAutoRefreshEnabled: true });
   // 登入狀態先存 localStorage：iPhone 加到主畫面的 App 關掉再開時，IndexedDB 裡的登入狀態可能讀不到
   auth = initializeAuth(app, { persistence: [browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence], popupRedirectResolver: browserPopupRedirectResolver });
   db = getFirestore(app);
