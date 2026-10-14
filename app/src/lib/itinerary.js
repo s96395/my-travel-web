@@ -16,6 +16,7 @@ export function normalizeItem(raw) {
     order: num(raw.order),
     title: raw.title || raw.activity || '未命名行程',
     area: raw.area || raw.location || '',
+    address: raw.address || '',
     type: ITEM_TYPES.includes(raw.type) ? raw.type : 'other',
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : '',
     time: raw.reservationTime || '',
@@ -74,4 +75,29 @@ export function planMove(items, id, target) {
     });
   }
   return updates;
+}
+
+/* ---------- 地圖（規格書 F23）：每個行程可開 Google 地圖，每天串成一條路線 ---------- */
+// 有填地址用地址，沒有就用名稱＋區域＋城市搜尋
+export const placeQuery = (it, city = '') => it.address || [it.title, it.area, city].filter(Boolean).join(' ');
+// 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
+export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
+export const routeStops = (items, city) => items.filter(onMap).map(it => placeQuery(it, city));
+export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+
+// 開啟完整路線（Google 地圖網址，不需要金鑰）
+export function routeUrl(stops) {
+  if (stops.length < 2) return stops.length ? placeUrl(stops[0]) : '';
+  const p = new URLSearchParams({ api: '1', origin: stops[0], destination: stops.at(-1) });
+  if (stops.length > 2) p.set('waypoints', stops.slice(1, -1).join('|'));
+  return `https://www.google.com/maps/dir/?${p}`;
+}
+
+// 嵌入的路線小視窗（Maps Embed API，要金鑰；中途點最多 20 個）
+export function embedUrl(stops, key) {
+  if (!key || !stops.length) return '';
+  if (stops.length === 1) return `https://www.google.com/maps/embed/v1/place?${new URLSearchParams({ key, q: stops[0], language: 'zh-TW' })}`;
+  const p = new URLSearchParams({ key, origin: stops[0], destination: stops.at(-1), language: 'zh-TW' });
+  if (stops.length > 2) p.set('waypoints', stops.slice(1, -1).slice(0, 20).join('|'));
+  return `https://www.google.com/maps/embed/v1/directions?${p}`;
 }
