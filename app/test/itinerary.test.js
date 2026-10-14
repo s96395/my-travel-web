@@ -75,6 +75,10 @@ test('地圖：地址欄貼 Google 地圖連結時，地圖直接開連結，路
   assert.ok(!isMapLink('釜山廣域市沙下區甘內2路203'));
   assert.ok(!isMapLink('https://evil.example/maps.app.goo.gl/x'));
   assert.ok(!isMapLink('javascript:alert(1)'));
+  assert.ok(!isMapLink('https://www.google.com.attacker.example/maps/login'));
+  assert.ok(!isMapLink('https://google.com@evil.example/maps'));
+  assert.ok(!isMapLink('http://maps.app.goo.gl/x'));
+  assert.ok(isMapLink('https://www.google.com.tw/maps/place/x'));
   assert.equal(placeHref(it, '釜山'), link);
   assert.deepEqual(routeStops([it], '釜山'), ['甘川洞文化村 沙下區 釜山']);
   assert.ok(placeHref({ ...it, address: '' }, '釜山').includes('/maps/search/'));

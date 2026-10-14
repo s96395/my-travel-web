@@ -79,7 +79,16 @@ export function planMove(items, id, target) {
 
 /* ---------- 地圖（規格書 F23）：每個行程可開 Google 地圖，每天串成一條路線 ---------- */
 // 地址欄也可以貼 Google 地圖的分享連結（含 maps.app.goo.gl 短網址）
-export const isMapLink = s => /^https:\/\/((www\.)?google\.[a-z.]+\/maps|maps\.google\.[a-z.]+\/|maps\.app\.goo\.gl\/|goo\.gl\/maps\/)/i.test(s || '');
+const GOOGLE_HOST = /^((www|maps)\.)?google\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/;
+export function isMapLink(s) {
+  let u;
+  try { u = new URL(s); } catch { return false; }
+  if (u.protocol !== 'https:' || u.username || u.password || u.port) return false;
+  const h = u.hostname;
+  if (h === 'maps.app.goo.gl') return true;
+  if (h === 'goo.gl') return u.pathname.startsWith('/maps/');
+  return GOOGLE_HOST.test(h) && (h.startsWith('maps.') || u.pathname.startsWith('/maps'));
+}
 // 有填地址用地址，沒有（或貼的是連結）就用名稱＋區域＋城市搜尋；連結不能放進路線網址
 export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [it.title, it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
