@@ -4,6 +4,7 @@ import { scene, art, coverHtml } from '../ui/scene.js';
 import { TYPE_ICON, pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
 import { slashDate, todayString } from '../lib/dates.js';
+import { worldFootprint, countryInfo, SHAPES, DOTS } from '../lib/world.js';
 
 const ti = t => `${TYPE_ICON[t] || ''} ${t}`;
 
@@ -46,18 +47,31 @@ function statCard(S, k, ico, big, label, sub, detail) {
   </div>`;
 }
 
+// 足跡地圖：去過的國家依洲別上色，下面是各洲收集進度；國家清單也照地圖的對法合併（台灣、臺灣算同一國）
+function worldHtml(w) {
+  const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}"` : ''; };
+  const title = id => (w.visited.has(id) ? `<title>${esc(countryInfo(id).name)}・${w.visited.get(id)} 趟</title>` : '');
+  const paths = SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('');
+  const dots = DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="7"${lit(id)}>${title(id)}</circle>`).join('');
+  return `<div class="worldmap"><svg viewBox="0 4 1000 440" role="img" aria-label="去過的國家地圖">${paths}${dots}</svg></div>
+    <div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span><span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span></div>`).join('')}</div>
+    ${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
+    ${[...w.visited].sort((a, b) => b[1] - a[1]).map(([id, n]) => line('🗺️ ' + esc(countryInfo(id).name), n + ' 趟')).join('')}`;
+}
+
 const line = (l, r, extra = '') => `<div class="sr"><span>${l}</span><span class="num">${r}</span>${extra}</div>`;
 const TYPE_COLOR = { '自由行': 'var(--accent)', '潛旅': 'var(--good)', '跟團': 'var(--warm)' };
 
 function statsHtml(S, st) {
+  const w = worldFootprint(S.trips);
   const thisYear = todayString().slice(0, 4);
   const y0 = st.yearly.find(y => y.year === thisYear) || { mine: 0, unconfirmed: 0 };
   const pct = v => (st.typeTotal ? Math.round(v / st.typeTotal * 100) : 0);
   // 大字顯示花最多的類型，總金額放在展開後的合計
   const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
-    ${statCard(S, 'country', '🌍', st.countries.length, '去過的國家', '',
-      st.countries.map(c => line('🗺️ ' + esc(c[0]), c[1] + ' 趟')).join('') || '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
+    ${statCard(S, 'country', '🌍', w.visited.size + w.unmatched.length, '去過的國家', '',
+      w.visited.size || w.unmatched.length ? worldHtml(w) : '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
