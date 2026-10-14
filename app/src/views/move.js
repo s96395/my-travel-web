@@ -17,7 +17,7 @@ const secret = (S, k, v) => (!v ? '<span class="data">—</span>'
   : `<button type="button" class="secret" data-act="reveal" data-k="${esc(k)}" aria-label="${S.reveal[k] ? '再次遮蔽' : '點一下顯示'}">${S.reveal[k] ? `<span class="data">${esc(v)}</span>${EYE.off}` : `<span class="data">••••••</span>${EYE.on}`}</button>`);
 const editBtn = (S, act, id, label) => `<button type="button" class="more" data-act="${act}" data-id="${esc(id)}" ${S.offline ? 'disabled' : ''} aria-label="${label}">✏️</button>`;
 const addBtn = (S, act, label) => `<button type="button" class="btn sm" data-act="${act}" ${S.offline ? 'disabled' : ''}>${ICON.plus}${label}</button>`;
-const hm = s => (s ? s.slice(11) : '—');
+const hm = s => (s ? esc(s.slice(11)) : '—');
 const legacyTag = r => (r.legacy ? '<span class="tag">舊版資料</span>' : '');
 
 function flightCard(S, f) {
@@ -36,7 +36,7 @@ function flightCard(S, f) {
 
 function stayCard(S, s) {
   const n = nights(s);
-  const md = d => (d ? d.slice(5).replace('-', '/') : '—');
+  const md = d => (d ? esc(d.slice(5).replace('-', '/')) : '—');
   return `<article class="card stay">
     <div class="dates"><span>${md(s.checkInDate)}</span><span class="muted">→</span><span>${md(s.checkOutDate)}</span>${n > 0 ? `<span class="tag">${n} 晚</span>` : ''}${legacyTag(s)}<span style="margin-left:auto">${editBtn(S, 'stayForm', s.id, '編輯住宿')}</span></div>
     <h3 style="font-size:16px">${esc(s.name)}</h3>

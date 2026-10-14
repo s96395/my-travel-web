@@ -3,7 +3,7 @@ import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
 import { initFirebase } from './firebase.js';
 import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn, confirmIdentity, removeAccount } from './auth.js';
-import { watchMyTrips, watchExpenses, createTrip } from './data/trips.js';
+import { watchMyTrips, watchExpenses, createTrip, upgradeShareKeys } from './data/trips.js';
 import { addSampleTrips } from './data/sample.js';
 import { viewTrip } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
@@ -24,10 +24,11 @@ import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
 import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf } from './views/more.js';
 import { renderJoin } from './views/join.js';
-import { addParticipant, patchParticipants, removeMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
+import { addParticipant, patchParticipants, removeMember, kickMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
+import { buildIcs } from './lib/ics.js';
 import { accountSheet, installSheet, privacySheet, delAccountSheet, newTripSheet, readTripForm } from './views/sheets.js';
 import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
 import { shrinkImage, loadCover, saveCover } from './data/cover.js';
@@ -385,6 +386,7 @@ function startWatching(user) {
   stopTrips = watchMyTrips(user.uid, raw => {
     S.trips = raw.map(viewTrip);
     S.loadingTrips = false;
+    upgradeShareKeys(raw, user.uid);
     syncExpenseWatch();
     syncCovers();
     render();
@@ -418,6 +420,18 @@ const actions = {
   theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   install: () => installSheet(),
   privacy: () => privacySheet(),
+  exportIcs() {
+    const trip = curTrip();
+    if (!trip) return;
+    if (S.loadingItems || S.loadingMove) { toast('行程還在讀取，請稍等一下再下載'); return; }
+    const ics = buildIcs(trip, { items: S.items, flights: allFlights(S, trip), stays: allStays(S, trip) });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+    a.download = `${trip.name.replace(/[\\/:*?"<>|]/g, '')}.ics`;
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast('已下載行事曆檔，打開就能加進行事曆');
+  },
   delAccount() { if (!S.offline) delAccountSheet(); },
   async yesDelAccount(el) {
     const input = $('#delacc'), box = $('#del-err');
@@ -697,10 +711,10 @@ const actions = {
   // 更多：共編成員
   rmMember(el) {
     const trip = curTrip(), u = el.dataset.id, n = boundTo(trip.raw, u)?.name || S.userNames[u] || '這位成員';
-    confirmSheet(`移除 ${esc(n)}？`, '移除後對方馬上看不到這趟旅程。同行者名單和分攤金額都會保留。', 'yesRm', '移除', u);
+    confirmSheet(`移除 ${esc(n)}？`, '移除後對方馬上看不到這趟旅程，邀請連結也會換成新的。同行者名單和分攤金額都會保留。', 'yesRm', '移除', u);
   },
   async yesRm(el) {
-    try { await removeMember(S.tripId, el.dataset.id); closeSheet(); toast('已移除共編成員'); } catch (err) { console.error(err); toast('移除失敗，請稍後再試'); }
+    try { await kickMember(S.tripId, el.dataset.id); closeSheet(); toast('已移除共編成員，邀請連結已更換'); } catch (err) { console.error(err); toast('移除失敗，請稍後再試'); }
   },
   leaveTrip() { confirmSheet('退出這趟旅程？', '退出後你就看不到這趟旅程，之後要再加入，請建立者重新給你邀請連結。你的同行者名字和分攤金額會保留。', 'yesLeave', '退出'); },
   async yesLeave() {

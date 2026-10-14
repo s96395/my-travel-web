@@ -53,6 +53,11 @@ export function renderMore(S, trip) {
       <div class="row"><input class="input grow data" id="invite" readonly value="${esc(inviteUrl(trip))}"><button type="button" class="btn sm" data-act="copyInvite">複製</button></div>
       <span class="small muted">對方登入後，可以選擇自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
   </section>
+  <section class="card" style="display:grid;gap:8px">
+    <b>加到手機行事曆</b>
+    <p class="small muted" style="margin:0">把整趟旅程、每天的行程、班機和住宿存成行事曆檔，打開就能加進手機行事曆。訂位代號等資料不會放進去。之後行程有改，要再匯出一次。</p>
+    <button type="button" class="btn sm" data-act="exportIcs" style="justify-self:start">📅 下載行事曆檔</button>
+  </section>
   <section class="card tips">
     <b>使用小技巧</b>
     <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到天數標題上，會放在那天最後。</p>
