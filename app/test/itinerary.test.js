@@ -57,6 +57,8 @@ test('地圖：有地址用地址，沒有用名稱＋區域＋城市；交通�
   assert.equal(u.searchParams.get('waypoints'), '京都市左京區南禅寺福地町');
   assert.ok(routeUrl(stops.slice(0, 1)).includes('/maps/search/'));
   assert.equal(routeUrl([]), '');
+  const many = Array.from({ length: 14 }, (_, i) => `P${i}`);
+  assert.equal(new URL(routeUrl(many)).searchParams.get('waypoints').split('|').length, 9);
 });
 test('地圖：沒有金鑰就不嵌入，一個地點用 place，兩個以上用 directions', () => {
   assert.equal(embedUrl(['A', 'B'], ''), '');

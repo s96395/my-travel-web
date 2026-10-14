@@ -85,11 +85,11 @@ export const onMap = it => !!it.address || !['transport', 'other'].includes(it.t
 export const routeStops = (items, city) => items.filter(onMap).map(it => placeQuery(it, city));
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 
-// 開啟完整路線（Google 地圖網址，不需要金鑰）
+// 開啟完整路線（Google 地圖網址，不需要金鑰）；中途點 Google 最多收 9 個，超過的只留前 9 個
 export function routeUrl(stops) {
   if (stops.length < 2) return stops.length ? placeUrl(stops[0]) : '';
   const p = new URLSearchParams({ api: '1', origin: stops[0], destination: stops.at(-1) });
-  if (stops.length > 2) p.set('waypoints', stops.slice(1, -1).join('|'));
+  if (stops.length > 2) p.set('waypoints', stops.slice(1, -1).slice(0, 9).join('|'));
   return `https://www.google.com/maps/dir/?${p}`;
 }
 
