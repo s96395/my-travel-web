@@ -3,14 +3,16 @@ import { initializeApp } from 'firebase/app';
 import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence, browserPopupRedirectResolver, connectAuthEmulator } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 
-export let auth, db, envName;
+// mapsKey：Google 地圖嵌入用的金鑰（Maps Embed API，不收費），沒設定時只顯示開啟地圖的按鈕
+export let auth, db, envName, mapsKey = '';
 
 export async function initFirebase() {
   const res = await fetch('/firebase-config.json', { cache: 'no-store' });
   if (!res.ok) throw new Error('config-missing');
   const cfg = await res.json();
   if (!cfg.projectId || !cfg.apiKey) throw new Error('config-missing');
-  const { env, emulator, ...options } = cfg;
+  const { env, emulator, mapsKey: key, ...options } = cfg;
+  mapsKey = key || '';
   const app = initializeApp(options);
   // 登入狀態先存 localStorage：iPhone 加到主畫面的 App 關掉再開時，IndexedDB 裡的登入狀態可能讀不到
   auth = initializeAuth(app, { persistence: [browserLocalPersistence, indexedDBLocalPersistence, browserSessionPersistence], popupRedirectResolver: browserPopupRedirectResolver });
