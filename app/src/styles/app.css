@@ -581,3 +581,19 @@ textarea.input{resize:vertical;font-family:inherit}
 }
 /* 有底部分頁列時，環境標籤往上移，不要蓋住分頁 */
 body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
+
+/* ---------- 足跡地圖（去過的國家依洲別上色） ---------- */
+:root{ --k-A:#e8792b; --k-E:#7b5ea7; --k-N:#d1495b; --k-S:#2e9e5b; --k-F:#c99312; --k-O:#1f9bb5; --land:#d3dbe4 }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --k-A:#f39a55; --k-E:#a98ddb; --k-N:#ee8090; --k-S:#5cc98a; --k-F:#e8c04f; --k-O:#5cc3e0; --land:#2c3a4e } }
+:root[data-theme="dark"]{ --k-A:#f39a55; --k-E:#a98ddb; --k-N:#ee8090; --k-S:#5cc98a; --k-F:#e8c04f; --k-O:#5cc3e0; --land:#2c3a4e }
+.k-A{--kc:var(--k-A)} .k-E{--kc:var(--k-E)} .k-N{--kc:var(--k-N)} .k-S{--kc:var(--k-S)} .k-F{--kc:var(--k-F)} .k-O{--kc:var(--k-O)}
+.worldmap{background:var(--surface2);border-radius:var(--r-sm);overflow:hidden;margin:4px auto 2px;width:100%;max-width:760px}
+.worldmap svg{display:block;width:100%;height:auto}
+.worldmap path{fill:var(--land);stroke:var(--surface2);stroke-width:.6}
+.worldmap .on{fill:var(--kc)}
+.worldmap circle.on{stroke:var(--surface);stroke-width:1.5}
+.conts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 16px;margin:6px 0 4px}
+.cont{display:grid;grid-template-columns:3.6em 1fr auto;gap:8px;align-items:center;font-size:13px}
+.cont>span:first-child{color:var(--kc);font-weight:700}
+.conts .cont .bar>i{background:var(--kc)}
+.worldnote{margin:2px 0 6px}
