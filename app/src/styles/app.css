@@ -600,7 +600,12 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .whint{position:absolute;left:8px;bottom:6px;color:var(--muted);pointer-events:none}
 .wmain{display:grid;gap:10px;min-width:0}
 .worldpanel.wide{grid-template-columns:1fr 240px;gap:18px;padding:16px}
-.wlist{display:flex;flex-direction:column;overflow-y:auto;min-height:0;contain:size;padding-right:4px}
+.wlist{display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-height:0;contain:size;padding-right:4px}
+.wgroup{display:grid;gap:6px;margin:4px 0}
+.wgroup>b{font-size:13px;color:var(--kc)}
+.wchips{display:flex;flex-wrap:wrap;gap:6px}
+.wchip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 10px;border-radius:999px;font-size:13px;background:color-mix(in srgb,var(--kc) 14%,transparent);border:1px solid color-mix(in srgb,var(--kc) 35%,transparent)}
+.wchip small{min-width:20px;padding:0 6px;border-radius:999px;background:var(--kc);color:var(--surface);font-size:12px;font-weight:700;text-align:center;line-height:18px}
 .stat-d:empty{display:none}
 .device.wide .stat[data-open="true"]:has(>.stat-d:empty){grid-row:1}
 .worldpanel.wide .conts{grid-template-columns:repeat(3,1fr)}
@@ -611,5 +616,5 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .conts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 16px}
 .cont{display:grid;grid-template-columns:3.6em 1fr auto;gap:8px;align-items:center;font-size:13px}
 .cont>span:first-child{color:var(--kc);font-weight:700}
-.conts .cont .bar>i{background:var(--kc)}
+.conts .cont .bar>i,.wgroup .cont .bar>i{background:var(--kc)}
 .worldnote{margin:2px 0 6px}

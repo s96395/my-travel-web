@@ -48,14 +48,22 @@ function statCard(S, k, ico, big, label, sub, detail) {
 }
 
 // 足跡地圖：展開「去過的國家」時出現大地圖（電腦版在統計卡下方整排，手機版在卡片裡），可拖曳、放大縮小，點國家看去過幾趟
-// 國家清單照地圖的對法合併（台灣、臺灣算同一國）
+// 國家清單照地圖的對法合併（台灣、臺灣算同一國），依洲別排成小標籤，數字是去過幾趟
 const FULL = { x: 0, y: 4, w: 1000, h: 440 };
 let view = { ...FULL }; // 目前看的範圍；重畫畫面時保留
 const vb = v => `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${v.w.toFixed(1)} ${v.h.toFixed(1)}`;
 
-function worldList(w) {
+const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span>`;
+
+// withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次
+function worldList(w, withBar) {
   return `${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
-    ${[...w.visited].sort((a, b) => b[1] - a[1]).map(([id, n]) => line('🗺️ ' + esc(countryInfo(id).name), n + ' 趟')).join('')}`;
+    ${w.continents.map(c => {
+      const list = [...w.visited].filter(([id]) => countryInfo(id).cont === c.key).sort((a, b) => b[1] - a[1]);
+      if (!list.length && !withBar) return '';
+      const head = withBar ? `<div class="cont"><span>${c.name}</span>${contBar(c)}</div>` : `<b>${c.name}</b>`;
+      return `<div class="wgroup k-${c.key}">${head}${list.length ? `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>` : ''}</div>`;
+    }).join('')}`;
 }
 
 function worldPanel(w, wide) {
@@ -70,7 +78,7 @@ function worldPanel(w, wide) {
       <span class="winfo" role="status" hidden></span>
       <span class="whint small">拖曳移動・滾輪或兩指縮放・點國家看趟數</span>
     </div>
-    <div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span><span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span></div>`).join('')}</div></div>
+    ${wide ? `<div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>` : ''}</div>
     ${wide ? `<div class="wlist">${worldList(w)}</div>` : ''}
   </section>`;
 }
@@ -153,7 +161,7 @@ function statsHtml(S, st) {
   const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
     ${statCard(S, 'country', '🌍', w.visited.size + w.unmatched.length, '去過的國家', '',
-      !(w.visited.size || w.unmatched.length) ? '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>' : S.wide ? '' : worldPanel(w) + worldList(w))}
+      !(w.visited.size || w.unmatched.length) ? '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>' : S.wide ? '' : worldPanel(w) + worldList(w, true))}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
