@@ -25,22 +25,15 @@ export function renderMore(S, trip) {
   const nameOf = u => boundTo(t, u)?.name || S.userNames[u] || '讀取中…';
   return `<div class="moregrid">
   <section class="card">
-    <div class="sec-h"><h2>同行者</h2>${owner ? `<button type="button" class="btn sm" data-act="addPerson" ${off}>${ICON.plus}新增</button>` : ''}</div>
-    <p class="small muted" style="margin:4px 0 6px">只填名字就能加入（填暱稱就好），沒有帳號的人也能被分攤費用。</p>
-    <div class="pertable divide">${people.map((p, i) => `
-      <div class="r" style="${p.status === 'inactive' ? 'opacity:.55' : ''}">
-        <span class="who" style="flex-wrap:wrap">${avatar(p, i)}<span style="white-space:nowrap">${esc(p.name || '未命名')}</span>
-          ${p.uid && p.uid === t.ownerId ? '<span class="tag accent">建立者</span>' : ''}
-          ${p.uid ? '<span class="tag good">已綁定帳號</span>' : '<span class="tag">沒有帳號</span>'}
-          ${p.status === 'inactive' ? '<span class="tag warn">已停用</span>' : ''}</span>
-        ${owner ? `<span class="row" style="gap:4px">
-          ${i > 0 ? `<button type="button" class="more" data-act="moveP" data-id="${esc(p.id)}" ${off} aria-label="${esc(p.name)} 往上移">↑</button>` : ''}
-          <button type="button" class="btn sm" data-act="renameP" data-id="${esc(p.id)}" ${off}>${p.uid ? '改名' : '編輯'}</button>
-          ${p.uid && p.uid === t.ownerId ? '' : `<button type="button" class="btn sm" data-act="toggleP" data-id="${esc(p.id)}" ${off}>${p.status === 'inactive' ? '啟用' : '停用'}</button>`}
-        </span>` : ''}
-      </div>`).join('') || '<p class="small muted">還沒有同行者</p>'}</div>
+    <div class="sec-h"><h2>同行者</h2></div>
+    <div class="crew">${people.map((p, i) => {
+      const tag = p.status === 'inactive' ? '已停用' : p.uid && p.uid === t.ownerId ? '建立者' : '';
+      const inner = `${avatar(p, i)}<span class="nm">${esc(p.name || '未命名')}</span>${tag ? `<span class="sub">${tag}</span>` : ''}`;
+      return owner ? `<button type="button" class="mate${p.status === 'inactive' ? ' off' : ''}" data-act="renameP" data-id="${esc(p.id)}" ${off}>${inner}</button>`
+        : `<span class="mate${p.status === 'inactive' ? ' off' : ''}">${inner}</span>`;
+    }).join('')}${owner ? `<button type="button" class="mate add" data-act="addPerson" ${off}><span class="avatar">＋</span><span class="nm">新增</span></button>` : ''}</div>
+    <p class="small muted" style="margin:8px 0 0">虛線圈是沒有帳號的人，也能被分攤費用${owner ? '。點頭像可以改名、停用或調整順序' : ''}。</p>
     ${owner && !ownerHasP ? `<button type="button" class="btn sm" data-act="createOwnerP" ${off} style="margin-top:8px">建立我的同行者</button>` : ''}
-    <p class="small muted" style="margin:6px 0 0">停用的人不會出現在新支出的分攤名單，舊支出的金額保留。</p>
   </section>
   <section class="card">
     <div class="sec-h"><h2>共編成員</h2></div>
@@ -49,33 +42,32 @@ export function renderMore(S, trip) {
         ${owner && u !== t.ownerId ? `<button type="button" class="btn sm danger" data-act="rmMember" data-id="${esc(u)}" ${off}>移除</button>` : ''}
         ${!owner && u === uid ? `<button type="button" class="btn sm danger" data-act="leaveTrip" ${off}>退出</button>` : ''}
       </div>`).join('')}</div>
-    ${owner ? `<div class="field" style="margin-top:10px"><label for="invite">邀請連結</label>
-      <div class="row"><input class="input grow data" id="invite" readonly value="${esc(inviteUrl(trip))}"><button type="button" class="btn sm" data-act="copyInvite">複製</button></div>
-      <span class="small muted">對方登入後，可以選擇自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
+    ${owner ? `<div class="field" style="margin-top:10px">
+      <button type="button" class="btn primary" data-act="copyInvite">🔗 複製邀請連結</button>
+      <input class="input data small" id="invite" readonly value="${esc(inviteUrl(trip))}" aria-label="邀請連結">
+      <span class="small muted">傳給朋友，對方登入後選自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
   </section>
-  <section class="card" style="display:grid;gap:8px">
-    <b>加到手機行事曆</b>
-    <p class="small muted" style="margin:0">把整趟旅程、每天的行程、班機和住宿存成行事曆檔，打開就能加進手機行事曆。訂位代號等資料不會放進去。之後行程有改，要再匯出一次。</p>
-    <button type="button" class="btn sm" data-act="exportIcs" style="justify-self:start">📅 下載行事曆檔</button>
+  <section class="card menulist">
+    <button type="button" data-act="exportIcs"><span>📅</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
+    <details>
+      <summary><span>💡</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
+      <div class="tips">
+        <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
+        <p><b>離線查看</b>：按旅程標題右邊的「離線行程」，把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
+        <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
+        ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
+        <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
+      </div>
+    </details>
+    ${owner ? `<button type="button" data-act="editTrip" ${off}><span>✏️</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
+    <button type="button" class="danger" data-act="delTrip" ${off}><span>🗑️</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>` : ''}
   </section>
-  <section class="card tips">
-    <b>使用小技巧</b>
-    <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到天數標題上，會放在那天最後。</p>
-    <p><b>離線查看</b>：按旅程標題右邊的「離線行程」，把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
-    <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
-    ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
-    <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
-  </section>
-  ${owner ? `<section class="card" style="display:grid;gap:10px">
-    <b>旅程設定</b>
-    <button type="button" class="btn" data-act="editTrip" ${off}>編輯旅程名稱與日期</button>
-    <button type="button" class="btn danger" data-act="delTrip" ${off}>刪除這趟旅程</button>
-  </section>` : ''}
   </div>`;
 }
 
 // companions：常用旅伴；新增時可以直接選，沒有帳號的同行者可以綁到其中一位
-export function personSheet(p, companions = []) {
+// t：旅程資料，有傳就在下面放「往前排」「停用／啟用」
+export function personSheet(p, companions = [], t = null) {
   const act = p ? 'bindCompanion' : 'addCompanion';
   const pick = companions.length && !p?.uid ? `<div class="field"><span class="label">${p ? '綁定到常用旅伴' : '從常用旅伴加入'}</span>
     <div class="row" style="flex-wrap:wrap;gap:6px">${companions.map(c => `<button type="button" class="chip" data-act="${act}" data-id="${esc(p?.id || '')}" data-uid="${esc(c.uid)}">${esc(c.name)}</button>`).join('')}</div>
@@ -83,7 +75,12 @@ export function personSheet(p, companions = []) {
   openSheet(`${head(p ? (p.uid ? '修改同行者名字' : '編輯同行者') : '新增同行者')}
     ${pick}
     <div class="field"><label for="pp-name">${pick && !p ? '或只填名字' : '名字'}</label><input class="input" id="pp-name" maxlength="40" value="${esc(p?.name || '')}" placeholder="例如：媽媽"></div>
-    <button type="button" class="btn primary" data-act="savePerson" data-id="${esc(p?.id || '')}">${p ? '儲存名字' : '新增'}</button>`);
+    <button type="button" class="btn primary" data-act="savePerson" data-id="${esc(p?.id || '')}">${p ? '儲存名字' : '新增'}</button>
+    ${p && t ? `<div class="row">
+      ${participantsOf(t)[0]?.id !== p.id ? `<button type="button" class="btn grow" data-act="moveP" data-id="${esc(p.id)}">往前排</button>` : ''}
+      ${p.uid && p.uid === t.ownerId ? '' : `<button type="button" class="btn grow" data-act="toggleP" data-id="${esc(p.id)}">${p.status === 'inactive' ? '重新啟用' : '停用'}</button>`}
+    </div>
+    ${p.uid && p.uid === t.ownerId ? '' : '<p class="small muted" style="margin:0">停用的人不會出現在新支出的分攤名單，舊支出的金額保留。</p>'}` : ''}`);
 }
 
 export function confirmSheet(title, body, act, label, id = '') {

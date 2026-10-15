@@ -728,3 +728,23 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .tplbox{display:grid;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px}
 .tplchips{display:flex;flex-wrap:wrap;gap:6px}
 .tplchips span{background:var(--surface2);border-radius:999px;padding:3px 10px}
+
+/* ---------- 更多：同行者頭像列、選單列表 ---------- */
+.crew{display:flex;flex-wrap:wrap;gap:12px 6px;margin-top:10px}
+.mate{width:68px;display:grid;justify-items:center;gap:3px;border:0;background:none;padding:0;color:var(--fg);font-size:13px;text-align:center}
+.mate .avatar{width:48px;height:48px;font-size:17px;border-width:2px}
+.mate .nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mate .sub{font-size:11px;color:var(--muted);margin-top:-3px}
+.mate.off{opacity:.5}
+.mate.add .avatar{background:none;color:var(--muted);border:2px dashed var(--line);font-size:20px}
+button.mate:active .avatar{transform:scale(.92)}
+.menulist{display:grid;padding:4px 14px}
+.menulist>button,.menulist summary{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer;list-style:none}
+.menulist summary::-webkit-details-marker{display:none}
+.menulist>button:not(:first-child),.menulist>details:not(:first-child){border-top:1px solid var(--line)}
+.menulist .grow{flex:1;display:grid;min-width:0}
+.menulist svg{color:var(--muted);flex:none;transition:transform .2s}
+.menulist details[open] summary svg{transform:rotate(90deg)}
+.menulist details .tips{padding:0 0 12px 30px}
+.menulist .danger{color:var(--bad)}
+#invite{font-size:12px;padding:6px 10px;color:var(--muted)}

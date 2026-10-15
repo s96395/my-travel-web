@@ -676,7 +676,7 @@ const actions = {
   },
   // 更多：同行者
   addPerson() { if (!S.offline) personSheet(null, companionsOf(S, curTrip())); },
-  renameP(el) { const p = participantsOf(curTrip().raw).find(x => x.id === el.dataset.id); if (p && !S.offline) personSheet(p, companionsOf(S, curTrip())); },
+  renameP(el) { const p = participantsOf(curTrip().raw).find(x => x.id === el.dataset.id); if (p && !S.offline) personSheet(p, companionsOf(S, curTrip()), curTrip().raw); },
   // 常用旅伴：直接新增，或綁到名單上沒有帳號的那一位
   addCompanion(el) { return companionAct(el, (trip, c) => addCompanion(trip.raw, c), c => `已加入「${c.name}」`); },
   bindCompanion(el) { return companionAct(el, (trip, c) => bindCompanion(trip.id, el.dataset.id, c), c => `已綁定為「${c.name}」`); },
@@ -695,12 +695,14 @@ const actions = {
   async moveP(el) {
     const trip = curTrip(), changes = moveUp(trip.raw, el.dataset.id), fields = {};
     for (const k in changes) fields[`${k}.order`] = changes[k];
+    closeSheet();
     if (Object.keys(fields).length) await patchParticipants(trip.id, fields).catch(err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
   },
   async toggleP(el) {
     const trip = curTrip(), p = participantsOf(trip.raw).find(x => x.id === el.dataset.id);
     if (!p || (p.uid && p.uid === trip.raw.ownerId)) return;
     const next = p.status === 'inactive' ? 'active' : 'inactive';
+    closeSheet();
     try { await patchParticipants(trip.id, { [`${p.id}.status`]: next }); toast(next === 'active' ? `${p.name} 已啟用` : `${p.name} 已停用，不會出現在新支出`); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
   },
   async createOwnerP() {
