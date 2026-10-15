@@ -17,11 +17,12 @@ function dayDate(trip, d) {
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
 function itemHtml(it, S, trip) {
-  return `<div class="item" data-iid="${esc(it.id)}">
+  return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
+    <span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags"><span class="tag">${ITEM_ICON[it.type]} ${ITEM_LABEL[it.type]}</span>${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${it.time ? '<span class="tag warn">已預約</span>' : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}</div>
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -56,19 +57,31 @@ const dayList = (S, trip) => {
   return S.items.some(it => it.day === 0) ? [...list, 0] : list;
 };
 
+// 手機：上面一排日期，一次看一天（拖曳行程到日期上可以換天）
+const WD = '日一二三四五六';
+function dayPill(trip, d) {
+  if (!d) return { w: '未排', n: '?' };
+  if (!trip.start || d > tripDays(trip)) return { w: '', n: `D${d}` };
+  const dt = parseDate(trip.start);
+  dt.setDate(dt.getDate() + d - 1);
+  return { w: WD[dt.getDay()], n: dt.getDate() };
+}
+
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
+  const sel = days.includes(S.pday) ? S.pday : days[0];
+  const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
   return `
-  <div class="chips" role="group" aria-label="跳到某一天">${days.filter(Boolean).map(d => `<button type="button" class="chip" data-act="jump" data-d="${d}">第 ${d} 天</button>`).join('')}</div>
+  <div class="dpills" role="group" aria-label="選擇天數">${days.map(d => {
+    const p = dayPill(trip, d);
+    return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
+  }).join('')}</div>
   ${dragTip(S)}
-  <div class="days">${days.map(d => {
-    const open = S.days[d] ?? (d === 0);
-    const n = S.items.filter(it => it.day === d).length;
-    return `<section class="day" id="day${d}" data-open="${open}" data-dropd="${d}">
-      <button type="button" data-act="day" data-d="${d}" aria-expanded="${open}"><span class="daynum">${d ? 'D' + d : '?'}</span><h3>${esc(dayTitle(S.items, d))} <span class="small muted num" style="font-weight:400">${dayDate(trip, d)}</span></h3><span class="small muted">${n} 項</span><span class="chev">${ICON.chev}</span></button>
-      ${open ? dayItems(S, trip, d) : ''}
-    </section>`;
-  }).join('')}</div>`;
+  <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+    <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div></div>
+    ${dayItems(S, trip, sel)}
+    <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
+  </section>`;
 }
 
 function planWide(S, trip) {

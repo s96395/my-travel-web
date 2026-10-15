@@ -659,3 +659,27 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .chips label.chip{position:relative;cursor:pointer}
 .chips label.chip:has(input:checked){background:var(--fg);border-color:var(--fg);color:var(--bg);font-weight:700}
 .sheet .field>.label{letter-spacing:0;font-size:13px}
+
+/* ---------- 行程時間軸：手機一次看一天，每項用類型顏色的圓形圖示 ---------- */
+.dpills{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px}
+.dpills::-webkit-scrollbar{display:none}
+.dpill{flex:none;min-width:56px;border:2px solid transparent;border-radius:16px;background:var(--surface);color:var(--muted);padding:6px 8px;display:grid;justify-items:center;line-height:1.25;font-size:11px;box-shadow:0 4px 14px -10px var(--shade)}
+.dpill b{font-size:19px;color:var(--fg);font-weight:800}
+.dpill span:last-child{max-width:5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpill[aria-current="true"]{background:var(--warm);color:#fff}
+.dpill[aria-current="true"] b{color:#fff}
+.dpill.drop{border-color:var(--warm);border-style:dashed}
+.day>.dayhead.big{display:flex;align-items:flex-end;gap:12px;background:none;padding:4px 0 2px}
+:root:is([data-style="h"],[data-style="i"]) .dayhead.big .daynum{font-size:36px;line-height:1}
+.dayhead.big h3{font-size:19px;font-weight:800}
+.item{--k:#7b8794}
+.item[data-type="attraction"]{--k:#2a9d6e}
+.item[data-type="restaurant"]{--k:#e8792b}
+.item[data-type="cafe"]{--k:#a0703c}
+.item[data-type="shopping"]{--k:#d1477a}
+.item[data-type="transport"]{--k:#2f80c9}
+.item[data-type="stay"]{--k:#7a5bc7}
+.item .ico{position:absolute;left:-46px;top:9px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--k) 24%,var(--surface));box-shadow:0 0 0 3px var(--bg)}
+:root:is([data-style="h"],[data-style="i"]) .items{margin-left:18px;padding-left:28px}
+:root:is([data-style="h"],[data-style="i"]) .item::before{display:none}
+:root:is([data-style="h"],[data-style="i"]) .item.lifted .ico{left:-36px}
