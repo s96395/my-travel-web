@@ -71,20 +71,38 @@ function worldList(w, withBar) {
     }).join('')}`;
 }
 
-function worldPanel(w, wide) {
+function mapShapes(w, r) {
   const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}" data-wid="${id}"` : ''; };
   const title = id => (w.visited.has(id) ? `<title>${esc(countryInfo(id).name)}・${w.visited.get(id)} 趟</title>` : '');
-  const paths = SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('');
-  const r = (7 * view.w / FULL.w).toFixed(2);
-  const dots = DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"${lit(id)}>${title(id)}</circle>`).join('');
-  return `<section class="worldpanel${wide ? ' wide' : ''}" aria-label="足跡地圖"><div class="wmain">
-    <div class="worldmap"><svg viewBox="${vb(view)}" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${paths}${dots}</svg>
+  return SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('')
+    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"${lit(id)}>${title(id)}</circle>`).join('');
+}
+
+// 首頁登機證下方的足跡地圖：收起時是一條小地圖，點了展開成可拖曳、縮放的大地圖
+function worldStrip(S, w) {
+  if (!w.visited.size && !w.unmatched.length) return '';
+  const conts = w.continents.filter(c => c.got).length;
+  if (!S.stats.country) {
+    return `<button type="button" class="wstrip" data-act="stat" data-k="country" aria-expanded="false">
+      <svg ${S.wide ? 'viewBox="0 4 1000 440" preserveAspectRatio="xMaxYMid meet"' : 'viewBox="0 30 1000 300" preserveAspectRatio="xMidYMid slice"'} aria-hidden="true">${mapShapes(w, 7)}</svg>
+      <span class="ws-text"><b class="num">🌍 ${w.visited.size + w.unmatched.length}</b><span>個國家・${conts} 大洲</span></span>
+      <span class="ws-go">看足跡地圖 ${ICON.chev}</span>
+    </button>`;
+  }
+  return worldPanel(w, S.wide, conts);
+}
+
+function worldPanel(w, wide, conts) {
+  return `<section class="worldpanel${wide ? ' wide' : ''}" aria-label="足跡地圖">
+    <div class="wp-head"><h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span><button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
+    <div class="wmain">
+    <div class="worldmap"><svg viewBox="${vb(view)}" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w, (7 * view.w / FULL.w).toFixed(2))}</svg>
       <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="看整個世界">⟲</button></div>
       <span class="winfo" role="status" hidden></span>
       <span class="whint small">拖曳移動・滾輪或兩指縮放・點國家看趟數</span>
     </div>
     ${wide ? `<div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>` : ''}</div>
-    ${wide ? `<div class="wlist">${worldList(w)}</div>` : ''}
+    ${wide ? `<div class="wlist">${worldList(w)}</div>` : worldList(w, true)}
   </section>`;
 }
 
@@ -159,28 +177,18 @@ if (typeof document !== 'undefined') {
 }
 
 const line = (l, r, extra = '') => `<div class="sr"><span>${l}</span><span class="num">${r}</span>${extra}</div>`;
-const TYPE_COLOR = { '自由行': 'var(--accent)', '潛旅': 'var(--good)', '跟團': 'var(--warm)' };
 
 function statsHtml(S, st) {
-  const w = worldFootprint(S.trips);
   const thisYear = todayString().slice(0, 4);
   const y0 = st.yearly.find(y => y.year === thisYear) || { mine: 0, unconfirmed: 0 };
-  const pct = v => (st.typeTotal ? Math.round(v / st.typeTotal * 100) : 0);
-  // 大字顯示花最多的類型，總金額放在展開後的合計
-  const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
-    ${statCard(S, 'country', '🌍', w.visited.size + w.unmatched.length, '去過的國家', '',
-      !(w.visited.size || w.unmatched.length) ? '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>' : S.wide ? '' : worldPanel(w) + worldList(w, true))}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
-    ${statCard(S, 'type', top[1] ? TYPE_ICON[top[0]] : '🎒', top[1] ? `${esc(top[0])} ${pct(top[1])}%` : '$0', '旅程總支出（依類型）', top[1] ? `全部合計 $${money(st.typeTotal)}` : '',
-      st.types.map(([t, v]) => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_COLOR[t]}">$${money(v)}</b> <span class="muted">${pct(v)}%</span></span><span class="bar"><i style="width:${pct(v)}%;background:${TYPE_COLOR[t]}"></i></span></div>`).join('')
-      + `<div class="sr total"><span>全部合計</span><span class="num">$${money(st.typeTotal)}</span></div>`)}
     ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
       st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
   </section>
-  ${S.wide && S.stats.country && (w.visited.size || w.unmatched.length) ? worldPanel(w, true) : ''}`;
+`;
 }
 
 function tripCard(t, S) {
@@ -211,6 +219,7 @@ export function renderHome(S) {
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : hero(pickNextTrip(trips), S)}
+    ${loading ? '' : worldStrip(S, worldFootprint(trips))}
     ${loading ? '' : statsHtml(S, st)}
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
