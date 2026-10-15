@@ -706,3 +706,25 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .exprow .avatar.sym{background:var(--surface2);color:var(--muted)}
 .exprow .flag{color:var(--warn);font-weight:700}
 .exprow .flag.bad{color:var(--bad)}
+
+/* ---------- 待辦：進度環、圓形勾選、完成的移到下面 ---------- */
+.todohead{display:flex;align-items:center;gap:14px}
+.todohead b{font-size:17px}
+.ring{width:64px;height:64px;flex:none}
+.ring circle{fill:none;stroke:var(--surface2);stroke-width:7}
+.ring circle.on{stroke:var(--good);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .4s}
+.ring text{font-size:14px;font-weight:800;fill:var(--fg);font-family:var(--font-data)}
+.quickadd{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 5px 5px 16px}
+.quickadd input{flex:1;border:0;background:none;min-width:0;font-size:15px;padding:6px 0;outline:none}
+.quickadd:focus-within{border-color:var(--warm)}
+.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:22px;line-height:1;flex:none}
+.quickadd button[disabled]{opacity:.45}
+.todo input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
+.todo input::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg) scale(0);transition:transform .2s}
+.todo input:checked{background:var(--good);border-color:var(--good)}
+.todo input:checked::after{transform:translateY(-1px) rotate(45deg) scale(1)}
+.todo input:active{transform:scale(.88)}
+.donehead{margin-top:6px}
+.tplbox{display:grid;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px}
+.tplchips{display:flex;flex-wrap:wrap;gap:6px}
+.tplchips span{background:var(--surface2);border-radius:999px;padding:3px 10px}
