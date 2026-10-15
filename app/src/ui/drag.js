@@ -37,7 +37,7 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
       DR.target = { kind: 'item', id: tItem.dataset.iid, before };
       return;
     }
-    const dl = under.closest('.dli[data-dropd]');
+    const dl = under.closest('.dli[data-dropd], .dpill[data-dropd]');
     if (dl) { DR.line.remove(); dl.classList.add('drop'); DR.target = { kind: 'day', d: +dl.dataset.dropd }; return; }
     const day = under.closest('.day[data-dropd]');
     if (day) {

@@ -67,25 +67,42 @@ function expList(S, c) {
     </div>
     <button type="button" class="btn sm primary" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
   </div>
-  <div class="list">${list.map(e => expRow(c, e)).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
+  ${catStrip(all)}
+  <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day || '沒有日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
+}
+
+// 依新增日期分組（列表已經是新的在前）
+function groups(list) {
+  const out = [];
+  for (const e of list) {
+    const day = md(e.createdAt), g = out[out.length - 1];
+    if (g && g.day === day) { g.list.push(e); g.sum += amountOf(e); } else out.push({ day, list: [e], sum: amountOf(e) });
+  }
+  return out;
+}
+
+// 一條色條看錢花在哪一類，下面列出前四類的比例
+function catStrip(all) {
+  const cats = byCategory(all), total = cats.reduce((a, x) => a + x[1], 0);
+  if (!total) return '';
+  const pct = v => Math.round(v / total * 100);
+  return `<div class="catstrip"><div class="bar" role="img" aria-label="${esc(cats.map(x => `${x[0]} ${pct(x[1])}%`).join('、'))}">${cats.map(x => `<i style="flex:${x[1]};--k:${CAT_COLOR[x[0]] || CAT_COLOR.其他}"></i>`).join('')}</div>
+    <div class="legend small">${cats.slice(0, 4).map(x => `<span><i style="--k:${CAT_COLOR[x[0]] || CAT_COLOR.其他}"></i>${esc(x[0])} ${pct(x[1])}%</span>`).join('')}</div></div>`;
 }
 
 function expRow(c, e) {
   const s = sharesOf(e, c.people), split = isSplit(e, c.people), mode = modeOf(e, c.people);
-  const unbound = split ? c.people.filter(p => !p.uid && s[p.id]).map(p => p.name) : [];
-  const who = e.payerId === MULTI ? Object.keys(paidOf(e)).map(c.name).join('、') : c.name(e.payerId);
-  const payer = e.payerId
-    ? `<span class="tag${e.payerId === FUND ? ' accent' : ''}">${e.payerId === FUND ? '公費支付' : `${esc(who)} 付款`}</span>`
-    : '<span class="tag warn">未填付款人</span>';
-  return `<button type="button" class="exp" data-act="editExp" data-id="${esc(e.id)}">
-    <span class="cat">${esc((e.category || '其他').slice(0, 1))}</span>
-    <span class="grow" style="flex:1">
-      <span class="row"><h4 class="grow">${esc(e.name)}</h4><span class="amt num">${money(amountOf(e))}</span></span>
-      <span class="meta">${[md(e.createdAt), payMethodOf(e), e.createdByName && `${e.createdByName} 新增`].filter(Boolean).map(x => `<span>${esc(x)}</span>`).join('')}</span>
-      <span class="tags">${payer}
-        ${split ? `<span class="tag">${mode === 'equal' ? '平均' : '自訂'}・${Object.keys(s).length} 人</span>` : '<span class="tag bad">尚未分攤</span>'}
-        ${unbound.length ? `<span class="tag">含${esc(unbound.join('、'))}</span>` : ''}
-      </span>
+  const cat = e.category || '其他';
+  const payIds = e.payerId === MULTI ? Object.keys(paidOf(e)) : e.payerId ? [e.payerId] : [];
+  const payAv = id => (id === FUND ? '<span class="avatar sym">公</span>' : c.av(id));
+  const shareIds = split ? Object.keys(s).filter(id => !payIds.includes(id)) : [];
+  const note = !e.payerId ? '<span class="flag">還沒填誰付的</span>' : !split ? '<span class="flag bad">還沒分攤</span>'
+    : [e.payerId === FUND ? '公費付' : '', mode === 'equal' ? '平均' : '自訂金額', payMethodOf(e)].filter(Boolean).map(esc).join('・');
+  return `<button type="button" class="exprow" data-act="editExp" data-id="${esc(e.id)}" style="--k:${CAT_COLOR[cat] || CAT_COLOR.其他}">
+    <span class="cat" role="img" aria-label="${esc(cat)}">${CAT_ICON[cat] || '📦'}</span>
+    <span class="grow"><b>${esc(e.name)}</b><span class="small muted">${note}</span></span>
+    <span class="right"><b class="amt num">${money(amountOf(e))}</b>
+      ${payIds.length || shareIds.length ? `<span class="people" aria-label="${esc(payIds.map(c.name).join('、'))}付款${shareIds.length ? `，${esc(shareIds.map(c.name).join('、'))}分攤` : ''}">${payIds.map(id => `<span class="paid">${payAv(id)}</span>`).join('')}${shareIds.slice(0, 4).map(c.av).join('')}${shareIds.length > 4 ? `<span class="avatar sym">+${shareIds.length - 4}</span>` : ''}</span>` : ''}
     </span>
   </button>`;
 }
@@ -226,46 +243,65 @@ export function shareList(c, d) {
   return [...c.active, ...extra];
 }
 
+// 點選用的圓形按鈕（裡面是隱藏的單選或核取方塊，沿用原本的 data-f 輸入事件）
+const CAT_COLOR = { 交通: '#2f80c9', 住宿: '#7a5bc7', 餐飲: '#e8792b', 景點: '#2a9d6e', 購物: '#d1477a', '保險/簽證': '#5b6b80', 潛水費用: '#1f8fb3', 電信費: '#9a7b2f', 其他: '#7b8794' };
+const CAT_ICON = { 交通: '🚃', 住宿: '🏨', 餐飲: '🍜', 景點: '🎡', 購物: '🛍️', '保險/簽證': '🛂', 潛水費用: '🤿', 電信費: '📶', 其他: '📦' };
+const pick = (f, i, v, on, dis, icon, text) => `<label class="pick"><input type="radio" name="x-${f}" id="x-${f}-${i}" data-f="${f}" value="${esc(v)}" ${on ? 'checked' : ''} ${dis}>${icon}<span>${esc(text)}</span></label>`;
+function payerAv(c, id) {
+  if (id === FUND) return '<span class="avatar sym">公</span>';
+  if (id === MULTI) return '<span class="avatar sym">多</span>';
+  if (!id) return '<span class="avatar sym">?</span>';
+  return c.av(id);
+}
+
 export function expSheetHtml(S, trip, d) {
   const c = ctxOf(S, trip), list = shareList(c, d), dis = d.edit && !S.offline ? '' : 'disabled';
   const eq = equalSplit(num(d.amt), selected(list, d)), chk = draftCheck(d, list);
-  const payers = [['', '還不確定（不算進結算）'], ...c.active.map(p => [p.id, p.name])];
-  if (c.active.length > 1 || d.payer === MULTI) payers.push([MULTI, '多人一起付']);
+  const payers = c.active.map(p => [p.id, p.name]);
+  if (c.active.length > 1 || d.payer === MULTI) payers.push([MULTI, '多人']);
   const payIds = d.payer === MULTI ? [...c.active.map(p => p.id), ...Object.keys(d.paid).filter(k => !c.active.some(p => p.id === k))] : [];
   if (c.fund.on || d.payer === FUND) payers.push([FUND, c.fund.on ? '公費' : '公費（已關閉）']);
   if (d.payer && !payers.some(o => o[0] === d.payer)) payers.push([d.payer, c.name(d.payer)]);
-  const opt = (list2, v) => list2.map(o => `<option value="${esc(o)}" ${v === o ? 'selected' : ''}>${esc(o)}</option>`).join('');
+  payers.push(['', '還不確定']);
   const cats = CATS.includes(d.cat) ? CATS : [...CATS, d.cat], pays = PAYS.includes(d.pay) ? PAYS : [...PAYS, d.pay];
   const inactive = c.people.filter(p => p.status === 'inactive').map(p => p.name);
   return `
     ${head(d.id ? (d.edit ? '編輯支出' : '支出內容') : '記一筆支出')}
     ${d.askClose ? '<div class="confirm"><span>剛剛的修改還沒儲存，確定要離開嗎？</span><div class="row"><button type="button" class="btn sm" data-act="stayExp">繼續編輯</button><button type="button" class="btn sm danger" data-act="discardExp">不儲存，離開</button></div></div>' : ''}
-    <div class="field"><label for="x-name">名稱</label><input class="input" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="例如：錦市場午餐" ${dis}></div>
-    <div class="grid2">
-      <div class="field"><label for="x-amt">金額（新台幣）</label><input class="input data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis}></div>
-      <div class="field"><label for="x-cat">分類</label><select class="select" id="x-cat" data-f="cat" ${dis}>${opt(cats, d.cat)}</select></div>
+    <div class="amtbox">
+      <label class="label" for="x-amt">金額（新台幣）</label>
+      <input class="amtin data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis}>
+      <input class="namein" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
     </div>
-    <div class="grid2">
-      <div class="field"><label for="x-payer">誰付的錢</label><select class="select" id="x-payer" data-f="payer" ${dis}>${payers.map(o => `<option value="${esc(o[0])}" ${d.payer === o[0] ? 'selected' : ''}>${esc(o[1])}</option>`).join('')}</select></div>
-      <div class="field"><label for="x-pay">付款方式</label><select class="select" id="x-pay" data-f="pay" ${dis}>${opt(pays, d.pay)}</select></div>
+    <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || '📦'}</i>`, x)).join('')}</div>
+    <div class="field"><span class="label">誰付的錢</span>
+      <div class="picks who" role="radiogroup" aria-label="誰付的錢">${payers.map((o, i) => pick('payer', i, o[0], d.payer === o[0], dis, payerAv(c, o[0]), o[1])).join('')}</div>
+      ${d.payer ? '' : '<p class="small muted" style="margin:0">還不確定誰付的，這筆先不算進結算。</p>'}
     </div>
-    ${d.payer === MULTI ? `<div class="field"><span class="label" style="letter-spacing:0;font-size:13px">每人付了多少</span>
+    ${d.payer === MULTI ? `<div class="field"><span class="label">每人付了多少</span>
       <div class="split-who divide">${payIds.map(id => `<label class="r"><span class="grow">${esc(c.name(id))}</span>
         <input class="input" data-paid="${esc(id)}" inputmode="decimal" value="${esc(d.paid[id] ?? '')}" placeholder="0" ${dis} aria-label="${esc(c.name(id))} 付的金額"></label>`).join('')}</div>
       ${payerCheck(d).html}</div>` : ''}
-    <div class="field"><span class="label" style="letter-spacing:0;font-size:13px">費用分攤</span>
+    <div class="field"><span class="label">付款方式</span>
+      <div class="chips" role="radiogroup" aria-label="付款方式">${pays.map((x, i) => `<label class="chip"><input type="radio" name="x-pay" id="x-pay-${i}" data-f="pay" value="${esc(x)}" ${d.pay === x ? 'checked' : ''} ${dis}>${esc(x)}</label>`).join('')}</div>
+    </div>
+    <div class="field"><span class="label">費用分攤</span>
       <div class="seg" style="justify-self:start">${[['equal', '平均'], ['custom', '自訂金額'], ['none', '先不分攤']].map(m => `<button type="button" data-act="expMode" data-v="${m[0]}" aria-pressed="${d.mode === m[0]}" ${dis}>${m[1]}</button>`).join('')}</div>
     </div>
-    ${d.mode === 'none' ? '<p class="small muted" style="margin:0">這筆會標成「尚未分攤」，之後再回來補。</p>' : `
+    ${d.mode === 'none' ? '<p class="small muted" style="margin:0">這筆會標成「尚未分攤」，之後再回來補。</p>' : d.mode === 'equal' ? `
+    <div class="picks who share" aria-label="誰要分攤">${list.map((p, i) => `
+      <label class="pick"><input type="checkbox" id="x-sel-${i}" data-sel="${esc(p.id)}" ${d.sel.has(p.id) ? 'checked' : ''} ${dis}>
+        ${avatar(p, c.idx.get(p.id) ?? 0)}<span>${esc(p.name)}${p.status === 'inactive' ? '（已停用）' : p.status === 'gone' ? '（已離開）' : ''}</span>
+        <b class="num small">${d.sel.has(p.id) ? money(eq[p.id] || 0) : '不分'}</b></label>`).join('')}</div>
+    ${chk.html}` : `
     <div class="split-who divide">${list.map(p => `
       <label class="r">
         <input type="checkbox" data-sel="${esc(p.id)}" ${d.sel.has(p.id) ? 'checked' : ''} ${dis}>
         <span class="grow">${esc(p.name)}${p.uid ? '' : '<span class="tag">沒有帳號</span>'}${p.status === 'inactive' ? '<span class="tag warn">已停用</span>' : p.status === 'gone' ? '<span class="tag warn">已離開</span>' : ''}</span>
-        ${d.mode === 'equal' ? `<span class="share num">${d.sel.has(p.id) ? money(eq[p.id] || 0) : '—'}</span>`
-          : `<input class="input" data-cust="${esc(p.id)}" inputmode="decimal" value="${d.sel.has(p.id) ? esc(d.custom[p.id] ?? '') : ''}" ${d.sel.has(p.id) && !dis ? '' : 'disabled'} aria-label="${esc(p.name)} 的金額">`}
+        <input class="input" data-cust="${esc(p.id)}" inputmode="decimal" value="${d.sel.has(p.id) ? esc(d.custom[p.id] ?? '') : ''}" ${d.sel.has(p.id) && !dis ? '' : 'disabled'} aria-label="${esc(p.name)} 的金額">
       </label>`).join('')}</div>
-    ${inactive.length ? `<p class="small muted" style="margin:0">${esc(inactive.join('、'))}已停用，不列入新支出。</p>` : ''}
     ${chk.html}`}
+    ${d.mode !== 'none' && inactive.length ? `<p class="small muted" style="margin:0">${esc(inactive.join('、'))}已停用，不列入新支出。</p>` : ''}
     <div class="field"><label for="x-note">備註</label><input class="input" id="x-note" data-f="note" maxlength="200" value="${esc(d.note)}" ${dis}></div>
     ${d.confirmDel ? `<div class="confirm"><span>確定刪除「${esc(d.name)}」？刪除後無法復原。</span><div class="row"><button type="button" class="btn sm" data-act="noDelExp">取消</button><button type="button" class="btn sm danger" data-act="yesDelExp">刪除</button></div></div>` : ''}
     ${d.edit ? `<div class="row">

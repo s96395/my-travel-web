@@ -629,3 +629,122 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .cont>span:first-child{color:var(--kc);font-weight:700}
 .conts .cont .bar>i,.wgroup .cont .bar>i{background:var(--kc)}
 .worldnote{margin:2px 0 6px}
+
+/* ---------- 點選式輸入（新增視窗少打字：分類、付款人、分攤對象用圖示和頭像點選） ---------- */
+.amtbox{display:grid;justify-items:center;gap:2px;padding:2px 0 4px}
+.amtin{width:100%;border:0;background:none;text-align:center;font-size:40px;font-weight:800;line-height:1.2;padding:2px 0;color:var(--fg)}
+.amtin::placeholder{color:var(--line)}
+.namein{width:100%;border:0;border-bottom:1px dashed var(--line);background:none;text-align:center;padding:6px 4px;font-size:15px}
+.namein:focus{border-bottom-color:var(--warm);outline:none}
+.namein.lg{font-size:20px;font-weight:700;padding:8px 4px}
+.namein.err{border-bottom-color:var(--bad)}
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:4px}
+.picks.who{display:flex;overflow-x:auto;scrollbar-width:none;margin-inline:-4px}
+.picks.who::-webkit-scrollbar{display:none}
+.picks.who .pick{flex:0 0 66px}
+.pick{position:relative;display:grid;justify-items:center;align-content:start;gap:4px;padding:6px 2px;border-radius:12px;font-size:12px;line-height:1.3;color:var(--muted);text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pick input,.chips label.chip input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+.pick>i,.pick>.avatar{font-style:normal;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--surface2);border:2px solid transparent;transition:background .2s,box-shadow .2s,transform .15s}
+.pick>.avatar{font-size:15px}
+.pick>.avatar.sym{color:var(--muted)}
+.pick:active>i,.pick:active>.avatar{transform:scale(.92)}
+.pick:has(input:checked){color:var(--fg);font-weight:700}
+.pick:has(input:checked)>i{background:color-mix(in srgb,var(--warm) 20%,var(--surface));box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--warm)}
+.picks.who .pick:has(input:checked)>.avatar{background:var(--warm);border:2px solid var(--warm);color:#fff}
+.picks.share .pick:has(input:checked)>.avatar{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.picks.share .pick b{font-weight:600;color:var(--muted)}
+.picks.share .pick:has(input:checked) b{color:var(--fg)}
+.pick:has(input:focus-visible)>i,.pick:has(input:focus-visible)>.avatar,.chips label.chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.pick:has(input:disabled){cursor:default}
+.chips label.chip{position:relative;cursor:pointer}
+.chips label.chip:has(input:checked){background:var(--fg);border-color:var(--fg);color:var(--bg);font-weight:700}
+.sheet .field>.label{letter-spacing:0;font-size:13px}
+
+/* ---------- 行程時間軸：手機一次看一天，每項用類型顏色的圓形圖示 ---------- */
+.dpills{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px}
+.dpills::-webkit-scrollbar{display:none}
+.dpill{flex:none;min-width:56px;border:2px solid transparent;border-radius:16px;background:var(--surface);color:var(--muted);padding:6px 8px;display:grid;justify-items:center;line-height:1.25;font-size:11px;box-shadow:0 4px 14px -10px var(--shade)}
+.dpill b{font-size:19px;color:var(--fg);font-weight:800}
+.dpill span:last-child{max-width:5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dpill[aria-current="true"]{background:var(--warm);color:#fff}
+.dpill[aria-current="true"] b{color:#fff}
+.dpill.drop{border-color:var(--warm);border-style:dashed}
+.day>.dayhead.big{display:flex;align-items:flex-end;gap:12px;background:none;padding:4px 0 2px}
+:root:is([data-style="h"],[data-style="i"]) .dayhead.big .daynum{font-size:36px;line-height:1}
+.dayhead.big h3{font-size:19px;font-weight:800}
+.item{--k:#7b8794}
+.item[data-type="attraction"]{--k:#2a9d6e}
+.item[data-type="restaurant"]{--k:#e8792b}
+.item[data-type="cafe"]{--k:#a0703c}
+.item[data-type="shopping"]{--k:#d1477a}
+.item[data-type="transport"]{--k:#2f80c9}
+.item[data-type="stay"]{--k:#7a5bc7}
+.item .ico{position:absolute;left:-46px;top:9px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--k) 24%,var(--surface));box-shadow:0 0 0 3px var(--bg)}
+:root:is([data-style="h"],[data-style="i"]) .items{margin-left:18px;padding-left:28px}
+:root:is([data-style="h"],[data-style="i"]) .item::before{display:none}
+:root:is([data-style="h"],[data-style="i"]) .item.lifted .ico{left:-36px}
+
+/* ---------- 支出明細：依日期分組、分類色條、付款人與分攤者用小頭像 ---------- */
+.catstrip{display:grid;gap:6px}
+.catstrip .bar{display:flex;gap:2px;height:10px;border-radius:99px;overflow:hidden;background:none}
+.catstrip .bar>i,:root:is([data-style="h"],[data-style="i"]) .catstrip .bar>i{background:var(--k);min-width:3px;border-radius:0}
+.catstrip .legend{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted)}
+.catstrip .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--k);margin-right:5px}
+.exprows{gap:2px}
+.dgroup{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);padding:12px 2px 4px}
+.dgroup:first-child{padding-top:0}
+.exprow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:8px 2px;border-radius:12px;color:var(--fg)}
+.exprow:hover{background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.exprow .cat{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;font-size:19px;background:color-mix(in srgb,var(--k) 22%,var(--surface))}
+.exprow .grow{flex:1;min-width:0;display:grid}
+.exprow .grow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exprow .right{display:grid;justify-items:end;gap:3px;flex:none}
+.exprow .amt{font-family:var(--font-data);font-weight:800;font-size:15px}
+.exprow .people .avatar{width:22px;height:22px;font-size:10px;border-width:1.5px}
+.exprow .people .avatar+.avatar,.exprow .people .paid+.avatar,.exprow .people .paid+.paid{margin-left:-6px}
+.exprow .people .paid .avatar{background:var(--warm);color:#fff;border-color:var(--bg);border-style:solid}
+.exprow .avatar.sym{background:var(--surface2);color:var(--muted)}
+.exprow .flag{color:var(--warn);font-weight:700}
+.exprow .flag.bad{color:var(--bad)}
+
+/* ---------- 待辦：進度環、圓形勾選、完成的移到下面 ---------- */
+.todohead{display:flex;align-items:center;gap:14px}
+.todohead b{font-size:17px}
+.ring{width:64px;height:64px;flex:none}
+.ring circle{fill:none;stroke:var(--surface2);stroke-width:7}
+.ring circle.on{stroke:var(--good);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset .4s}
+.ring text{font-size:14px;font-weight:800;fill:var(--fg);font-family:var(--font-data)}
+.quickadd{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 5px 5px 16px}
+.quickadd input{flex:1;border:0;background:none;min-width:0;font-size:15px;padding:6px 0;outline:none}
+.quickadd:focus-within{border-color:var(--warm)}
+.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:22px;line-height:1;flex:none}
+.quickadd button[disabled]{opacity:.45}
+.todo input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
+.todo input::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg) scale(0);transition:transform .2s}
+.todo input:checked{background:var(--good);border-color:var(--good)}
+.todo input:checked::after{transform:translateY(-1px) rotate(45deg) scale(1)}
+.todo input:active{transform:scale(.88)}
+.donehead{margin-top:6px}
+.tplbox{display:grid;gap:8px;border:1px dashed var(--line);border-radius:var(--r);padding:12px 14px}
+.tplchips{display:flex;flex-wrap:wrap;gap:6px}
+.tplchips span{background:var(--surface2);border-radius:999px;padding:3px 10px}
+
+/* ---------- 更多：同行者頭像列、選單列表 ---------- */
+.crew{display:flex;flex-wrap:wrap;gap:12px 6px;margin-top:10px}
+.mate{width:68px;display:grid;justify-items:center;gap:3px;border:0;background:none;padding:0;color:var(--fg);font-size:13px;text-align:center}
+.mate .avatar{width:48px;height:48px;font-size:17px;border-width:2px}
+.mate .nm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mate .sub{font-size:11px;color:var(--muted);margin-top:-3px}
+.mate.off{opacity:.5}
+.mate.add .avatar{background:none;color:var(--muted);border:2px dashed var(--line);font-size:20px}
+button.mate:active .avatar{transform:scale(.92)}
+.menulist{display:grid;padding:4px 14px}
+.menulist>button,.menulist summary{display:flex;align-items:center;gap:12px;width:100%;border:0;background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer;list-style:none}
+.menulist summary::-webkit-details-marker{display:none}
+.menulist>button:not(:first-child),.menulist>details:not(:first-child){border-top:1px solid var(--line)}
+.menulist .grow{flex:1;display:grid;min-width:0}
+.menulist svg{color:var(--muted);flex:none;transition:transform .2s}
+.menulist details[open] summary svg{transform:rotate(90deg)}
+.menulist details .tips{padding:0 0 12px 30px}
+.menulist .danger{color:var(--bad)}
+#invite{font-size:12px;padding:6px 10px;color:var(--muted)}
