@@ -106,7 +106,7 @@ function worldStrip(S, w, hero) {
 // 拖曳、縮放直接改 SVG 的 viewBox，不重畫整頁
 const mapSvg = () => document.querySelector('.worldmap svg');
 // 最小倍數：上下剛好看到整個世界，左右不超過一圈
-const minZ = b => Math.max(1, MW / (MH * b.width / b.height));
+const minZ = b => Math.max(1, MH * b.width / b.height / MW);
 function applyCam(svg) {
   const b = svg.getBoundingClientRect(); if (!b.width || !b.height) return;
   const z0 = minZ(b);
@@ -132,14 +132,15 @@ function zoomAt(svg, k, px, py) {
 let anim = 0;
 const stopAnim = () => { if (anim) cancelAnimationFrame(anim); anim = 0; };
 // 滑到某個位置與倍數（按鈕用），有過場動畫
-function flyTo(svg, x, y, z, ms = 350) {
+function flyTo(x, y, z, ms = 350) {
   stopAnim();
   const s = { ...cam }; let dx = x - s.x; dx -= Math.round(dx / MW) * MW;
   const t0 = performance.now();
   const step = t => {
     const k = Math.min(1, (t - t0) / ms), e = 1 - (1 - k) ** 3;
     cam = { x: s.x + dx * e, y: s.y + (y - s.y) * e, z: Math.exp(Math.log(s.z) + (Math.log(z) - Math.log(s.z)) * e) };
-    applyCam(svg); anim = k < 1 ? requestAnimationFrame(step) : 0;
+    const cur = mapSvg(); if (!cur) { anim = 0; return; } // 畫面重畫後改用新的地圖
+    applyCam(cur); anim = k < 1 ? requestAnimationFrame(step) : 0;
   };
   anim = requestAnimationFrame(step);
 }
@@ -186,8 +187,10 @@ if (typeof document !== 'undefined') {
     const glide = t => {
       const dt = t - t0; t0 = t;
       v = v.map(n => n * 0.995 ** dt);
-      cam.x += v[0] * dt; cam.y += v[1] * dt; applyCam(svg);
-      anim = Math.hypot(...v) / unit(svg) > 0.02 ? requestAnimationFrame(glide) : 0;
+      cam.x += v[0] * dt; cam.y += v[1] * dt;
+      const cur = mapSvg(); if (!cur) { anim = 0; return; } // 畫面重畫後改用新的地圖
+      applyCam(cur);
+      anim = Math.hypot(...v) / unit(cur) > 0.02 ? requestAnimationFrame(glide) : 0;
     };
     anim = requestAnimationFrame(glide);
   };
@@ -207,8 +210,8 @@ if (typeof document !== 'undefined') {
     const svg = map.querySelector('svg'), info = map.querySelector('.winfo');
     if (btn) {
       const z = btn.dataset.wz;
-      if (z === 'reset') flyTo(svg, TW[0], MH / 2, minZ(svg.getBoundingClientRect()));
-      else flyTo(svg, cam.x, cam.y, cam.z * (z === 'in' ? 1.6 : 1 / 1.6));
+      if (z === 'reset') flyTo(TW[0], MH / 2, minZ(svg.getBoundingClientRect()));
+      else flyTo(cam.x, cam.y, cam.z * (z === 'in' ? 1.6 : 1 / 1.6));
       return;
     }
     if (moved) return; // 拖曳結束不算點擊
