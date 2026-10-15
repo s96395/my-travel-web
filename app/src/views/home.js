@@ -79,17 +79,20 @@ function mapShapes(w, r) {
 }
 
 // 首頁登機證下方的足跡地圖：收起時是一條小地圖，點了展開成可拖曳、縮放的大地圖
-function worldStrip(S, w) {
-  if (!w.visited.size && !w.unmatched.length) return '';
+// 手機版：收起時是一條小地圖，點了原位換成大地圖
+// 電腦版：小地圖卡和登機證左右並排，點了在下方整排展開大地圖，小地圖卡改成「收起」
+function worldStrip(S, w, hero) {
+  const has = w.visited.size || w.unmatched.length;
+  if (!has) return hero;
   const conts = w.continents.filter(c => c.got).length;
-  if (!S.stats.country) {
-    return `<button type="button" class="wstrip" data-act="stat" data-k="country" aria-expanded="false">
-      <svg ${S.wide ? 'viewBox="0 4 1000 440" preserveAspectRatio="xMaxYMid meet"' : 'viewBox="0 30 1000 300" preserveAspectRatio="xMidYMid slice"'} aria-hidden="true">${mapShapes(w, 7)}</svg>
+  const open = !!S.stats.country;
+  const strip = `<button type="button" class="wstrip" data-act="stat" data-k="country" aria-expanded="${open}">
+      <svg ${S.wide ? 'viewBox="0 4 1000 440" preserveAspectRatio="xMidYMid meet"' : 'viewBox="0 30 1000 300" preserveAspectRatio="xMidYMid slice"'} aria-hidden="true">${mapShapes(w, 7)}</svg>
       <span class="ws-text"><b class="num">🌍 ${w.visited.size + w.unmatched.length}</b><span>個國家・${conts} 大洲</span></span>
-      <span class="ws-go">看足跡地圖 ${ICON.chev}</span>
+      <span class="ws-go">${open ? '收起地圖' : '看足跡地圖'} ${ICON.chev}</span>
     </button>`;
-  }
-  return worldPanel(w, S.wide, conts);
+  if (S.wide) return `<div class="toprow">${hero}${strip}</div>${open ? worldPanel(w, true, conts) : ''}`;
+  return hero + (open ? worldPanel(w, false, conts) : strip);
 }
 
 function worldPanel(w, wide, conts) {
@@ -218,8 +221,7 @@ export function renderHome(S) {
   </header>
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
-    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : hero(pickNextTrip(trips), S)}
-    ${loading ? '' : worldStrip(S, worldFootprint(trips))}
+    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : worldStrip(S, worldFootprint(trips), hero(pickNextTrip(trips), S))}
     ${loading ? '' : statsHtml(S, st)}
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
