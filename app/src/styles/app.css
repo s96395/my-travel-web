@@ -683,3 +683,26 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 :root:is([data-style="h"],[data-style="i"]) .items{margin-left:18px;padding-left:28px}
 :root:is([data-style="h"],[data-style="i"]) .item::before{display:none}
 :root:is([data-style="h"],[data-style="i"]) .item.lifted .ico{left:-36px}
+
+/* ---------- 支出明細：依日期分組、分類色條、付款人與分攤者用小頭像 ---------- */
+.catstrip{display:grid;gap:6px}
+.catstrip .bar{display:flex;gap:2px;height:10px;border-radius:99px;overflow:hidden;background:none}
+.catstrip .bar>i,:root:is([data-style="h"],[data-style="i"]) .catstrip .bar>i{background:var(--k);min-width:3px;border-radius:0}
+.catstrip .legend{display:flex;flex-wrap:wrap;gap:4px 12px;color:var(--muted)}
+.catstrip .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--k);margin-right:5px}
+.exprows{gap:2px}
+.dgroup{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);padding:12px 2px 4px}
+.dgroup:first-child{padding-top:0}
+.exprow{display:flex;gap:12px;align-items:center;width:100%;text-align:left;border:0;background:none;padding:8px 2px;border-radius:12px;color:var(--fg)}
+.exprow:hover{background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.exprow .cat{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none;font-size:19px;background:color-mix(in srgb,var(--k) 22%,var(--surface))}
+.exprow .grow{flex:1;min-width:0;display:grid}
+.exprow .grow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exprow .right{display:grid;justify-items:end;gap:3px;flex:none}
+.exprow .amt{font-family:var(--font-data);font-weight:800;font-size:15px}
+.exprow .people .avatar{width:22px;height:22px;font-size:10px;border-width:1.5px}
+.exprow .people .avatar+.avatar,.exprow .people .paid+.avatar,.exprow .people .paid+.paid{margin-left:-6px}
+.exprow .people .paid .avatar{background:var(--warm);color:#fff;border-color:var(--bg);border-style:solid}
+.exprow .avatar.sym{background:var(--surface2);color:var(--muted)}
+.exprow .flag{color:var(--warn);font-weight:700}
+.exprow .flag.bad{color:var(--bad)}
