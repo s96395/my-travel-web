@@ -68,7 +68,7 @@ function expList(S, c) {
     <button type="button" class="btn sm primary" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
   </div>
   ${catStrip(all)}
-  <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day || '剛剛')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
+  <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day || '沒有日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
 }
 
 // 依新增日期分組（列表已經是新的在前）

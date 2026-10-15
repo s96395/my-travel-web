@@ -695,15 +695,14 @@ const actions = {
   async moveP(el) {
     const trip = curTrip(), changes = moveUp(trip.raw, el.dataset.id), fields = {};
     for (const k in changes) fields[`${k}.order`] = changes[k];
-    closeSheet();
-    if (Object.keys(fields).length) await patchParticipants(trip.id, fields).catch(err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
+    if (!Object.keys(fields).length) { closeSheet(); return; }
+    try { await patchParticipants(trip.id, fields); closeSheet(); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
   },
   async toggleP(el) {
     const trip = curTrip(), p = participantsOf(trip.raw).find(x => x.id === el.dataset.id);
     if (!p || (p.uid && p.uid === trip.raw.ownerId)) return;
     const next = p.status === 'inactive' ? 'active' : 'inactive';
-    closeSheet();
-    try { await patchParticipants(trip.id, { [`${p.id}.status`]: next }); toast(next === 'active' ? `${p.name} 已啟用` : `${p.name} 已停用，不會出現在新支出`); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
+    try { await patchParticipants(trip.id, { [`${p.id}.status`]: next }); closeSheet(); toast(next === 'active' ? `${p.name} 已啟用` : `${p.name} 已停用，不會出現在新支出`); } catch (err) { console.error(err); toast('沒有更新成功，請稍後再試'); }
   },
   async createOwnerP() {
     const trip = curTrip();
