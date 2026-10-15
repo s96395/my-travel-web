@@ -55,14 +55,19 @@ const vb = v => `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${v.w.toFixed(1)} ${v.h.toF
 
 const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span>`;
 
-// withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次
+const openConts = new Set(); // 手機版展開中的洲，重畫畫面時保留
+
+// withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次；標籤預設收起，點洲名才展開
 function worldList(w, withBar) {
+  const chips = list => `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>`;
   return `${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
     ${w.continents.map(c => {
       const list = [...w.visited].filter(([id]) => countryInfo(id).cont === c.key).sort((a, b) => b[1] - a[1]);
-      if (!list.length && !withBar) return '';
-      const head = withBar ? `<div class="cont"><span>${c.name}</span>${contBar(c)}</div>` : `<b>${c.name}</b>`;
-      return `<div class="wgroup k-${c.key}">${head}${list.length ? `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>` : ''}</div>`;
+      if (!withBar) return list.length ? `<div class="wgroup k-${c.key}"><b>${c.name}</b>${chips(list)}</div>` : '';
+      const row = `<span>${c.name}</span>${contBar(c)}`;
+      return list.length
+        ? `<details class="wgroup k-${c.key}" data-cont="${c.key}"${openConts.has(c.key) ? ' open' : ''}><summary class="cont">${row}<span class="chev">${ICON.chev}</span></summary>${chips(list)}</details>`
+        : `<div class="wgroup k-${c.key}"><div class="cont">${row}<span></span></div></div>`;
     }).join('')}`;
 }
 
@@ -101,6 +106,10 @@ function zoomAt(svg, k, px = 0.5, py = 0.5) {
 const rel = (svg, e) => { const b = svg.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; };
 
 if (typeof document !== 'undefined') {
+  document.addEventListener('toggle', e => {
+    const k = e.target.dataset?.cont;
+    if (k) e.target.open ? openConts.add(k) : openConts.delete(k);
+  }, true);
   const pts = new Map();
   let moved = false, pinch = 0;
   const svgOf = e => e.target.closest?.('.worldmap svg');

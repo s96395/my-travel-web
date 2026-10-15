@@ -602,6 +602,14 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .worldpanel.wide{grid-template-columns:1fr 240px;gap:18px;padding:16px}
 .wlist{display:flex;flex-direction:column;gap:12px;overflow-y:auto;min-height:0;contain:size;padding-right:4px}
 .wgroup{display:grid;gap:6px;margin:4px 0}
+.wgroup .cont{grid-template-columns:3.6em 1fr 4.2em 18px}
+.wgroup .cont>.num{text-align:right}
+.wgroup summary{list-style:none;cursor:pointer}
+.wgroup summary::-webkit-details-marker{display:none}
+.wgroup .chev{display:inline-grid;color:var(--muted);transition:transform .2s}
+.wgroup .chev svg{width:16px;height:16px}
+.wgroup[open] .chev{transform:rotate(90deg)}
+.wgroup[open]>.wchips{margin:2px 0 6px}
 .wgroup>b{font-size:13px;color:var(--kc)}
 .wchips{display:flex;flex-wrap:wrap;gap:6px}
 .wchip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 10px;border-radius:999px;font-size:13px;background:color-mix(in srgb,var(--kc) 14%,transparent);border:1px solid color-mix(in srgb,var(--kc) 35%,transparent)}
