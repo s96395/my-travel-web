@@ -47,11 +47,11 @@ function statCard(S, k, ico, big, label, sub, detail) {
   </div>`;
 }
 
-// 足跡地圖：展開「去過的國家」時出現大地圖（電腦版在統計卡下方整排，手機版在卡片裡），可拖曳、放大縮小，點國家看去過幾趟
-// 國家清單照地圖的對法合併（台灣、臺灣算同一國），依洲別排成小標籤，數字是去過幾趟
-const FULL = { x: 0, y: 4, w: 1000, h: 440 };
-let view = { ...FULL }; // 目前看的範圍；重畫畫面時保留
-const vb = v => `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${v.w.toFixed(1)} ${v.h.toFixed(1)}`;
+// 足跡地圖：登機證下方（電腦版在右邊並排）的地圖卡，本身就能拖曳、縮放，點國家看去過幾趟
+// 地圖左右相連，一直往同一方向拖會繞地球一圈；放手會順勢滑一段
+// 按「看明細」才展開各洲進度和國家清單；國家照地圖的對法合併（台灣、臺灣算同一國），依洲別排成小標籤，數字是去過幾趟
+const MW = 1000, MH = 501, TW = [836, 251]; // 地圖寬高；台灣的位置
+let cam = { x: TW[0], y: MH / 2, z: 0 }; // 目前看的中心點與放大倍數（0＝剛好看到整個世界）；重畫畫面時保留
 
 const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span>`;
 
@@ -71,97 +71,135 @@ function worldList(w, withBar) {
     }).join('')}`;
 }
 
-function mapShapes(w, r) {
+// 同一份世界畫三份（左、中、右）接在一起，拖到邊緣也看不出接縫
+function mapShapes(w) {
   const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}" data-wid="${id}"` : ''; };
   const title = id => (w.visited.has(id) ? `<title>${esc(countryInfo(id).name)}・${w.visited.get(id)} 趟</title>` : '');
-  return SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('')
-    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"${lit(id)}>${title(id)}</circle>`).join('');
+  const one = SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('')
+    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="7"${lit(id)}>${title(id)}</circle>`).join('');
+  return [-1, 0, 1].map(k => `<g transform="translate(${k * MW} 0)">${one}</g>`).join('');
 }
 
-// 首頁登機證下方的足跡地圖：收起時是一條小地圖，點了展開成可拖曳、縮放的大地圖
-// 手機版：收起時是一條小地圖，點了原位換成大地圖
-// 電腦版：小地圖卡和登機證左右並排，點了在下方整排展開大地圖，小地圖卡改成「收起」
 function worldStrip(S, w, hero) {
   const has = w.visited.size || w.unmatched.length;
   if (!has) return hero;
   const conts = w.continents.filter(c => c.got).length;
   const open = !!S.stats.country;
-  const strip = `<button type="button" class="wstrip" data-act="stat" data-k="country" aria-expanded="${open}">
-      <svg ${S.wide ? 'viewBox="0 4 1000 440" preserveAspectRatio="xMidYMid meet"' : 'viewBox="0 30 1000 300" preserveAspectRatio="xMidYMid slice"'} aria-hidden="true">${mapShapes(w, 7)}</svg>
-      <span class="ws-text"><b class="num">🌍 ${w.visited.size + w.unmatched.length}</b><span>個國家・${conts} 大洲</span></span>
-      <span class="ws-go">${open ? '收起地圖' : '看足跡地圖'} ${ICON.chev}</span>
-    </button>`;
-  if (S.wide) return `<div class="toprow">${hero}${strip}</div>${open ? worldPanel(w, true, conts) : ''}`;
-  return hero + (open ? worldPanel(w, false, conts) : strip);
-}
-
-function worldPanel(w, wide, conts) {
-  return `<section class="worldpanel${wide ? ' wide' : ''}" aria-label="足跡地圖">
-    <div class="wp-head"><h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span><button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
-    <div class="wmain">
-    <div class="worldmap"><svg viewBox="${vb(view)}" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w, (7 * view.w / FULL.w).toFixed(2))}</svg>
-      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="看整個世界">⟲</button></div>
+  const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
+  const card = `<section class="wcard" aria-label="足跡地圖">
+    <div class="wp-head">${title}
+      <button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
+    <div class="worldmap"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
+      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button></div>
       <span class="winfo" role="status" hidden></span>
-      <span class="whint small">拖曳移動・滾輪或兩指縮放・點國家看趟數</span>
     </div>
-    ${wide ? `<div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>` : ''}</div>
-    ${wide ? `<div class="wlist">${worldList(w)}</div>` : worldList(w, true)}
+    ${open && !S.wide ? `<div class="wdetail">${worldList(w, true)}</div>` : ''}
   </section>`;
+  if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
+  if (!S.wide) return hero + card;
+  return `<div class="toprow">${hero}${card}</div>${open ? `<section class="worldpanel wide" aria-label="去過的國家">
+    <div class="wp-head">${title}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
+    <div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>
+    <div class="wlist">${worldList(w)}</div></section>` : ''}`;
 }
 
 // 拖曳、縮放直接改 SVG 的 viewBox，不重畫整頁
-function setView(svg, v) {
-  const w = Math.min(FULL.w, Math.max(FULL.w / 16, v.w)), h = w * FULL.h / FULL.w;
-  const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
-  view = { w, h, x: Math.min(FULL.x + FULL.w - w, Math.max(FULL.x, cx - w / 2)), y: Math.min(FULL.y + FULL.h - h, Math.max(FULL.y, cy - h / 2)) };
-  svg.setAttribute('viewBox', vb(view));
-  const r = (7 * view.w / FULL.w).toFixed(2);
+const mapSvg = () => document.querySelector('.worldmap svg');
+// 最小倍數：上下剛好看到整個世界，左右不超過一圈
+const minZ = b => Math.max(1, MW / (MH * b.width / b.height));
+function applyCam(svg) {
+  const b = svg.getBoundingClientRect(); if (!b.width || !b.height) return;
+  const z0 = minZ(b);
+  cam.z = Math.min(z0 * 16, Math.max(z0, cam.z || z0));
+  const h = MH / cam.z, w = h * b.width / b.height;
+  cam.y = Math.min(MH - h / 2, Math.max(h / 2, cam.y));
+  cam.x = ((cam.x % MW) + MW) % MW;
+  svg.setAttribute('viewBox', `${(cam.x - w / 2).toFixed(1)} ${(cam.y - h / 2).toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  const r = (7 / cam.z).toFixed(2);
   svg.querySelectorAll('circle').forEach(c => c.setAttribute('r', r));
+  svg.parentNode.classList.toggle('zoomed', cam.z > z0 * 1.01); // 放大時手機上下拖動給地圖用，沒放大時讓頁面捲動
 }
+const unit = svg => MH / cam.z / svg.getBoundingClientRect().height; // 一個像素等於地圖幾單位
 // 以畫面上的某一點為中心縮放（k > 1 放大）
-function zoomAt(svg, k, px = 0.5, py = 0.5) {
-  const w = view.w / k, h = view.h / k;
-  const ax = view.x + view.w * px, ay = view.y + view.h * py;
-  setView(svg, { x: ax - w * px, y: ay - h * py, w, h });
+function zoomAt(svg, k, px, py) {
+  const b = svg.getBoundingClientRect(), u = unit(svg);
+  const mx = cam.x + (px - b.left - b.width / 2) * u, my = cam.y + (py - b.top - b.height / 2) * u;
+  const z0 = cam.z; cam.z *= k; applyCam(svg);
+  const f = z0 / cam.z;
+  cam.x = mx + (cam.x - mx) * f; cam.y = my + (cam.y - my) * f; applyCam(svg);
 }
-const rel = (svg, e) => { const b = svg.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; };
+let anim = 0;
+const stopAnim = () => { if (anim) cancelAnimationFrame(anim); anim = 0; };
+// 滑到某個位置與倍數（按鈕用），有過場動畫
+function flyTo(svg, x, y, z, ms = 350) {
+  stopAnim();
+  const s = { ...cam }; let dx = x - s.x; dx -= Math.round(dx / MW) * MW;
+  const t0 = performance.now();
+  const step = t => {
+    const k = Math.min(1, (t - t0) / ms), e = 1 - (1 - k) ** 3;
+    cam = { x: s.x + dx * e, y: s.y + (y - s.y) * e, z: Math.exp(Math.log(s.z) + (Math.log(z) - Math.log(s.z)) * e) };
+    applyCam(svg); anim = k < 1 ? requestAnimationFrame(step) : 0;
+  };
+  anim = requestAnimationFrame(step);
+}
 
 if (typeof document !== 'undefined') {
   document.addEventListener('toggle', e => {
     const k = e.target.dataset?.cont;
     if (k) e.target.open ? openConts.add(k) : openConts.delete(k);
   }, true);
+  addEventListener('resize', () => { const svg = mapSvg(); if (svg) applyCam(svg); });
   const pts = new Map();
-  let moved = false, pinch = 0;
+  let moved = false, pinch = 0, vel = [0, 0], last = 0;
   const svgOf = e => e.target.closest?.('.worldmap svg');
   document.addEventListener('pointerdown', e => {
     const svg = svgOf(e); if (!svg) return;
-    pts.set(e.pointerId, [e.clientX, e.clientY]); moved = false;
+    stopAnim();
+    pts.set(e.pointerId, [e.clientX, e.clientY]); moved = false; vel = [0, 0]; last = performance.now();
     if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
   });
   document.addEventListener('pointermove', e => {
     if (!pts.has(e.pointerId)) return;
-    const svg = document.querySelector('.worldmap svg'); if (!svg) return;
+    const svg = mapSvg(); if (!svg) return;
     const [ox, oy] = pts.get(e.pointerId);
     pts.set(e.pointerId, [e.clientX, e.clientY]);
-    const b = svg.getBoundingClientRect();
     if (pts.size === 1) {
-      const dx = e.clientX - ox, dy = e.clientY - oy;
+      const dx = e.clientX - ox, dy = e.clientY - oy, u = unit(svg), now = performance.now(), dt = Math.max(1, now - last);
       if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
-      setView(svg, { ...view, x: view.x - dx * view.w / b.width, y: view.y - dy * view.h / b.height });
+      last = now;
+      vel = [0.8 * (-dx * u / dt) + 0.2 * vel[0], 0.8 * (-dy * u / dt) + 0.2 * vel[1]];
+      cam.x -= dx * u; cam.y -= dy * u; applyCam(svg);
     } else if (pts.size === 2) {
       const [p, q] = [...pts.values()], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
-      if (pinch) zoomAt(svg, d / pinch, ((p[0] + q[0]) / 2 - b.left) / b.width, ((p[1] + q[1]) / 2 - b.top) / b.height);
-      pinch = d; moved = true;
+      if (pinch) zoomAt(svg, d / pinch, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+      pinch = d; moved = true; vel = [0, 0];
     }
   });
-  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+  // 放手時如果還在動，就順勢滑一段再慢慢停下
+  const up = e => {
+    if (!pts.delete(e.pointerId)) return;
+    if (pts.size < 2) pinch = 0;
+    const svg = mapSvg();
+    if (pts.size || !svg || e.type === 'pointercancel' || performance.now() - last > 80) return;
+    let v = [...vel], t0 = performance.now();
+    const glide = t => {
+      const dt = t - t0; t0 = t;
+      v = v.map(n => n * 0.995 ** dt);
+      cam.x += v[0] * dt; cam.y += v[1] * dt; applyCam(svg);
+      anim = Math.hypot(...v) / unit(svg) > 0.02 ? requestAnimationFrame(glide) : 0;
+    };
+    anim = requestAnimationFrame(glide);
+  };
   document.addEventListener('pointerup', up);
   document.addEventListener('pointercancel', up);
+  // 滾輪要按住 Ctrl 才縮放（觸控板兩指縮放也算），不然會擋到捲動首頁
   document.addEventListener('wheel', e => {
     const svg = svgOf(e); if (!svg) return;
-    e.preventDefault();
-    zoomAt(svg, e.deltaY < 0 ? 1.25 : 0.8, ...rel(svg, e));
+    const info = svg.parentNode.querySelector('.winfo');
+    if (!e.ctrlKey && !e.metaKey) { info.hidden = false; info.textContent = '按住 Ctrl 再滾動滑鼠可以縮放'; return; }
+    e.preventDefault(); stopAnim();
+    zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
     const btn = e.target.closest?.('[data-wz]');
@@ -169,7 +207,8 @@ if (typeof document !== 'undefined') {
     const svg = map.querySelector('svg'), info = map.querySelector('.winfo');
     if (btn) {
       const z = btn.dataset.wz;
-      if (z === 'reset') setView(svg, FULL); else zoomAt(svg, z === 'in' ? 1.6 : 1 / 1.6);
+      if (z === 'reset') flyTo(svg, TW[0], MH / 2, minZ(svg.getBoundingClientRect()));
+      else flyTo(svg, cam.x, cam.y, cam.z * (z === 'in' ? 1.6 : 1 / 1.6));
       return;
     }
     if (moved) return; // 拖曳結束不算點擊
