@@ -633,10 +633,10 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .ws-text span{font-size:13px;color:var(--muted)}
 .ws-go{white-space:nowrap;flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:2px;font-size:13px;font-weight:700;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 8px 4px 12px}
 .ws-go svg{position:static;width:14px;height:14px;opacity:1}
-.toprow{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:stretch}
+.toprow{display:grid;grid-template-columns:minmax(380px,2fr) minmax(0,3fr);gap:16px;align-items:stretch}
 .toprow .hero{height:100%}
 .device.wide .wstrip{height:auto;min-height:220px;flex-direction:column;align-items:stretch;justify-content:space-between;padding:18px}
-.device.wide .wstrip svg{inset:56px 12px 52px;width:calc(100% - 24px);height:calc(100% - 108px);opacity:1}
+.device.wide .wstrip svg{inset:52px 12px 48px;width:calc(100% - 24px);height:calc(100% - 100px);opacity:1}
 .device.wide .wstrip::before{display:none}
 .device.wide .ws-text{grid-template-columns:auto 1fr;align-items:baseline;gap:8px}
 .device.wide .ws-text b{font-size:26px}
