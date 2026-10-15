@@ -106,9 +106,10 @@ export function itemMenuSheet(S, trip, it, canDel) {
 export function itemFormSheet(day, it = null) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
-    <div class="field"><label for="n-title">名稱</label><input class="input" id="n-title" maxlength="60" placeholder="例如：南禪寺" value="${esc(v.title)}"></div>
-    <div class="grid2"><div class="field"><label for="n-type">類型</label><select class="select" id="n-type">${ITEM_TYPES.map(t => `<option value="${t}" ${t === v.type ? 'selected' : ''}>${ITEM_ICON[t]} ${ITEM_LABEL[t]}</option>`).join('')}</select></div>
-      <div class="field"><label for="n-pri">優先度</label><select class="select" id="n-pri"><option value="">不設定</option>${PRIORITIES.map(p => `<option value="${p}" ${p === v.priority ? 'selected' : ''}>${PRIORITY_LABEL[p]}</option>`).join('')}</select></div></div>
+    <input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}">
+    <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
+    <div class="field"><span class="label">優先度</span>
+      <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
     <div class="grid2"><div class="field"><label for="n-time">預約時間（有預約才填）</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
       <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
@@ -122,8 +123,8 @@ export function readItemForm() {
   if (!t.value.trim()) { t.classList.add('err'); t.focus(); return null; }
   return {
     title: t.value.trim(),
-    type: $('#n-type').value,
-    priority: $('#n-pri').value,
+    type: $('input[name="n-type"]:checked')?.value || 'other',
+    priority: $('input[name="n-pri"]:checked')?.value || '',
     reservationTime: $('#n-time').value,
     area: $('#n-area').value.trim(),
     address: $('#n-addr').value.trim(),
