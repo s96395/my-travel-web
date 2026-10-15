@@ -47,40 +47,151 @@ function statCard(S, k, ico, big, label, sub, detail) {
   </div>`;
 }
 
-// 足跡地圖：去過的國家依洲別上色，下面是各洲收集進度；國家清單也照地圖的對法合併（台灣、臺灣算同一國）
-function worldHtml(w) {
-  const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}"` : ''; };
+// 足跡地圖：展開「去過的國家」時出現大地圖（電腦版在統計卡下方整排，手機版在卡片裡），可拖曳、放大縮小，點國家看去過幾趟
+// 國家清單照地圖的對法合併（台灣、臺灣算同一國），依洲別排成小標籤，數字是去過幾趟
+const FULL = { x: 0, y: 4, w: 1000, h: 440 };
+let view = { ...FULL }; // 目前看的範圍；重畫畫面時保留
+const vb = v => `${v.x.toFixed(1)} ${v.y.toFixed(1)} ${v.w.toFixed(1)} ${v.h.toFixed(1)}`;
+
+const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span>`;
+
+const openConts = new Set(); // 手機版展開中的洲，重畫畫面時保留
+
+// withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次；標籤預設收起，點洲名才展開
+function worldList(w, withBar) {
+  const chips = list => `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>`;
+  return `${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
+    ${w.continents.map(c => {
+      const list = [...w.visited].filter(([id]) => countryInfo(id).cont === c.key).sort((a, b) => b[1] - a[1]);
+      if (!withBar) return list.length ? `<div class="wgroup k-${c.key}"><b>${c.name}</b>${chips(list)}</div>` : '';
+      const row = `<span>${c.name}</span>${contBar(c)}`;
+      return list.length
+        ? `<details class="wgroup k-${c.key}" data-cont="${c.key}"${openConts.has(c.key) ? ' open' : ''}><summary class="cont">${row}<span class="chev">${ICON.chev}</span></summary>${chips(list)}</details>`
+        : `<div class="wgroup k-${c.key}"><div class="cont">${row}<span></span></div></div>`;
+    }).join('')}`;
+}
+
+function mapShapes(w, r) {
+  const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}" data-wid="${id}"` : ''; };
   const title = id => (w.visited.has(id) ? `<title>${esc(countryInfo(id).name)}・${w.visited.get(id)} 趟</title>` : '');
-  const paths = SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('');
-  const dots = DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="7"${lit(id)}>${title(id)}</circle>`).join('');
-  return `<div class="worldmap"><svg viewBox="0 4 1000 440" role="img" aria-label="去過的國家地圖">${paths}${dots}</svg></div>
-    <div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span><span class="bar"><i style="width:${Math.round(c.got / c.total * 100)}%"></i></span><span class="num muted">${c.got} / ${c.total}</span></div>`).join('')}</div>
-    ${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
-    ${[...w.visited].sort((a, b) => b[1] - a[1]).map(([id, n]) => line('🗺️ ' + esc(countryInfo(id).name), n + ' 趟')).join('')}`;
+  return SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('')
+    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="${r}"${lit(id)}>${title(id)}</circle>`).join('');
+}
+
+// 首頁登機證下方的足跡地圖：收起時是一條小地圖，點了展開成可拖曳、縮放的大地圖
+// 手機版：收起時是一條小地圖，點了原位換成大地圖
+// 電腦版：小地圖卡和登機證左右並排，點了在下方整排展開大地圖，小地圖卡改成「收起」
+function worldStrip(S, w, hero) {
+  const has = w.visited.size || w.unmatched.length;
+  if (!has) return hero;
+  const conts = w.continents.filter(c => c.got).length;
+  const open = !!S.stats.country;
+  const strip = `<button type="button" class="wstrip" data-act="stat" data-k="country" aria-expanded="${open}">
+      <svg ${S.wide ? 'viewBox="0 4 1000 440" preserveAspectRatio="xMidYMid meet"' : 'viewBox="0 30 1000 300" preserveAspectRatio="xMidYMid slice"'} aria-hidden="true">${mapShapes(w, 7)}</svg>
+      <span class="ws-text"><b class="num">🌍 ${w.visited.size + w.unmatched.length}</b><span>個國家・${conts} 大洲</span></span>
+      <span class="ws-go">${open ? '收起地圖' : '看足跡地圖'} ${ICON.chev}</span>
+    </button>`;
+  if (S.wide) return `<div class="toprow">${hero}${strip}</div>${open ? worldPanel(w, true, conts) : ''}`;
+  return hero + (open ? worldPanel(w, false, conts) : strip);
+}
+
+function worldPanel(w, wide, conts) {
+  return `<section class="worldpanel${wide ? ' wide' : ''}" aria-label="足跡地圖">
+    <div class="wp-head"><h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span><button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
+    <div class="wmain">
+    <div class="worldmap"><svg viewBox="${vb(view)}" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w, (7 * view.w / FULL.w).toFixed(2))}</svg>
+      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="看整個世界">⟲</button></div>
+      <span class="winfo" role="status" hidden></span>
+      <span class="whint small">拖曳移動・滾輪或兩指縮放・點國家看趟數</span>
+    </div>
+    ${wide ? `<div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>` : ''}</div>
+    ${wide ? `<div class="wlist">${worldList(w)}</div>` : worldList(w, true)}
+  </section>`;
+}
+
+// 拖曳、縮放直接改 SVG 的 viewBox，不重畫整頁
+function setView(svg, v) {
+  const w = Math.min(FULL.w, Math.max(FULL.w / 16, v.w)), h = w * FULL.h / FULL.w;
+  const cx = v.x + v.w / 2, cy = v.y + v.h / 2;
+  view = { w, h, x: Math.min(FULL.x + FULL.w - w, Math.max(FULL.x, cx - w / 2)), y: Math.min(FULL.y + FULL.h - h, Math.max(FULL.y, cy - h / 2)) };
+  svg.setAttribute('viewBox', vb(view));
+  const r = (7 * view.w / FULL.w).toFixed(2);
+  svg.querySelectorAll('circle').forEach(c => c.setAttribute('r', r));
+}
+// 以畫面上的某一點為中心縮放（k > 1 放大）
+function zoomAt(svg, k, px = 0.5, py = 0.5) {
+  const w = view.w / k, h = view.h / k;
+  const ax = view.x + view.w * px, ay = view.y + view.h * py;
+  setView(svg, { x: ax - w * px, y: ay - h * py, w, h });
+}
+const rel = (svg, e) => { const b = svg.getBoundingClientRect(); return [(e.clientX - b.left) / b.width, (e.clientY - b.top) / b.height]; };
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('toggle', e => {
+    const k = e.target.dataset?.cont;
+    if (k) e.target.open ? openConts.add(k) : openConts.delete(k);
+  }, true);
+  const pts = new Map();
+  let moved = false, pinch = 0;
+  const svgOf = e => e.target.closest?.('.worldmap svg');
+  document.addEventListener('pointerdown', e => {
+    const svg = svgOf(e); if (!svg) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]); moved = false;
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); }
+  });
+  document.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    const svg = document.querySelector('.worldmap svg'); if (!svg) return;
+    const [ox, oy] = pts.get(e.pointerId);
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const b = svg.getBoundingClientRect();
+    if (pts.size === 1) {
+      const dx = e.clientX - ox, dy = e.clientY - oy;
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      setView(svg, { ...view, x: view.x - dx * view.w / b.width, y: view.y - dy * view.h / b.height });
+    } else if (pts.size === 2) {
+      const [p, q] = [...pts.values()], d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (pinch) zoomAt(svg, d / pinch, ((p[0] + q[0]) / 2 - b.left) / b.width, ((p[1] + q[1]) / 2 - b.top) / b.height);
+      pinch = d; moved = true;
+    }
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
+  document.addEventListener('pointerup', up);
+  document.addEventListener('pointercancel', up);
+  document.addEventListener('wheel', e => {
+    const svg = svgOf(e); if (!svg) return;
+    e.preventDefault();
+    zoomAt(svg, e.deltaY < 0 ? 1.25 : 0.8, ...rel(svg, e));
+  }, { passive: false });
+  document.addEventListener('click', e => {
+    const btn = e.target.closest?.('[data-wz]');
+    const map = e.target.closest?.('.worldmap'); if (!map) return;
+    const svg = map.querySelector('svg'), info = map.querySelector('.winfo');
+    if (btn) {
+      const z = btn.dataset.wz;
+      if (z === 'reset') setView(svg, FULL); else zoomAt(svg, z === 'in' ? 1.6 : 1 / 1.6);
+      return;
+    }
+    if (moved) return; // 拖曳結束不算點擊
+    const t = e.target.closest('[data-wid]');
+    info.hidden = !t;
+    if (t) info.textContent = t.querySelector('title')?.textContent || '';
+  });
 }
 
 const line = (l, r, extra = '') => `<div class="sr"><span>${l}</span><span class="num">${r}</span>${extra}</div>`;
-const TYPE_COLOR = { '自由行': 'var(--accent)', '潛旅': 'var(--good)', '跟團': 'var(--warm)' };
 
 function statsHtml(S, st) {
-  const w = worldFootprint(S.trips);
   const thisYear = todayString().slice(0, 4);
   const y0 = st.yearly.find(y => y.year === thisYear) || { mine: 0, unconfirmed: 0 };
-  const pct = v => (st.typeTotal ? Math.round(v / st.typeTotal * 100) : 0);
-  // 大字顯示花最多的類型，總金額放在展開後的合計
-  const top = st.types.reduce((a, b) => (b[1] > a[1] ? b : a), ['', 0]);
   return `<section class="stats" aria-label="統計">
-    ${statCard(S, 'country', '🌍', w.visited.size + w.unmatched.length, '去過的國家', '',
-      w.visited.size || w.unmatched.length ? worldHtml(w) : '<p class="small muted" style="margin:6px 0">還沒有已完成的旅程</p>')}
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
-    ${statCard(S, 'type', top[1] ? TYPE_ICON[top[0]] : '🎒', top[1] ? `${esc(top[0])} ${pct(top[1])}%` : '$0', '旅程總支出（依類型）', top[1] ? `全部合計 $${money(st.typeTotal)}` : '',
-      st.types.map(([t, v]) => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_COLOR[t]}">$${money(v)}</b> <span class="muted">${pct(v)}%</span></span><span class="bar"><i style="width:${pct(v)}%;background:${TYPE_COLOR[t]}"></i></span></div>`).join('')
-      + `<div class="sr total"><span>全部合計</span><span class="num">$${money(st.typeTotal)}</span></div>`)}
     ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
       st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
-  </section>`;
+  </section>
+`;
 }
 
 function tripCard(t, S) {
@@ -110,7 +221,7 @@ export function renderHome(S) {
   </header>
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
-    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : hero(pickNextTrip(trips), S)}
+    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : worldStrip(S, worldFootprint(trips), hero(pickNextTrip(trips), S))}
     ${loading ? '' : statsHtml(S, st)}
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
