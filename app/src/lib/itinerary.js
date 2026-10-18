@@ -90,7 +90,9 @@ export function isMapLink(s) {
   return GOOGLE_HOST.test(h) && (h.startsWith('maps.') || u.pathname.startsWith('/maps'));
 }
 // 有填地址用地址，沒有（或貼的是連結）就用名稱＋區域＋城市搜尋；連結不能放進路線網址
-export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [it.title, it.area, city].filter(Boolean).join(' '));
+// 名稱裡的表情符號和「｜」會讓 Google 找不到地點，搜尋前先拿掉
+const cleanName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[｜|]/g, ' ').replace(/\s+/g, ' ').trim();
+export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [cleanName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 export const routeStops = (items, city) => items.filter(onMap).map(it => placeQuery(it, city));

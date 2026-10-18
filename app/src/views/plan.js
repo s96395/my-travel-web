@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
@@ -32,26 +32,16 @@ function itemHtml(it, S, trip) {
 // 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
 const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
-// 當天路線：一顆開啟完整 Google 路線的按鈕；沒網路時不顯示
-function dayRoute(S, trip, its) {
-  const stops = routeStops(its, trip.city);
-  if (S.offline || !stops.length) return '';
-  return `<div class="maproute" style="display:grid;gap:8px">
-    <a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">🗺️ ${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>
-  </div>`;
-}
-
 // 電腦版行程右邊的大地圖：預設看當天路線，按行程的「📍 地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
 const sideMap = S => S.wide && !!mapsKey && !S.offline && !S.mapOff;
 function mapPane(S, trip, its) {
   const stops = routeStops(its, trip.city);
   const it = its.find(x => x.id === S.mapFocus && onMap(x));
   const src = embedUrl(it ? [placeQuery(it, trip.city)] : stops, mapsKey);
-  const open = it ? [placeHref(it, trip.city), '在 Google 地圖開啟'] : stops.length ? [routeUrl(stops), stops.length > 1 ? '開啟完整路線' : '在 Google 地圖開啟'] : null;
   return `<aside class="mappane" aria-label="地圖"><div class="mapstick">
     <div class="maptop"><b>${it ? `📍 ${esc(it.title)}` : '🗺️ 當天路線'}</b>
       ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}
-      ${open ? `<a class="linkbtn" href="${esc(open[0])}" target="_blank" rel="noopener">${open[1]}</a>` : ''}
+      ${it ? `<a class="linkbtn" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}
       <button type="button" class="linkbtn" data-act="mapOff">收起地圖</button></div>
     ${src ? `<iframe src="${esc(src)}" title="${it ? '地點地圖' : '當天路線地圖'}" allowfullscreen></iframe>` : '<div class="mapempty">這天還沒有可以放上地圖的地點</div>'}
   </div></aside>`;
@@ -60,7 +50,7 @@ function mapPane(S, trip, its) {
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
   return `<div class="items">${d ? `<button type="button" class="btn sm" data-act="addItem" data-d="${d}" style="justify-self:start" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增到第 ${d} 天</button>` : ''}
-    ${its.map(it => itemHtml(it, S, trip)).join('') || '<div class="empty">這天還沒有安排</div>'}${d && !sideMap(S) ? dayRoute(S, trip, its) : ''}
+    ${its.map(it => itemHtml(it, S, trip)).join('') || '<div class="empty">這天還沒有安排</div>'}
   </div>`;
 }
 

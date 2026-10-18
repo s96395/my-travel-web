@@ -83,3 +83,8 @@ test('地圖：地址欄貼 Google 地圖連結時，地圖直接開連結，路
   assert.deepEqual(routeStops([it], '釜山'), ['甘川洞文化村 沙下區 釜山']);
   assert.ok(placeHref({ ...it, address: '' }, '釜山').includes('/maps/search/'));
 });
+
+test('搜尋地點前拿掉名稱裡的表情符號和｜', () => {
+  const it = normalizeItem({ id: 'a', title: '🌶️ 東大門獵奇辣炒年糕｜廣安里店', area: '', type: 'restaurant' });
+  assert.deepEqual(routeStops([it], '釜山'), ['東大門獵奇辣炒年糕 廣安里店 釜山']);
+});
