@@ -62,7 +62,7 @@ function mapPane(S, trip, its) {
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
   return `<div class="items">${d ? `<button type="button" class="btn sm" data-act="addItem" data-d="${d}" style="justify-self:start" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增到第 ${d} 天</button>` : ''}
-    ${d && !sideMap(S) ? dayRoute(S, trip, its) : ''}${its.map(it => itemHtml(it, S, trip)).join('') || '<div class="empty">這天還沒有安排</div>'}
+    ${its.map(it => itemHtml(it, S, trip)).join('') || '<div class="empty">這天還沒有安排</div>'}${d && !sideMap(S) ? dayRoute(S, trip, its) : ''}
   </div>`;
 }
 
@@ -113,10 +113,9 @@ function planWide(S, trip) {
   <div class="planwide${side ? ' withmap' : ''}">
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${dragTip(S)}
-      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div>
-        ${showMap}</div>
+      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div>
+        <span class="row" style="gap:6px">${showMap}<button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></span></div>
       ${dayItems(S, trip, sel)}
-      <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
     </section>
     ${side}
   </div>`;

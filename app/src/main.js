@@ -89,6 +89,9 @@ function render() {
   $('#fabSlot').innerHTML = S.user && S.view === 'home' && !S.wide
     ? `<button type="button" class="fab" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>` : '';
   if (keepQ) { const q = $('#q'); q.focus(); q.setSelectionRange(...keepQ); }
+  // 日期列重畫後會回到最左邊；天數多時把選到的那天捲到中間
+  const pill = $('.dpill[aria-current="true"]');
+  if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
 }
 
 function envTag() {
