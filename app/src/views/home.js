@@ -85,7 +85,7 @@ function worldStrip(S, w, hero) {
   if (!has) return hero;
   const conts = w.continents.filter(c => c.got).length;
   const open = !!S.stats.country;
-  const title = `<h3>${ICON.globe}足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
+  const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
   const card = `<section class="wcard" aria-label="足跡地圖">
     <div class="wp-head">${title}
       <button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
