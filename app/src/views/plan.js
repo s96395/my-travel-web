@@ -43,8 +43,8 @@ const mapBox = (S, d) => {
   const pts = mapData(S, null).points;
   const none = !S.wishDocs.length;
   const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
-  // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排
-  const cta = none && !S.offline ? `<div class="mapcta"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
+  // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排；已有行程針時移到下方，不擋住針
+  const cta = none && !S.offline ? `<div class="mapcta${pts.length ? ' low' : ''}"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
 };
 function sidePane(S, trip, d) {
