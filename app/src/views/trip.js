@@ -1,8 +1,8 @@
 // 旅程內頁：上方封面與基本資訊，分頁在手機放底部、電腦放上方
-import { $, esc, ICON, openSheet } from '../ui/dom.js';
+import { $, esc, ICON, TYPE_ICO, openSheet } from '../ui/dom.js';
 import { coverHtml, coverImg, scene, STYLES } from '../ui/scene.js';
 import { monthDay } from '../lib/dates.js';
-import { TYPE_ICON, participantsOf } from '../lib/trips.js';
+import { participantsOf } from '../lib/trips.js';
 import { renderPlan } from './plan.js';
 import { renderMove } from './move.js';
 import { renderTodo } from './todo.js';
@@ -47,10 +47,10 @@ function tripHead(S, t) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   const cover = S.covers[t.id];
-  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">📷 更換封面</button><button type="button" class="btn sm" data-act="adjustCover">調整位置</button></span>`;
+  const btns = S.offline ? '' : `<span class="covbtns"><button type="button" class="btn sm" data-act="coverMenu">${ICON.camera}更換封面</button><button type="button" class="btn sm" data-act="adjustCover">調整位置</button></span>`;
   return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
   <div class="triphead">
-    <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICON[t.type]} ${esc(t.type)}</span></div>
+    <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICO[t.type] || ''}${esc(t.type)}</span></div>
     ${people.length ? `<div class="row"><div class="people">${people.map(avatar).join('')}</div><span class="small muted grow">${people.map(p => esc(p.name)).join('、')}</span></div>` : ''}
   </div>`;
 }

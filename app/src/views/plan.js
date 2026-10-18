@@ -2,8 +2,11 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
+
+// 行程類型的線條圖示
+const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe, shopping: ICON.shop, transport: ICON.train, stay: ICON.bed, other: ICON.note };
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const PRI_TAG = { must: ' bad', want: ' accent', optional: '' };
@@ -22,7 +25,7 @@ function itemHtml(it, S, trip) {
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">📍 地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">🧭 導航</a>`) : ''}</div>
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -32,14 +35,14 @@ function itemHtml(it, S, trip) {
 // 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
 const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
-// 電腦版行程右邊的大地圖：預設看當天路線，按行程的「📍 地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
+// 電腦版行程右邊的大地圖：預設看當天路線，按行程的「地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
 const sideMap = S => S.wide && !!mapsKey && !S.offline && !S.mapOff;
 function mapPane(S, trip, its) {
   const stops = routeStops(its, trip.city);
   const it = its.find(x => x.id === S.mapFocus && onMap(x));
   const src = embedUrl(it ? [placeQuery(it, trip.city)] : stops, mapsKey);
   return `<aside class="mappane" aria-label="地圖"><div class="mapstick">
-    <div class="maptop"><b>${it ? `📍 ${esc(it.title)}` : '🗺️ 當天路線'}</b>
+    <div class="maptop"><b>${it ? esc(it.title) : '當天路線'}</b>
       ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}
       ${it ? `<a class="linkbtn" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}
       <button type="button" class="linkbtn" data-act="mapOff">收起地圖</button></div>
@@ -96,7 +99,7 @@ function planWide(S, trip) {
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
   const side = sideMap(S) && sel ? mapPane(S, trip, itemsOfDay(S.items, sel)) : '';
-  const showMap = S.mapOff && mapsKey && !S.offline && sel ? '<button type="button" class="btn sm" data-act="mapOff">🗺️ 顯示地圖</button>' : '';
+  const showMap = S.mapOff && mapsKey && !S.offline && sel ? `<button type="button" class="btn sm" data-act="mapOff">${ICON.map}顯示地圖</button>` : '';
   return `${dayPills(S, trip, days, sel)}
   <div class="planwide${side ? ' withmap' : ''}">
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">

@@ -1,6 +1,6 @@
 // 支出分頁：明細、分攤、結算、公費（規格書 F50–F56、S06、S07）
 // 手機用分段切換；電腦左邊明細、右邊切換分攤或結算，公費另一頁
-import { esc, ICON, money, openSheet, $ } from '../ui/dom.js';
+import { esc, ICON, TYPE_ICO, money, openSheet, $ } from '../ui/dom.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
 import { isMember } from '../lib/people.js';
 import {
@@ -99,7 +99,7 @@ function expRow(c, e) {
   const note = !e.payerId ? '<span class="flag">還沒填誰付的</span>' : !split ? '<span class="flag bad">還沒分攤</span>'
     : [e.payerId === FUND ? '公費付' : '', mode === 'equal' ? '平均' : '自訂金額', payMethodOf(e)].filter(Boolean).map(esc).join('・');
   return `<button type="button" class="exprow" data-act="editExp" data-id="${esc(e.id)}" style="--k:${CAT_COLOR[cat] || CAT_COLOR.其他}">
-    <span class="cat" role="img" aria-label="${esc(cat)}">${CAT_ICON[cat] || '📦'}</span>
+    <span class="cat" role="img" aria-label="${esc(cat)}">${CAT_ICON[cat] || ICON.box}</span>
     <span class="grow"><b>${esc(e.name)}</b><span class="small muted">${note}</span></span>
     <span class="right"><b class="amt num">${money(amountOf(e))}</b>
       ${payIds.length || shareIds.length ? `<span class="people" aria-label="${esc(payIds.map(c.name).join('、'))}付款${shareIds.length ? `，${esc(shareIds.map(c.name).join('、'))}分攤` : ''}">${payIds.map(id => `<span class="paid">${payAv(id)}</span>`).join('')}${shareIds.slice(0, 4).map(c.av).join('')}${shareIds.length > 4 ? `<span class="avatar sym">+${shareIds.length - 4}</span>` : ''}</span>` : ''}
@@ -245,7 +245,7 @@ export function shareList(c, d) {
 
 // 點選用的圓形按鈕（裡面是隱藏的單選或核取方塊，沿用原本的 data-f 輸入事件）
 const CAT_COLOR = { 交通: '#2f80c9', 住宿: '#7a5bc7', 餐飲: '#e8792b', 景點: '#2a9d6e', 購物: '#d1477a', '保險/簽證': '#5b6b80', 潛水費用: '#1f8fb3', 電信費: '#9a7b2f', 其他: '#7b8794' };
-const CAT_ICON = { 交通: '🚃', 住宿: '🏨', 餐飲: '🍜', 景點: '🎡', 購物: '🛍️', '保險/簽證': '🛂', 潛水費用: '🤿', 電信費: '📶', 其他: '📦' };
+const CAT_ICON = { 交通: ICON.train, 住宿: ICON.bed, 餐飲: ICON.food, 景點: ICON.ticket, 購物: ICON.shop, '保險/簽證': ICON.passport, 潛水費用: TYPE_ICO['潛旅'], 電信費: ICON.signal, 其他: ICON.box };
 const pick = (f, i, v, on, dis, icon, text) => `<label class="pick"><input type="radio" name="x-${f}" id="x-${f}-${i}" data-f="${f}" value="${esc(v)}" ${on ? 'checked' : ''} ${dis}>${icon}<span>${esc(text)}</span></label>`;
 function payerAv(c, id) {
   if (id === FUND) return '<span class="avatar sym">公</span>';
@@ -273,7 +273,7 @@ export function expSheetHtml(S, trip, d) {
       <input class="amtin data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis}>
       <input class="namein" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
     </div>
-    <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || '📦'}</i>`, x)).join('')}</div>
+    <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div>
     <div class="field"><span class="label">誰付的錢</span>
       <div class="picks who" role="radiogroup" aria-label="誰付的錢">${payers.map((o, i) => pick('payer', i, o[0], d.payer === o[0], dis, payerAv(c, o[0]), o[1])).join('')}</div>
       ${d.payer ? '' : '<p class="small muted" style="margin:0">還不確定誰付的，這筆先不算進結算。</p>'}

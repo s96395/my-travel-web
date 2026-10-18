@@ -1,12 +1,12 @@
 // 首頁：下一趟登機證、四張統計、搜尋與類型篩選、依年度分組的旅程卡
-import { esc, money, ICON } from '../ui/dom.js';
+import { esc, money, ICON, TYPE_ICO } from '../ui/dom.js';
 import { scene, art, coverHtml } from '../ui/scene.js';
-import { TYPE_ICON, pickNextTrip, countdown, tripDays } from '../lib/trips.js';
+import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
 import { slashDate, todayString } from '../lib/dates.js';
 import { worldFootprint, countryInfo, SHAPES, DOTS } from '../lib/world.js';
 
-const ti = t => `${TYPE_ICON[t] || ''} ${t}`;
+const ti = t => `${TYPE_ICO[t] || ''}${t}`;
 
 function hero(next, S) {
   if (!next) {
@@ -265,6 +265,7 @@ export function renderHome(S) {
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : worldStrip(S, worldFootprint(trips), hero(pickNextTrip(trips), S))}
     ${loading ? '' : statsHtml(S, st)}
+    <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
     ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的「離線行程」。</div>' : ''}
@@ -279,6 +280,6 @@ export function renderHome(S) {
       </section>`;
     }).join('')}
     ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">篩選只影響列表，上方統計不變</p>' : ''}
-    ${S.hideInstall || S.standalone || S.visits < 2 ? '' : `<div class="install" role="note"><span aria-hidden="true">📲</span><span class="grow">可以加到手機主畫面，像 App 一樣開啟</span><button type="button" class="linkbtn" data-act="install">怎麼加</button><button type="button" class="x" data-act="hideInstall" aria-label="不再顯示">×</button></div>`}
+    ${S.hideInstall || S.standalone || S.visits < 2 ? '' : `<div class="install" role="note">${ICON.phone}<span class="grow">可以加到手機主畫面，像 App 一樣開啟</span><button type="button" class="linkbtn" data-act="install">怎麼加</button><button type="button" class="x" data-act="hideInstall" aria-label="不再顯示">×</button></div>`}
   </div>`;
 }
