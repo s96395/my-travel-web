@@ -1,6 +1,7 @@
 // 底部彈出的選單與表單：帳號、加到主畫面、新增與編輯旅程
 import { esc, openSheet, $ } from '../ui/dom.js';
 import { TRIP_TYPES, TRIP_STATUSES, TYPE_ICON } from '../lib/trips.js';
+import { countryNames, matchPlaces } from '../lib/world.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 
@@ -61,8 +62,10 @@ export function newTripSheet(trip) {
     <div class="field"><label for="nt-title">旅程名稱</label><input class="input" id="nt-title" maxlength="40" placeholder="例如：京都賞楓" value="${esc(r.title || '')}"></div>
     <div class="grid2"><div class="field"><label for="nt-start">開始</label><input class="input" id="nt-start" type="date" value="${esc(r.startDate || '')}"></div>
       <div class="field"><label for="nt-end">結束</label><input class="input" id="nt-end" type="date" value="${esc(r.endDate || '')}"></div></div>
-    <div class="grid2"><div class="field"><label for="nt-country">國家</label><input class="input" id="nt-country" maxlength="20" placeholder="日本" value="${esc(r.country || '')}"></div>
+    <div class="grid2"><div class="field"><label for="nt-country">國家</label><input class="input" id="nt-country" list="nt-countries" maxlength="40" autocomplete="off" placeholder="輸入關鍵字，例如：日" value="${esc(r.country || '')}" data-old="${esc(r.country || '')}">
+        <datalist id="nt-countries">${countryNames().map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <div class="field"><label for="nt-city">城市</label><input class="input" id="nt-city" maxlength="20" placeholder="京都" value="${esc(r.city || '')}"></div></div>
+    <p class="small muted" style="margin:0">國家要從選單挑，首頁足跡地圖才會算進去；去好幾國用頓號分開，例如：泰國、越南。${trip && !r.country ? '這趟旅程還沒填國家。' : ''}</p>
     <p class="small err-text" id="nt-err" role="alert" hidden></p>
     <button type="button" class="btn primary" data-act="${trip ? 'saveTripEdit' : 'saveTrip'}">${trip ? '儲存' : '建立旅程'}</button>`);
 }
@@ -84,6 +87,13 @@ export function readTripForm() {
   if (!form.title) return fail('nt-title', '請填旅程名稱');
   if (!form.startDate) return fail('nt-start', '請選開始日期');
   if (form.endDate < form.startDate) return fail('nt-end', '結束日期不能早於開始日期');
+  // 新旅程國家必填；舊旅程沒填或沒改過就不擋，改了才要對得到選單上的國家
+  const editing = !!$('#ntStatus');
+  if (!form.country && !editing) return fail('nt-country', '請選國家');
+  if (form.country && !(editing && form.country === $('#nt-country').dataset.old)) {
+    const m = matchPlaces(form.country);
+    if (!m.ids.length || m.unmatched.length) return fail('nt-country', `找不到「${m.unmatched[0] || form.country}」，請從選單挑國家`);
+  }
   form.status = $('#ntStatus [aria-pressed="true"]')?.dataset.t || '規劃中';
   return form;
 }
