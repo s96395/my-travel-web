@@ -25,7 +25,6 @@ export const ICON = {
   pin: ic('<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>'),
   bag: ic('<path d="M8 7V5.5A2.5 2.5 0 0 1 10.5 3h3A2.5 2.5 0 0 1 16 5.5V7"/><rect x="4.5" y="7" width="15" height="14" rx="3"/><path d="M4.5 13h15M10 13v2h4v-2"/>'),
   bus: ic('<rect x="4.5" y="3.5" width="15" height="14" rx="3"/><path d="M4.5 11h15M8 20.5v-3M16 20.5v-3"/><circle cx="8.5" cy="14.3" r=".6"/><circle cx="15.5" cy="14.3" r=".6"/>'),
-  tank: ic('<rect x="8" y="7" width="8" height="14" rx="4"/><path d="M10.5 7V4.5h3V7M13.5 4.5h3"/>'),
   train: ic('<rect x="5.5" y="3.5" width="13" height="14" rx="3"/><path d="M5.5 11h13M9 21l1.5-3.5M15 21l-1.5-3.5"/><circle cx="9" cy="14.3" r=".6"/><circle cx="15" cy="14.3" r=".6"/>'),
   bed: ic('<path d="M3 19V6M3 15h18v4M21 15v-3a3 3 0 0 0-3-3h-7v6"/><circle cx="7" cy="11.5" r="1.8"/>'),
   food: ic('<path d="M7 3v8M4.5 3v5a2.5 2.5 0 0 0 5 0V3M7 11v10"/><path d="M17 21V3c-2 1.5-3 4-3 7v3h3"/>'),

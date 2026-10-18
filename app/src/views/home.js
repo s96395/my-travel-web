@@ -230,8 +230,8 @@ function statsHtml(S, st) {
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
-    ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', ICON.tank, st.tankTotal, '累計氣瓶數', '',
-      st.tanks.length ? st.tanks.map(t => line(ICON.pin + esc(t[0]), t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
+    ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
+      st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
   </section>
 `;
 }
@@ -241,7 +241,7 @@ function tripCard(t, S) {
     ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
       <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${esc(slashDate(t.start))} – ${esc(slashDate(t.end))}</span>
-        <span class="tagrow"><span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">${ICON.tank}${t.tanks} 瓶</span>` : ''}</span></span>
+        <span class="tagrow"><span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">🫧 ${t.tanks} 瓶</span>` : ''}</span></span>
       <span class="stub"><b>${esc(t.code || (t.city || t.country || '').slice(0, 3))}</b><small>${ti(t.type)}</small></span>
     </span>
   </button>`;
