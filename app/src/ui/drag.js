@@ -1,6 +1,6 @@
 // 行程長按拖曳：按住約 0.4 秒後可拖曳，放開時回報放在哪裡（規格書 F21）
 // onDrop(id, target)：target = { kind: 'item', id, before } 或 { kind: 'day', d }
-const DR = { timer: null, el: null, id: null, sx: 0, sy: 0, active: false, line: null, target: null, raf: null, py: 0 };
+const DR = { timer: null, el: null, id: null, sx: 0, sy: 0, active: false, line: null, target: null, raf: null, px: 0, py: 0 };
 
 export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('pointerdown', e => {
@@ -25,7 +25,7 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
       if (Math.hypot(e.clientX - DR.sx, e.clientY - DR.sy) > 8) { clearTimeout(DR.timer); DR.el.classList.remove('pressing'); DR.el = null; }
       return;
     }
-    e.preventDefault(); DR.py = e.clientY;
+    e.preventDefault(); DR.px = e.clientX; DR.py = e.clientY;
     DR.el.style.transform = `translate(${e.clientX - DR.sx}px, ${e.clientY - DR.sy}px) scale(1.02)`;
     const under = document.elementFromPoint(e.clientX, e.clientY);
     if (!under) return;
@@ -57,10 +57,13 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid]')) e.preventDefault(); });
 }
 
-// 拖到畫面上下緣時自動捲動
+// 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程有自己的捲軸，拖到它的上下緣就捲它
 function autoScroll() {
   if (!DR.active) return;
-  if (DR.py < 70) window.scrollBy(0, -8); else if (DR.py > window.innerHeight - 110) window.scrollBy(0, 8);
+  const box = document.querySelector('.withmap > .day');
+  const r = box?.getBoundingClientRect();
+  if (r && DR.px >= r.left && DR.px <= r.right) { if (DR.py < r.top + 50) box.scrollBy(0, -8); else if (DR.py > r.bottom - 50) box.scrollBy(0, 8); }
+  else if (DR.py < 70) window.scrollBy(0, -8); else if (DR.py > window.innerHeight - 110) window.scrollBy(0, 8);
   DR.raf = requestAnimationFrame(autoScroll);
 }
 

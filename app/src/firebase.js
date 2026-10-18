@@ -4,7 +4,7 @@ import { initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, bro
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 
-// mapsKey：Google 地圖嵌入用的金鑰（Maps Embed API，不收費），沒設定時只顯示開啟地圖的按鈕
+// mapsKey：Google 地圖（Maps JavaScript API）用的金鑰，沒設定時地圖區塊只顯示提示
 export let auth, db, envName, mapsKey = '';
 
 export async function initFirebase() {
