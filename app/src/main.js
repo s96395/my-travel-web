@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData } from './views/plan.js';
 import { parseSavedList, findCoords } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
@@ -56,7 +56,7 @@ const S = {
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
-  side: store.get('side') === 'map' ? 'map' : 'wish', mapFocus: '', // 電腦版右半邊在看清單或地圖、地圖正在看哪個地點
+  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
@@ -94,6 +94,8 @@ function render() {
   // 日期列重畫後會回到最左邊；天數多時把選到的那天捲到中間
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
+  // 地圖只在用到時才載入
+  if ($('#mapslot')) import('./ui/map.js').then(m => { const t = curTrip(); if (t) m.syncMap($('#mapslot'), mapData(S, t), el => actions[el.dataset.act]?.(el)); });
 }
 
 function envTag() {
@@ -540,7 +542,10 @@ const actions = {
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
-  mapFocus(el) { S.mapFocus = el.dataset.id || ''; if (S.mapFocus) S.side = 'map'; render(); },
+  mapFocus(el) {
+    // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
+    if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
+    S.mapFocus = el.dataset.id || ''; if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
   mside(el) { S.mside = el.dataset.v; render(); window.scrollTo(0, 0); },
   jump(el) {

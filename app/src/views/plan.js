@@ -2,9 +2,8 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl, isMapLink } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
-import { mapsKey } from '../firebase.js';
 
 // 行程類型的線條圖示
 const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe, shopping: ICON.shop, transport: ICON.train, stay: ICON.bed, other: ICON.note };
@@ -26,7 +25,7 @@ function itemHtml(it, S, trip) {
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -36,25 +35,32 @@ function itemHtml(it, S, trip) {
 // 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
 const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
-// 電腦版右半邊：「想去清單｜地圖」兩個分頁；按行程或清單上的「地圖」會換到地圖分頁看那個地點
+// 電腦版右半邊：「地圖｜清單」兩個分頁。地圖上想去清單和當天行程（編號）都插針，點針可加到這天或開 Google 地圖
 const sideMap = S => S.wide && !S.offline;
+const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
+const mapBox = (S, d) => {
+  const pts = mapData(S, null).points;
+  return `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '行程'}<i class="dot wish"></i>想去清單${pts.length ? '' : '・還沒有可以插針的地點，匯入收藏後就會出現'}</p><div id="mapslot" class="mapslot"></div>`;
+};
 function sidePane(S, trip, d) {
+  const tab = S.side === 'list' ? 'list' : 'map';
+  const tabs = `<div class="seg" role="tablist">${[['map', '地圖'], ['list', `想去清單 ${wishLeft(S).length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
+  return `<aside class="mappane" aria-label="${tab === 'map' ? '地圖' : '想去清單'}"><div class="mapstick${tab === 'list' ? ' liststick' : ''}">
+    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${tab === 'list' && d && wishLeft(S).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>
+    ${tab === 'map' ? mapBox(S, d) : `<div class="wishpane">${wishPanel(S, trip, d)}</div>`}
+  </div></aside>`;
+}
+
+// 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單只放還沒排的
+export function mapData(S, trip) {
+  const days = trip ? dayList(S, trip) : [];
+  const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
   const its = itemsOfDay(S.items, d);
-  const tab = S.side === 'map' ? 'map' : 'wish';
-  const tabs = `<div class="seg" role="tablist">${[['wish', `想去清單 ${wishLeft(S).length || ''}`], ['map', '地圖']].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
-  if (tab === 'wish') return `<aside class="mappane" aria-label="想去清單"><div class="mapstick">
-    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${d && wishLeft(S).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>
-    <div class="wishpane">${wishPanel(S, trip, d)}</div>
-  </div></aside>`;
-  const w = S.mapFocus.startsWith('w:') ? S.wishDocs.find(p => 'w:' + p.id === S.mapFocus) : null;
-  const it = w ? { ...w, address: w.url } : its.find(x => x.id === S.mapFocus && onMap(x));
-  const src = embedUrl(it ? [Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, trip.city)] : routeStops(its, trip.city), mapsKey);
-  return `<aside class="mappane" aria-label="地圖"><div class="mapstick">
-    <div class="maptop">${tabs}<b>${it ? esc(it.title) : '當天路線'}</b>
-      ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}
-      ${it ? `<a class="linkbtn" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>
-    ${src ? `<iframe src="${esc(src)}" title="${it ? '地點地圖' : '當天路線地圖'}" allowfullscreen></iframe>` : `<div class="mapempty">${mapsKey ? '這天還沒有可以放上地圖的地點' : '要設定 Google 地圖金鑰才能顯示地圖'}</div>`}
-  </div></aside>`;
+  const points = [
+    ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: `第 ${d} 天第 ${n} 個`, url: isMapLink(it.address) ? it.address : '' })),
+    ...nearDay(wishLeft(S), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
+  ];
+  return { points, fit: `${S.tripId}:${d}:${points.length}`, focus: S.mapFocus };
 }
 
 function dayItems(S, trip, d) {
@@ -75,7 +81,7 @@ function wishPanel(S, trip, d) {
   if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進行程了。</p>`;
   return `${count}<div class="wishes">${nearDay(left, itemsOfDay(S.items, d)).map(p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
       <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
-      ${S.offline ? '' : sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>` : `<a class="tag" href="${esc(p.url)}" target="_blank" rel="noopener">${ICON.pin}導航</a>`}
+      ${S.offline || !hasXY(p) ? '' : `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>`}
       ${d ? `<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到第 ${d} 天</button>` : ''}
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`).join('')}</div>`;
@@ -116,7 +122,7 @@ function planNarrow(S, trip) {
   const wish = S.mside === 'wish' && !S.offline;
   const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${wishLeft(S).length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
   if (wish) return `${dayPills(S, trip, days, sel)}${seg}
-  <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>${wishPanel(S, trip, sel)}</section>`;
+  <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>${mapBox(S, sel)}${wishPanel(S, trip, sel)}</section>`;
   return `
   ${dayPills(S, trip, days, sel)}
   ${seg}
@@ -128,7 +134,7 @@ function planNarrow(S, trip) {
   </section>`;
 }
 
-// 電腦：上面一排日期，下面左邊看那一天、右邊是想去清單和地圖
+// 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
 function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
