@@ -2,8 +2,11 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
+
+// 行程類型的線條圖示
+const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe, shopping: ICON.shop, transport: ICON.train, stay: ICON.bed, other: ICON.note };
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const PRI_TAG = { must: ' bad', want: ' accent', optional: '' };
@@ -22,7 +25,7 @@ function itemHtml(it, S, trip) {
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : ''}</div>
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -39,7 +42,7 @@ function dayRoute(S, trip, its) {
   const embed = embedUrl(stops, mapsKey);
   return `<div class="maproute" style="display:grid;gap:8px">
     ${embed ? `<iframe src="${esc(embed)}" title="當天路線地圖" loading="lazy" allowfullscreen style="width:100%;height:220px;border:0;border-radius:12px"></iframe>` : ''}
-    <a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">🗺️ ${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>
+    <a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">${ICON.map}${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>
   </div>`;
 }
 
