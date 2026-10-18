@@ -25,11 +25,14 @@ const COLS = { title: ['標題', 'title'], note: ['筆記', 'note'], url: ['網�
 
 // 回傳 [{ title, note, url }]；不是清單格式時回傳 null
 export function parseSavedList(text) {
-  const [head, ...rows] = parseCsv(text);
-  if (!head) return null;
+  // 清單有說明時，Google 會把說明放在第一行，欄位名稱在後面幾行
+  const all = parseCsv(text);
+  const col = (row, names) => row.findIndex(h => names.includes(h.trim().toLowerCase()));
+  const at = all.slice(0, 5).findIndex(r => col(r, COLS.title) >= 0 && col(r, COLS.url) >= 0);
+  if (at < 0) return null;
+  const head = all[at], rows = all.slice(at + 1);
   const idx = {};
-  for (const [k, names] of Object.entries(COLS)) idx[k] = head.findIndex(h => names.includes(h.trim().toLowerCase()));
-  if (idx.title < 0 || idx.url < 0) return null;
+  for (const [k, names] of Object.entries(COLS)) idx[k] = col(head, names);
   return rows
     .map(r => ({ title: (r[idx.title] || '').trim(), note: idx.note < 0 ? '' : (r[idx.note] || '').trim(), url: (r[idx.url] || '').trim() }))
     .filter(p => p.title && /^https:\/\//.test(p.url));

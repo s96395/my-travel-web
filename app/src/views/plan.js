@@ -46,21 +46,21 @@ const mapBox = (S, d) => {
 };
 function sidePane(S, trip, d) {
   const tab = S.side === 'list' ? 'list' : 'map';
-  const tabs = `<div class="seg" role="tablist">${[['map', '地圖'], ['list', `想去清單 ${wishLeft(S).length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg" role="tablist">${[['map', '地圖'], ['list', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
   return `<aside class="mappane" aria-label="${tab === 'map' ? '地圖' : '想去清單'}"><div class="mapstick${tab === 'list' ? ' liststick' : ''}">
-    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${tab === 'list' && d && wishLeft(S).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>
+    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${tab === 'list' && d && wishLeft(S, d).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>
     ${tab === 'map' ? mapBox(S, d) : `<div class="wishpane">${wishPanel(S, trip, d)}</div>`}
   </div></aside>`;
 }
 
-// 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單只放還沒排的
+// 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單放還沒排進這天的
 export function mapData(S, trip) {
   const days = trip ? dayList(S, trip) : [];
   const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
   const its = itemsOfDay(S.items, d);
   const points = [
     ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${n} 個` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
+    ...nearDay(wishLeft(S, d), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
   ];
   return { points, fit: `${S.tripId}:${d}:${points.length}`, focus: S.mapFocus };
 }
@@ -74,15 +74,17 @@ function dayItems(S, trip, d) {
 }
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
-const wishLeft = S => { const used = new Set(S.items.map(it => it.address).filter(Boolean)); return S.wishDocs.filter(p => !used.has(p.url)); };
+// 同一個地點可以排進好幾天：只藏起已排在「這一天」的（地圖上已經是行程針），排在別天的標出第幾天
+const wishLeft = (S, d) => { const inDay = new Set(itemsOfDay(S.items, d).map(it => it.address).filter(Boolean)); return S.wishDocs.filter(p => !inDay.has(p.url)); };
+const usedDays = S => { const m = new Map(); S.items.forEach(it => { if (it.address && it.day) m.set(it.address, [...new Set([...(m.get(it.address) || []), it.day])].sort((a, b) => a - b)); }); return m; };
 function wishPanel(S, trip, d) {
   const off = S.offline ? 'disabled' : '';
-  const left = wishLeft(S);
+  const left = wishLeft(S, d), used = usedDays(S);
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
-  const count = `<p class="small muted num" style="margin:0">還沒排 ${left.length} 個・已排 ${S.wishDocs.length - left.length} 個${d && left.some(p => Number.isFinite(p.lat)) ? '・依離第 ' + d + ' 天行程的遠近排' : ''}</p>`;
-  if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進行程了。</p>`;
+  const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個${d && left.some(p => Number.isFinite(p.lat)) ? '・依離第 ' + d + ' 天行程的遠近排' : ''}</p>`;
+  if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進這一天了。</p>`;
   return `${count}<div class="wishes">${nearDay(left, itemsOfDay(S.items, d)).map(p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
-      <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
+      <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
       ${S.offline || !hasXY(p) ? '' : `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>`}
       ${d ? `<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到第 ${d} 天</button>` : ''}
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
@@ -122,7 +124,7 @@ function planNarrow(S, trip) {
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
   const wish = S.mside === 'wish' && !S.offline;
-  const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${wishLeft(S).length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
+  const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
   if (wish) return `${dayPills(S, trip, days, sel)}${seg}
   <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>${mapBox(S, sel)}${wishPanel(S, trip, sel)}</section>`;
   return `

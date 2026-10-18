@@ -13,6 +13,8 @@ test('解析 Google 匯出的已儲存清單（中文欄位、空白列）', () 
   const csv = '﻿標題,筆記,網址,標籤,留言\n,,,,\nMillac The Market,早上去,https://www.google.com/maps/place/Millac/data=!4m2!3m1!1s0x1:0x2,,\n';
   assert.deepEqual(parseSavedList(csv), [{ title: 'Millac The Market', note: '早上去', url: 'https://www.google.com/maps/place/Millac/data=!4m2!3m1!1s0x1:0x2' }]);
   assert.equal(parseSavedList('Title,Note,URL\nA,,https://maps.app.goo.gl/x\n')[0].title, 'A');
+  // 清單有說明時，第一行是說明，欄位名稱在後面
+  assert.equal(parseSavedList('阿孝開團地點\n\n標題,筆記,網址,標籤,留言\n,,,,\nA,,https://www.google.com/maps/place/A\n').length, 1);
   assert.equal(parseSavedList('名稱,金額\n午餐,100\n'), null);
 });
 
