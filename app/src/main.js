@@ -12,7 +12,7 @@ import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData } from './views/plan.js';
-import { parseSavedList, findCoords } from './lib/places.js';
+import { parseSavedList, findCoords, coordsFromUrl } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
@@ -217,7 +217,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
-    watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
+    watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.map(p => ({ ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
   ];
 }
@@ -571,7 +571,7 @@ const actions = {
       const todo = [];
       for (const p of picked) {
         const old = p.moveId && findItem(p.moveId);
-        const xy = old && old.lat !== null && old.lng !== null ? { lat: old.lat, lng: old.lng } : {};
+        const xy = coordsFromUrl(p.url) || (old && old.lat !== null ? { lat: old.lat, lng: old.lng } : {});
         const ref = await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '', ...xy }, S.user, S.nickname);
         if (old) await deleteItem(S.tripId, old.id);
         if (!xy.lat) todo.push({ ...p, id: ref.id });

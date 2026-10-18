@@ -1,4 +1,5 @@
 // 每日行程：沿用舊版 itinerary 子集合欄位（day、order、title、area、type、priority、reservationTime、note）
+import { coordsFromUrl } from './places.js';
 export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'transport', 'stay', 'other'];
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
@@ -23,8 +24,8 @@ export function normalizeItem(raw) {
     note: raw.note || '',
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
-    lat: Number.isFinite(raw.lat) ? raw.lat : null, // 從收藏清單匯入時查到的座標
-    lng: Number.isFinite(raw.lng) ? raw.lng : null,
+    // 座標：地址是 Google 地圖地點連結就直接算（最準），不然用存下來的
+    ...(coordsFromUrl(raw.address) || { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null }),
   };
 }
 
