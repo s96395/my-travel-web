@@ -181,14 +181,15 @@ export function itemFormSheet(day, it = null) {
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
 }
 
-// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到想去清單：先教怎麼匯出，選檔後勾要的地點；已經有的不重複匯入
-export function importSheet(places = null, have = new Set()) {
+// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到想去清單：先教怎麼匯出，選檔後勾要的地點
+// have：網址 → { label, moveId }；已在清單或已排進某天的不能勾，放在「還沒排天數」的勾了會搬到想去清單
+export function importSheet(places = null, have = new Map()) {
   const rows = (places || []).map((p, i) => {
-    const dup = have.has(p.url);
-    return `<label class="todo"><input type="checkbox" data-imp="${i}" ${dup ? 'disabled' : 'checked'}>
-      <span class="grow" style="flex:1">${esc(p.title)}${dup ? ' <small class="muted">（已經有了）</small>' : ''}<br><small class="muted">${esc([p.list, p.note].filter(Boolean).join('・'))}</small></span></label>`;
+    const h = have.get(p.url);
+    return `<label class="todo"><input type="checkbox" data-imp="${i}" ${h && !h.moveId ? 'disabled' : 'checked'}>
+      <span class="grow" style="flex:1">${esc(p.title)}${h ? ` <small class="muted">（${esc(h.label)}）</small>` : ''}<br><small class="muted">${esc([p.list, p.note].filter(Boolean).join('・'))}</small></span></label>`;
   }).join('');
-  const n = (places || []).filter(p => !have.has(p.url)).length;
+  const n = (places || []).filter(p => !have.get(p.url) || have.get(p.url).moveId).length;
   const steps = `<ol class="steps">
       <li>用電腦打開 <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a>，先按「取消全部選取」，再往下找到「已儲存」打勾。</li>
       <li>拉到最下面按「下一步」，再按「建立匯出作業」。Google 會把下載連結寄到你的信箱，通常幾分鐘就會收到。</li>

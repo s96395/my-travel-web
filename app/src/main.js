@@ -568,14 +568,21 @@ const actions = {
     if (!picked.length) { toast('請先勾選要匯入的地點'); return; }
     S.busy = true; el.disabled = true; el.textContent = '匯入中…';
     try {
-      const ids = [];
-      for (const p of picked) ids.push((await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '' }, S.user, S.nickname)).id);
+      const todo = [];
+      for (const p of picked) {
+        const old = p.moveId && findItem(p.moveId);
+        const xy = old && old.lat !== null && old.lng !== null ? { lat: old.lat, lng: old.lng } : {};
+        const ref = await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '', ...xy }, S.user, S.nickname);
+        if (old) await deleteItem(S.tripId, old.id);
+        if (!xy.lat) todo.push({ ...p, id: ref.id });
+      }
       S.imp = null; S.busy = false; // 查位置要一段時間，不擋其他操作
       closeSheet();
+      if (!todo.length) { toast(`已加入想去清單 ${picked.length} 個`); return; }
       toast(`已加入想去清單 ${picked.length} 個，正在查位置…`);
-      const found = await findCoords(picked, fetch, (i, c) => { if (c) updateRecord(S.tripId, 'wishlist', ids[i], c, S.user, S.nickname).catch(console.error); });
+      const found = await findCoords(todo, fetch, (i, c) => { if (c) updateRecord(S.tripId, 'wishlist', todo[i].id, c, S.user, S.nickname).catch(console.error); });
       const n = found.filter(Boolean).length;
-      toast(n === picked.length ? `${n} 個地點都找到位置了` : `找到 ${n} / ${picked.length} 個地點的位置，其他的不會顯示距離`);
+      toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },
   wishAdd(el) { el.disabled = true; wishToDay(el.dataset.id, +el.dataset.d).then(ok => { if (!ok) el.disabled = false; }); },
@@ -987,7 +994,12 @@ document.addEventListener('change', ev => {
       const lists = texts.map((text, i) => (parseSavedList(text) || null)?.map(p => ({ ...p, list: files[i].name.replace(/\.csv$/i, '').replace(/#U([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16))) })));
       if (lists.every(l => !l)) { toast('這不是 Google 地圖收藏清單的 CSV 檔'); return; }
       S.imp = lists.filter(Boolean).flat();
-      importSheet(S.imp, new Set([...S.wishDocs.map(p => p.url), ...S.items.map(it => it.address)].filter(Boolean)));
+      // 已經有的地點標出在哪裡；放在「還沒排天數」的（先前版本匯入的）勾了就搬到想去清單
+      const have = new Map();
+      S.items.filter(it => it.address).forEach(it => have.set(it.address, it.day ? { label: `已排在第 ${it.day} 天` } : { label: '在「還沒排天數」，會搬到想去清單', moveId: it.id }));
+      S.wishDocs.forEach(p => have.set(p.url, { label: '已在想去清單' }));
+      S.imp = S.imp.map(p => ({ ...p, moveId: have.get(p.url)?.moveId }));
+      importSheet(S.imp, have);
     }, () => toast('讀不到這個檔案'));
   }
   if (t.dataset?.sel && S.draft) { t.checked ? S.draft.sel.add(t.dataset.sel) : S.draft.sel.delete(t.dataset.sel); S.draft.dirty = true; expSheet(); }
