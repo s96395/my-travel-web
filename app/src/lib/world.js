@@ -22,6 +22,13 @@ function build() {
 
 export function countryInfo(id) { return (index || build()).info.get(id); }
 
+// 新增旅程的國家選單：每個國家的正式名稱（台灣、日本、韓國排最前面，其他照表格順序）
+const FIRST = ['158', '392', '410'];
+export function countryNames() {
+  const { info } = index || build();
+  return [...FIRST, ...[...info.keys()].filter(id => !FIRST.includes(id))].map(id => info.get(id).name);
+}
+
 // 文字 → 國碼陣列（對不到的放在 unmatched）
 export function matchPlaces(text) {
   const { byName } = index || build();
