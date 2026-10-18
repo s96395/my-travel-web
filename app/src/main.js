@@ -54,6 +54,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
+  mapOff: store.get('mapOff') === '1', mapFocus: '', // 電腦版行程旁的地圖：收起來了、正在看哪個行程
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
@@ -507,7 +508,9 @@ const actions = {
   },
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
-  pday(el) { S.pday = +el.dataset.d; render(); },
+  pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
+  mapFocus(el) { S.mapFocus = el.dataset.id || ''; render(); },
+  mapOff() { S.mapOff = !S.mapOff; store.set('mapOff', S.mapOff ? '1' : ''); render(); },
   jump(el) {
     const d = +el.dataset.d;
     S.days[d] = true; render();

@@ -262,6 +262,12 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
   .device.wide .toptabs button[aria-current="page"]{color:var(--fg);font-weight:700;border-bottom-color:var(--warm)}
   .device.wide .triphead{grid-template-columns:1fr auto;align-items:center}
   .device.wide .planwide{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start}
+  .device.wide .planwide.withmap{grid-template-columns:220px minmax(0,1fr) minmax(300px,360px);gap:24px}
+  .device.wide .mapcard{position:sticky;top:130px;display:grid;gap:10px;box-shadow:0 6px 20px -12px var(--shade)}
+  .device.wide .mapcard iframe{width:100%;height:clamp(320px,calc(100vh - 290px),620px);border:0;border-radius:12px;background:var(--surface2)}
+  .device.wide .mapcard .iconbtn{flex:none}
+  .device.wide .item .tag[aria-pressed]{border:0;cursor:pointer}
+  .device.wide .item .tag[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
   .device.wide .daylist{position:sticky;top:130px;display:grid;gap:6px}
   .device.wide .daylist p{margin:8px 4px 0}
   .device.wide .dli{display:flex;align-items:center;gap:12px;text-align:left;border:1px solid transparent;background:none;border-radius:14px;padding:10px 12px;color:var(--fg)}
