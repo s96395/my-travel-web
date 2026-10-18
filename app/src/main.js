@@ -11,7 +11,8 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet } from './views/plan.js';
+import { parseSavedList, findCoords } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
@@ -526,13 +527,36 @@ const actions = {
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d); },
+  importSheet() { S.imp = null; importSheet(); },
+  async doImport(el) {
+    if (!S.imp || S.busy || S.offline) return;
+    const picked = [...document.querySelectorAll('[data-imp]:checked')].map(c => S.imp[+c.dataset.imp]);
+    if (!picked.length) { toast('請先勾選要匯入的地點'); return; }
+    S.busy = true; el.disabled = true; el.textContent = '匯入中…';
+    try {
+      let order = nextOrder(S.items, 0);
+      const ids = [];
+      for (const p of picked) {
+        ids.push((await addItem(S.tripId, { title: p.title.slice(0, 60), type: 'attraction', priority: '', reservationTime: '', area: '', address: p.url, note: p.note.slice(0, 200), day: 0, order: order++ }, S.user, S.nickname)).id);
+      }
+      S.imp = null; S.pday = 0;
+      closeSheet(); render();
+      toast(`已匯入 ${picked.length} 個地點，正在查座標…`);
+      // 座標查詢是測試版：查到就存起來，查不到不影響已匯入的地點
+      const found = await findCoords(picked, fetch, (i, c) => { if (c && ids[i]) updateItem(S.tripId, ids[i], c, S.user, S.nickname).catch(console.error); });
+      toast(`座標查到 ${found.filter(Boolean).length} / ${picked.length} 個`);
+    } catch (err) { console.error(err); toast('匯入失敗，請稍後再試'); }
+    S.busy = false;
+  },
   async saveItem(el) {
     const form = readItemForm();
     if (!form || S.busy) return;
     const day = +el.dataset.d, id = el.dataset.id;
     S.busy = true; el.disabled = true;
     try {
-      if (id) await updateItem(S.tripId, id, form, S.user, S.nickname);
+      // 改了地址，舊的座標就不準了
+      const old = id && findItem(id);
+      if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null ? { ...form, lat: null, lng: null } : form, S.user, S.nickname);
       else await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
       S.days[day] = true; S.pday = day;
       closeSheet();
@@ -899,6 +923,14 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const t = ev.target;
   if (t.dataset?.todo) toggleTodo(t);
+  if (t.id === 'imp-file' && t.files?.[0]) {
+    t.files[0].text().then(text => {
+      const list = parseSavedList(text);
+      if (!list) { toast('這不是 Google 地圖收藏清單的 CSV 檔'); return; }
+      S.imp = list;
+      importSheet(list, new Set(S.items.map(it => it.address).filter(Boolean)));
+    }, () => toast('讀不到這個檔案'));
+  }
   if (t.dataset?.sel && S.draft) { t.checked ? S.draft.sel.add(t.dataset.sel) : S.draft.sel.delete(t.dataset.sel); S.draft.dirty = true; expSheet(); }
   if (t.id === 'keeper' && !S.offline) {
     const name = t.selectedOptions[0]?.textContent || '';

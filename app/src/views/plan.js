@@ -127,6 +127,7 @@ export function itemMenuSheet(S, trip, it, canDel) {
 export function itemFormSheet(day, it = null) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
+    ${it ? '' : '<button type="button" class="linkbtn" data-act="importSheet" style="justify-self:start">從 Google 地圖收藏清單匯入</button>'}
     <input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}">
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
@@ -136,6 +137,21 @@ export function itemFormSheet(day, it = null) {
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
     <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
+}
+
+// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）：選檔後勾要的地點，放進「還沒排天數」；已在行程裡的連結不重複匯入
+export function importSheet(places = null, have = new Set()) {
+  const rows = (places || []).map((p, i) => {
+    const dup = have.has(p.url);
+    return `<label class="todo"><input type="checkbox" data-imp="${i}" ${dup ? 'disabled' : 'checked'}>
+      <span class="grow" style="flex:1">${esc(p.title)}${dup ? ' <small class="muted">（已在行程裡）</small>' : ''}${p.note ? `<br><small class="muted">${esc(p.note)}</small>` : ''}</span></label>`;
+  }).join('');
+  const n = (places || []).filter(p => !have.has(p.url)).length;
+  openSheet(`${head('匯入收藏清單')}
+    <p class="small muted" style="margin:0">到 Google 匯出（takeout.google.com）只勾「已儲存」，下載後解壓縮，選一個清單的 CSV 檔。匯入的地點會放在「還沒排天數」，再拖到想去的那天。</p>
+    <label class="btn"><input type="file" id="imp-file" accept=".csv,text/csv" hidden>${places ? '換一個檔案' : '選擇 CSV 檔'}</label>
+    ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">這個檔案裡沒有地點</div>') : ''}
+    ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>匯入勾選的地點</button>` : ''}`);
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null

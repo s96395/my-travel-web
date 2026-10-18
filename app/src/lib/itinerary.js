@@ -23,6 +23,8 @@ export function normalizeItem(raw) {
     note: raw.note || '',
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
+    lat: Number.isFinite(raw.lat) ? raw.lat : null, // 從收藏清單匯入時查到的座標
+    lng: Number.isFinite(raw.lng) ? raw.lng : null,
   };
 }
 
