@@ -815,3 +815,13 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .mapstick:not(.liststick) .mapslot{flex:1;height:auto;min-height:0}
   .device.wide .mapstick.liststick{position:static;height:auto}
 }
+/* 電腦版：地圖固定一個畫面高，左邊行程和右邊清單各自捲動 */
+.mapslot.mapempty{display:grid;place-items:center;color:var(--muted);padding:16px;text-align:center}
+@media (min-width:1000px){
+  .device.wide .planwide.withmap{height:calc(100vh - 140px);min-height:480px}
+  .device.wide .withmap > .day{overflow-y:auto;min-height:0;padding-right:8px;scrollbar-width:thin}
+  .device.wide .withmap .mappane{min-height:0}
+  .device.wide .withmap .mapstick,.device.wide .withmap .mapstick.liststick{position:static;height:100%;min-height:0}
+  .device.wide .withmap .liststick .wishpane{overflow-y:auto;min-height:0;flex:1;padding-right:6px;scrollbar-width:thin}
+  .device.wide .withmap .liststick .wishpane:has(.lifted){overflow:visible} /* 拖曳時不被捲動區塊切掉 */
+}
