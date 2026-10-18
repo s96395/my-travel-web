@@ -371,6 +371,19 @@ textarea.input{resize:vertical;font-family:inherit}
 .tip{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--accent-soft);color:var(--fg);border-radius:var(--r);padding:10px 12px}
 .tip span{flex:1;min-width:0}
 .tip .linkbtn{font-weight:700;color:var(--accent);white-space:nowrap}
+/* 想去清單：行程下面，匯入的收藏地點依離這天行程遠近排 */
+.wish{display:grid;gap:10px;margin-top:22px;padding-top:16px;border-top:1px solid var(--line)}
+.wishhead{display:flex;align-items:baseline;gap:10px}
+.wishhead h3{margin:0;font-size:16px}
+.wishhead .linkbtn{margin-left:auto;font-weight:700;color:var(--accent)}
+.wishes{display:grid;gap:6px}
+.wrow{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px}
+.wrow .grow{flex:1;min-width:0;display:grid;gap:2px}
+.wrow b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .btn{white-space:nowrap}
+.wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
+.steps{margin:0;padding-left:20px;display:grid;gap:8px;font-size:14px;line-height:1.6}
+.steps a{color:var(--accent);font-weight:700}
 .tips{display:grid;gap:8px}
 .tips p{margin:0;font-size:13px;color:var(--muted)}
 .tips p b{color:var(--fg)}

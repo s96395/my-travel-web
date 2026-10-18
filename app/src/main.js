@@ -14,7 +14,7 @@ import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet } from './views/plan.js';
 import { parseSavedList, findCoords } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, nextOrder, itemsOfDay } from './lib/itinerary.js';
+import { normalizeItem, planMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
@@ -55,6 +55,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
+  wishDocs: [], wishAll: false, // 想去清單（匯入的 Google 地圖收藏）
   mapOff: store.get('mapOff') === '1', mapFocus: '', // 電腦版行程旁的地圖：收起來了、正在看哪個行程
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
@@ -131,7 +132,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], wishDocs: [], wishAll: false, expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -214,6 +215,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
+    watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
   ];
 }
@@ -528,24 +530,60 @@ const actions = {
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d); },
   importSheet() { S.imp = null; importSheet(); },
+  // 勾選的地點加進想去清單，再到 /api/place 查座標；查不到座標也照樣留在清單
   async doImport(el) {
     if (!S.imp || S.busy || S.offline) return;
     const picked = [...document.querySelectorAll('[data-imp]:checked')].map(c => S.imp[+c.dataset.imp]);
     if (!picked.length) { toast('請先勾選要匯入的地點'); return; }
     S.busy = true; el.disabled = true; el.textContent = '匯入中…';
     try {
-      let order = nextOrder(S.items, 0);
       const ids = [];
-      for (const p of picked) {
-        ids.push((await addItem(S.tripId, { title: p.title.slice(0, 60), type: 'attraction', priority: '', reservationTime: '', area: '', address: p.url, note: p.note.slice(0, 200), day: 0, order: order++ }, S.user, S.nickname)).id);
+      for (const p of picked) ids.push((await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '' }, S.user, S.nickname)).id);
+      S.imp = null; S.busy = false; // 查位置要一段時間，不擋其他操作
+      closeSheet();
+      toast(`已加入想去清單 ${picked.length} 個，正在查位置…`);
+      const found = await findCoords(picked, fetch, (i, c) => { if (c) updateRecord(S.tripId, 'wishlist', ids[i], c, S.user, S.nickname).catch(console.error); });
+      const n = found.filter(Boolean).length;
+      toast(n === picked.length ? `${n} 個地點都找到位置了` : `找到 ${n} / ${picked.length} 個地點的位置，其他的不會顯示距離`);
+    } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
+  },
+  async wishAdd(el) {
+    const p = S.wishDocs.find(x => x.id === el.dataset.id), day = +el.dataset.d;
+    if (!p || S.busy || S.offline) return;
+    S.busy = true; el.disabled = true;
+    const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : {};
+    try {
+      await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: '', address: p.url, note: p.note || '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+      toast(`已加到第 ${day} 天`);
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有加成功，請稍後再試'); }
+    S.busy = false;
+  },
+  async wishDel(el) {
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.classList.add('sure'); el.textContent = '確定移除'; return; }
+    if (S.busy) return;
+    S.busy = true;
+    try { await deleteRecord(S.tripId, 'wishlist', el.dataset.id); toast('已從想去清單移除'); } catch (err) { console.error(err); toast('移除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  wishAll() { S.wishAll = !S.wishAll; render(); },
+  // 先前匯入在「還沒排天數」的 Google 地圖地點搬到想去清單
+  async wishMove(el) {
+    if (S.busy || S.offline) return;
+    const have = new Set(S.wishDocs.map(p => p.url));
+    const its = S.items.filter(it => it.day === 0 && isMapLink(it.address));
+    S.busy = true; el.disabled = true;
+    try {
+      for (const it of its) {
+        if (!have.has(it.address)) {
+          const xy = it.lat !== null && it.lng !== null ? { lat: it.lat, lng: it.lng } : {};
+          await addRecord(S.tripId, 'wishlist', { title: it.title, note: it.note, url: it.address, list: '', ...xy }, S.user, S.nickname);
+          have.add(it.address);
+        }
+        await deleteItem(S.tripId, it.id);
       }
-      S.imp = null; S.pday = 0;
-      closeSheet(); render();
-      toast(`已匯入 ${picked.length} 個地點，正在查座標…`);
-      // 座標查詢是測試版：查到就存起來，查不到不影響已匯入的地點
-      const found = await findCoords(picked, fetch, (i, c) => { if (c && ids[i]) updateItem(S.tripId, ids[i], c, S.user, S.nickname).catch(console.error); });
-      toast(`座標查到 ${found.filter(Boolean).length} / ${picked.length} 個`);
-    } catch (err) { console.error(err); toast('匯入失敗，請稍後再試'); }
+      S.pday = 1;
+      toast(`已把 ${its.length} 個地點搬到想去清單`);
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有搬完，請稍後再試'); }
     S.busy = false;
   },
   async saveItem(el) {
@@ -923,12 +961,13 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const t = ev.target;
   if (t.dataset?.todo) toggleTodo(t);
-  if (t.id === 'imp-file' && t.files?.[0]) {
-    t.files[0].text().then(text => {
-      const list = parseSavedList(text);
-      if (!list) { toast('這不是 Google 地圖收藏清單的 CSV 檔'); return; }
-      S.imp = list;
-      importSheet(list, new Set(S.items.map(it => it.address).filter(Boolean)));
+  if (t.id === 'imp-file' && t.files?.length) {
+    const files = [...t.files];
+    Promise.all(files.map(f => f.text())).then(texts => {
+      const lists = texts.map((text, i) => (parseSavedList(text) || null)?.map(p => ({ ...p, list: files[i].name.replace(/\.csv$/i, '').replace(/#U([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16))) })));
+      if (lists.every(l => !l)) { toast('這不是 Google 地圖收藏清單的 CSV 檔'); return; }
+      S.imp = lists.filter(Boolean).flat();
+      importSheet(S.imp, new Set([...S.wishDocs.map(p => p.url), ...S.items.map(it => it.address)].filter(Boolean)));
     }, () => toast('讀不到這個檔案'));
   }
   if (t.dataset?.sel && S.draft) { t.checked ? S.draft.sel.add(t.dataset.sel) : S.draft.sel.delete(t.dataset.sel); S.draft.dirty = true; expSheet(); }

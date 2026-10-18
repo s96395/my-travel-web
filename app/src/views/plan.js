@@ -2,7 +2,8 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, embedUrl, isMapLink } from '../lib/itinerary.js';
+import { nearDay, kmText } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
 // 行程類型的線條圖示
@@ -39,8 +40,9 @@ const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div cla
 const sideMap = S => S.wide && !!mapsKey && !S.offline && !S.mapOff;
 function mapPane(S, trip, its) {
   const stops = routeStops(its, trip.city);
-  const it = its.find(x => x.id === S.mapFocus && onMap(x));
-  const src = embedUrl(it ? [placeQuery(it, trip.city)] : stops, mapsKey);
+  const w = S.mapFocus.startsWith('w:') ? S.wishDocs.find(p => 'w:' + p.id === S.mapFocus) : null;
+  const it = w ? { ...w, address: w.url } : its.find(x => x.id === S.mapFocus && onMap(x));
+  const src = embedUrl(it ? [Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, trip.city)] : stops, mapsKey);
   return `<aside class="mappane" aria-label="地圖"><div class="mapstick">
     <div class="maptop"><b>${it ? esc(it.title) : '當天路線'}</b>
       ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}
@@ -52,9 +54,36 @@ function mapPane(S, trip, its) {
 
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
+  const none = !S.items.length ? '<div class="empty">還沒有任何行程。可以直接新增，或先把 Google 地圖收藏的地點匯入下面的「想去清單」，再一個個加到每天。</div>' : '<div class="empty">這天還沒有安排</div>';
   return `<div class="items">${d ? `<button type="button" class="btn sm" data-act="addItem" data-d="${d}" style="justify-self:start" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增到第 ${d} 天</button>` : ''}
-    ${its.map(it => itemHtml(it, S, trip)).join('') || '<div class="empty">這天還沒有安排</div>'}
-  </div>`;
+    ${its.map(it => itemHtml(it, S, trip)).join('') || none}
+  </div>${d ? wishSection(S, trip, d) : moveToWish(S)}`;
+}
+
+// 想去清單：匯入的收藏地點先放這裡，還沒排進行程的依離這天行程的遠近排，按「加到這天」才排進去
+function wishSection(S, trip, d) {
+  const off = S.offline ? 'disabled' : '';
+  const used = new Set(S.items.map(it => it.address).filter(Boolean));
+  const left = S.wishDocs.filter(p => !used.has(p.url));
+  const head = `<div class="wishhead"><h3>想去清單</h3>${S.wishDocs.length ? `<span class="small muted num">還沒排 ${left.length} 個・已排 ${S.wishDocs.length - left.length} 個</span>` : ''}
+    <button type="button" class="linkbtn" data-act="importSheet" ${off}>匯入收藏</button></div>`;
+  if (!S.wishDocs.length) return `<section class="wish">${head}<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div></section>`;
+  if (!left.length) return `<section class="wish">${head}<p class="small muted" style="margin:0">清單上的地點都排進行程了。</p></section>`;
+  const list = nearDay(left, itemsOfDay(S.items, d));
+  const rows = (S.wishAll ? list : list.slice(0, 6)).map(p => `<div class="wrow">
+      <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
+      ${S.offline ? '' : sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}" aria-pressed="${S.mapFocus === 'w:' + p.id}">${ICON.pin}地圖</button>` : `<a class="tag" href="${esc(p.url)}" target="_blank" rel="noopener">${ICON.pin}${S.wide ? '地圖' : '導航'}</a>`}
+      <button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到這天</button>
+      <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
+    </div>`).join('');
+  const more = list.length > 6 ? `<button type="button" class="linkbtn" data-act="wishAll" style="justify-self:start">${S.wishAll ? '收起' : `看全部 ${list.length} 個`}</button>` : '';
+  return `<section class="wish">${head}<div class="wishes">${rows}</div>${more}</section>`;
+}
+
+// 先前匯入時放在「還沒排天數」的收藏地點，可以一次搬到想去清單
+function moveToWish(S) {
+  const n = S.items.filter(it => it.day === 0 && isMapLink(it.address)).length;
+  return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到想去清單，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到想去清單</button></div>` : '';
 }
 
 // 天數清單：1..N，再加上「還沒排天數」（有這種項目時才出現）
@@ -130,7 +159,6 @@ export function itemMenuSheet(S, trip, it, canDel) {
 export function itemFormSheet(day, it = null) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
-    ${it ? '' : '<button type="button" class="linkbtn" data-act="importSheet" style="justify-self:start">從 Google 地圖收藏清單匯入</button>'}
     <input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}">
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
@@ -142,19 +170,25 @@ export function itemFormSheet(day, it = null) {
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
 }
 
-// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）：選檔後勾要的地點，放進「還沒排天數」；已在行程裡的連結不重複匯入
+// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到想去清單：先教怎麼匯出，選檔後勾要的地點；已經有的不重複匯入
 export function importSheet(places = null, have = new Set()) {
   const rows = (places || []).map((p, i) => {
     const dup = have.has(p.url);
     return `<label class="todo"><input type="checkbox" data-imp="${i}" ${dup ? 'disabled' : 'checked'}>
-      <span class="grow" style="flex:1">${esc(p.title)}${dup ? ' <small class="muted">（已在行程裡）</small>' : ''}${p.note ? `<br><small class="muted">${esc(p.note)}</small>` : ''}</span></label>`;
+      <span class="grow" style="flex:1">${esc(p.title)}${dup ? ' <small class="muted">（已經有了）</small>' : ''}<br><small class="muted">${esc([p.list, p.note].filter(Boolean).join('・'))}</small></span></label>`;
   }).join('');
   const n = (places || []).filter(p => !have.has(p.url)).length;
-  openSheet(`${head('匯入收藏清單')}
-    <p class="small muted" style="margin:0">到 Google 匯出（takeout.google.com）只勾「已儲存」，下載後解壓縮，選一個清單的 CSV 檔。匯入的地點會放在「還沒排天數」，再拖到想去的那天。</p>
-    <label class="btn"><input type="file" id="imp-file" accept=".csv,text/csv" hidden>${places ? '換一個檔案' : '選擇 CSV 檔'}</label>
-    ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">這個檔案裡沒有地點</div>') : ''}
-    ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>匯入勾選的地點</button>` : ''}`);
+  const steps = `<ol class="steps">
+      <li>用電腦打開 <a href="https://takeout.google.com/" target="_blank" rel="noopener">takeout.google.com</a>，先按「取消全部選取」，再往下找到「已儲存」打勾。</li>
+      <li>拉到最下面按「下一步」，再按「建立匯出作業」。Google 會把下載連結寄到你的信箱，通常幾分鐘就會收到。</li>
+      <li>下載後解壓縮，打開「Takeout」裡的「已儲存」資料夾。每個收藏清單是一個 CSV 檔，檔名就是清單名稱。</li>
+      <li>按下面的按鈕選檔，可以一次選好幾個。</li>
+    </ol>`;
+  openSheet(`${head('匯入 Google 地圖收藏')}
+    ${places ? '' : steps}
+    <label class="btn${places ? '' : ' primary'}"><input type="file" id="imp-file" accept=".csv,text/csv" multiple hidden>${places ? '換其他檔案' : '選擇 CSV 檔'}</label>
+    ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">檔案裡沒有地點</div>') : ''}
+    ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入想去清單</button>` : ''}`);
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null
