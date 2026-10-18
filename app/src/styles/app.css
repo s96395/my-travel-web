@@ -3,9 +3,11 @@
   --bg:#e8eeed; --surface:#ffffff; --surface2:#e1eae8; --fg:#17302e; --muted:#566d69; --line:#d0dcd9;
   --accent:#0f6e6a; --accent-fg:#ffffff; --accent-soft:#d3eae6; --warm:#c97f12;
   --good:#2f7d4f; --bad:#b8423a; --warn:#9a640e; --shade:rgba(10,30,28,.45);
-  --font-display:"Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
-  --font-body:"Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
-  --font-data:"Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
+  /* 英文與數字用 Inter，中文照舊用系統字型；小標用等寬字 */
+  --font-display:"Inter","Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
+  --font-body:"Inter","Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
+  --font-data:"Inter","Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",sans-serif;
+  --font-label:"IBM Plex Mono","Microsoft JhengHei","微軟正黑體","PingFang TC","Noto Sans TC",monospace;
   --display-weight:700; --r:16px; --r-sm:10px; --divider:solid;
   --appw:560px;
 }
@@ -92,7 +94,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 
 /* ---------- 首頁 ---------- */
 .brand{font-family:var(--font-display);font-weight:var(--display-weight);font-size:20px;letter-spacing:.02em}
-.brand small{display:block;font-family:var(--font-data);font-size:10px;font-weight:500;letter-spacing:.14em;color:var(--muted);margin-top:-2px}
+.brand small{display:block;font-family:var(--font-label);font-size:10px;font-weight:500;letter-spacing:.14em;color:var(--muted);margin-top:-2px}
 .hero{background:var(--accent);color:var(--accent-fg);border-radius:var(--r);padding:18px;display:grid;gap:12px;position:relative;overflow:hidden;border:0;text-align:left;width:100%}
 .hero h2{font-size:24px}
 .hero .meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;opacity:.9}
@@ -748,3 +750,18 @@ button.mate:active .avatar{transform:scale(.92)}
 .menulist details .tips{padding:0 0 12px 30px}
 .menulist .danger{color:var(--bad)}
 #invite{font-size:12px;padding:6px 10px;color:var(--muted)}
+
+/* ---------- 線條圖示與小標（取代表情符號） ---------- */
+.ic{width:1.15em;height:1.15em;flex:none;vertical-align:-.2em;margin-right:.3em}
+.tag .ic,.tanktag .ic,.btn .ic{margin-right:0}
+.stat-h .ico{display:inline-flex;color:var(--warm)}
+.stat-h .ico .ic{width:22px;height:22px;margin:0}
+.wp-head h3 .ic{color:var(--accent)}
+.sr .ic{color:var(--muted)}
+.exprow .cat .ic,.item .ico .ic{width:20px;height:20px;margin:0;color:color-mix(in srgb,var(--k) 78%,var(--fg))}
+.pick>i .ic{width:22px;height:22px;margin:0}
+.pick:has(input:checked)>i{color:var(--warm)}
+.install>.ic{width:20px;height:20px;margin:0;color:var(--accent)}
+.eyebrow{margin:0 0 -6px;display:flex;align-items:center;gap:10px;font-family:var(--font-label);font-size:12px;font-weight:500;letter-spacing:.24em;color:var(--warm)}
+.eyebrow::before{content:"";width:28px;border-top:1px solid currentColor;flex:none}
+.hero.bpi .bp-top{font-family:var(--font-label);font-weight:500}
