@@ -263,9 +263,10 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
   .device.wide .triphead{grid-template-columns:1fr auto;align-items:center}
   .device.wide .planwide{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;align-items:start}
   .device.wide .dpills{margin:0 0 4px;padding:2px 0 6px;flex-wrap:wrap}
-  .device.wide .dpill{min-width:72px;padding:8px 12px;font-size:12px}
-  .device.wide .dpill span:last-child{max-width:7em}
-  .device.wide .planwide.withmap{grid-template-columns:minmax(360px,5fr) minmax(0,7fr);gap:28px}
+  .device.wide .dpill{flex:1 1 0;min-width:72px;padding:8px 12px;font-size:12px}
+  .device.wide .dpill span:last-child{max-width:100%}
+  .device.wide .planwide.withmap{grid-template-columns:minmax(320px,1fr) minmax(0,2fr);gap:24px}
+  .device.wide .withmap .dayhead>.row{display:none} /* 有地圖時行程欄較窄，換天用上面的日期列 */
   .device.wide .mappane{position:sticky;top:136px;display:grid;gap:8px}
   .device.wide .maptop{display:flex;align-items:center;gap:14px;min-height:28px}
   .device.wide .maptop b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
