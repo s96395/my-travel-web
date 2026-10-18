@@ -261,11 +261,17 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
   .device.wide .toptabs svg{width:18px;height:18px}
   .device.wide .toptabs button[aria-current="page"]{color:var(--fg);font-weight:700;border-bottom-color:var(--warm)}
   .device.wide .triphead{grid-template-columns:1fr auto;align-items:center}
-  .device.wide .planwide{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start}
-  .device.wide .planwide.withmap{grid-template-columns:220px minmax(0,1fr) minmax(300px,360px);gap:24px}
-  .device.wide .mapcard{position:sticky;top:130px;display:grid;gap:10px;box-shadow:0 6px 20px -12px var(--shade)}
-  .device.wide .mapcard iframe{width:100%;height:clamp(320px,calc(100vh - 290px),620px);border:0;border-radius:12px;background:var(--surface2)}
-  .device.wide .mapcard .iconbtn{flex:none}
+  .device.wide .planwide{display:grid;grid-template-columns:minmax(0,1fr);gap:32px;align-items:start}
+  .device.wide .dpills{margin:0 0 4px;padding:2px 0 6px;flex-wrap:wrap}
+  .device.wide .dpill{min-width:72px;padding:8px 12px;font-size:12px}
+  .device.wide .dpill span:last-child{max-width:7em}
+  .device.wide .planwide.withmap{grid-template-columns:minmax(360px,5fr) minmax(0,7fr);gap:28px}
+  .device.wide .mappane{position:sticky;top:136px;display:grid;gap:8px}
+  .device.wide .maptop{display:flex;align-items:center;gap:14px;min-height:28px}
+  .device.wide .maptop b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .device.wide .maptop a.linkbtn{text-decoration:underline}
+  .device.wide .mappane iframe,.device.wide .mapempty{width:100%;height:calc(100vh - 190px);min-height:420px;border:0;border-radius:18px;background:var(--surface2);box-shadow:0 10px 30px -18px var(--shade)}
+  .device.wide .mapempty{display:grid;place-items:center;color:var(--muted)}
   .device.wide .item .tag[aria-pressed]{border:0;cursor:pointer}
   .device.wide .item .tag[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
   .device.wide .daylist{position:sticky;top:130px;display:grid;gap:6px}

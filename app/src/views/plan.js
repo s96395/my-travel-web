@@ -1,4 +1,4 @@
-// 行程分頁：手機版依天數收合，電腦版左邊選天、右邊看那一天（規格書 F20–F22、U06）
+// 行程分頁：上面一排日期一次看一天，電腦版右邊加大地圖（規格書 F20–F22、U06）
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
@@ -43,18 +43,19 @@ function dayRoute(S, trip, its) {
   </div>`;
 }
 
-// 電腦版右邊常駐的地圖卡：預設看當天路線，按行程的「📍 地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
+// 電腦版行程右邊的大地圖：預設看當天路線，按行程的「📍 地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
 const sideMap = S => S.wide && !!mapsKey && !S.offline && !S.mapOff;
-function mapCard(S, trip, its) {
+function mapPane(S, trip, its) {
   const stops = routeStops(its, trip.city);
   const it = its.find(x => x.id === S.mapFocus && onMap(x));
   const src = embedUrl(it ? [placeQuery(it, trip.city)] : stops, mapsKey);
-  return `<aside class="mapcard card" aria-label="地圖">
-    <div class="row" style="justify-content:space-between;gap:8px"><b class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it ? `📍 ${esc(it.title)}` : '🗺️ 當天路線'}</b>
-      ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}<button type="button" class="iconbtn" data-act="mapOff" aria-label="收起地圖" title="收起地圖">×</button></div>
-    ${src ? `<iframe src="${esc(src)}" title="${it ? '地點地圖' : '當天路線地圖'}" allowfullscreen></iframe>` : '<div class="empty">這天還沒有可以放上地圖的地點</div>'}
-    ${it ? `<a class="btn sm" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">在 Google 地圖開啟</a>`
-      : stops.length ? `<a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>` : ''}
+  const open = it ? [placeHref(it, trip.city), '在 Google 地圖開啟'] : stops.length ? [routeUrl(stops), stops.length > 1 ? '開啟完整路線' : '在 Google 地圖開啟'] : null;
+  return `<aside class="mappane" aria-label="地圖">
+    <div class="maptop"><b>${it ? `📍 ${esc(it.title)}` : '🗺️ 當天路線'}</b>
+      ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}
+      ${open ? `<a class="linkbtn" href="${esc(open[0])}" target="_blank" rel="noopener">${open[1]}</a>` : ''}
+      <button type="button" class="linkbtn" data-act="mapOff">收起地圖</button></div>
+    ${src ? `<iframe src="${esc(src)}" title="${it ? '地點地圖' : '當天路線地圖'}" allowfullscreen></iframe>` : '<div class="mapempty">這天還沒有可以放上地圖的地點</div>'}
   </aside>`;
 }
 
@@ -82,15 +83,17 @@ function dayPill(trip, d) {
   return { w: WD[dt.getDay()], n: dt.getDate() };
 }
 
+const dayPills = (S, trip, days, sel) => `<div class="dpills" role="group" aria-label="選擇天數">${days.map(d => {
+  const p = dayPill(trip, d);
+  return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
+}).join('')}</div>`;
+
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
   return `
-  <div class="dpills" role="group" aria-label="選擇天數">${days.map(d => {
-    const p = dayPill(trip, d);
-    return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
-  }).join('')}</div>
+  ${dayPills(S, trip, days, sel)}
   ${dragTip(S)}
   <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
     <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div></div>
@@ -99,19 +102,18 @@ function planNarrow(S, trip) {
   </section>`;
 }
 
+// 電腦：上面一排日期，下面左邊看那一天、右邊大地圖（地圖可收起）
 function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
-  const idx = days.indexOf(sel);
-  const side = sideMap(S) && sel ? mapCard(S, trip, itemsOfDay(S.items, sel)) : '';
+  const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
+  const side = sideMap(S) && sel ? mapPane(S, trip, itemsOfDay(S.items, sel)) : '';
   const showMap = S.mapOff && mapsKey && !S.offline && sel ? '<button type="button" class="btn sm" data-act="mapOff">🗺️ 顯示地圖</button>' : '';
-  const nav = days.map(d => `<button type="button" class="dli" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}>
-      <span class="daynum">${d ? 'D' + d : '?'}</span><span class="dl-t"><b>${esc(dayTitle(S.items, d))}</b><span class="small muted num">${dayDate(trip, d) || '未排定'}・${S.items.filter(it => it.day === d).length} 項</span></span></button>`).join('');
-  return `<div class="planwide${side ? ' withmap' : ''}">
-    <nav class="daylist" aria-label="選擇天數">${nav}</nav>
+  return `${dayPills(S, trip, days, sel)}
+  <div class="planwide${side ? ' withmap' : ''}">
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${dragTip(S)}
-      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><h3>${esc(dayTitle(S.items, sel))} <span class="small muted num" style="font-weight:400">${dayDate(trip, sel)}</span></h3>
+      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div>
         <span class="row" style="gap:6px">${showMap}<button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></span></div>
       ${dayItems(S, trip, sel)}
     </section>
