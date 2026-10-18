@@ -41,14 +41,17 @@ const sideMap = S => S.wide && !S.offline;
 const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d) => {
   const pts = mapData(S, null).points;
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${pts.length ? '' : '・還沒有可以插針的地點，匯入收藏後就會出現'}</p>`;
-  return legend + (mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>');
+  const none = !S.wishDocs.length;
+  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
+  // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排；已有行程針時移到下方，不擋住針
+  const cta = none && !S.offline ? `<div class="mapcta${pts.length ? ' low' : ''}"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
+  return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
 };
 function sidePane(S, trip, d) {
   const tab = S.side === 'list' ? 'list' : 'map';
   const tabs = `<div class="seg" role="tablist">${[['map', '地圖'], ['list', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
   return `<aside class="mappane" aria-label="${tab === 'map' ? '地圖' : '想去清單'}"><div class="mapstick${tab === 'list' ? ' liststick' : ''}">
-    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${tab === 'list' && d && wishLeft(S, d).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>
+    <div class="maptop">${tabs}<span class="small muted" style="flex:1">${tab === 'list' && d && wishLeft(S, d).length ? '可以長按拖到左邊行程' : ''}</span><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>
     ${tab === 'map' ? mapBox(S, d) : `<div class="wishpane">${wishPanel(S, trip, d)}</div>`}
   </div></aside>`;
 }
@@ -126,7 +129,7 @@ function planNarrow(S, trip) {
   const wish = S.mside === 'wish' && !S.offline;
   const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
   if (wish) return `${dayPills(S, trip, days, sel)}${seg}
-  <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="linkbtn" data-act="importSheet">匯入收藏</button></div>${mapBox(S, sel)}${wishPanel(S, trip, sel)}</section>`;
+  <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${mapBox(S, sel)}${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
   return `
   ${dayPills(S, trip, days, sel)}
   ${seg}
