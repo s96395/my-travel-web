@@ -2,6 +2,7 @@
 // 畫面每次重畫都會換掉 HTML，所以地圖放在一個固定的區塊，重畫後搬回 #mapslot，縮放位置不會跑掉
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
+import { distanceKm } from '../lib/places.js';
 
 let ready, map, box, info, lastKey = '', lastFit = '', lastFocus = '';
 const markers = new Map();
@@ -74,5 +75,23 @@ export async function syncMap(data, onAct) {
     lastFocus = data.focus;
     const m = markers.get(data.focus);
     if (m) { map.panTo(m.getPosition()); if (map.getZoom() < 15) map.setZoom(15); g.event.trigger(m, 'click'); }
+  }
+}
+
+// 收藏連結只記到大約哪一區（誤差數公里），用名稱加大約位置請 Google 查精確座標
+// 要在 Google Cloud 啟用 Places API (New)；沒啟用時回傳 'off'
+export async function locate(p) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  const near = { lat: p.lat, lng: p.lng };
+  try {
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], locationBias: { center: near, radius: 20000 }, maxResultCount: 1, language: 'zh-TW' });
+    const loc = places?.[0]?.location;
+    if (!loc) return null;
+    const xy = { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6) };
+    return distanceKm(near, xy) < 30 ? xy : null; // 查到太遠的同名地點就不用
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
   }
 }

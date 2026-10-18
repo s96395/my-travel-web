@@ -24,8 +24,9 @@ export function normalizeItem(raw) {
     note: raw.note || '',
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
-    // 座標：地址是 Google 地圖地點連結就直接算（最準），不然用存下來的
-    ...(coordsFromUrl(raw.address) || { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null }),
+    // 座標：查過 Google 的精確位置（exact）優先；其次由地點連結算出大約位置，再來用存下來的
+    exact: !!raw.exact && Number.isFinite(raw.lat),
+    ...((!raw.exact && coordsFromUrl(raw.address)) || { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null }),
   };
 }
 

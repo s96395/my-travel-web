@@ -95,7 +95,29 @@ function render() {
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
   // 地圖只在用到時才載入
-  if ($('#mapslot')) import('./ui/map.js').then(m => { const t = curTrip(); if (t) return m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
+  if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
+}
+
+// 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
+const tried = new Set();
+let locating = false, placesOff = false;
+async function exactCoords(m) {
+  if (locating || placesOff || S.offline || !S.tripId) return;
+  const rough = x => !x.exact && Number.isFinite(x.lat) && !tried.has(x.id);
+  const todo = [
+    ...S.wishDocs.filter(rough).map(p => ({ ...p, save: c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname) })),
+    ...S.items.filter(it => rough(it) && coordsFromUrl(it.address)).map(it => ({ ...it, save: c => updateItem(S.tripId, it.id, c, S.user, S.nickname) })),
+  ];
+  if (!todo.length) return;
+  locating = true;
+  try {
+    for (const p of todo) {
+      tried.add(p.id);
+      const xy = await m.locate(p);
+      if (xy === 'off') { placesOff = true; toast('要在 Google Cloud 啟用 Places API (New)，地圖上的位置才會準'); break; }
+      if (xy) await p.save({ ...xy, exact: true }).catch(console.error);
+    }
+  } finally { locating = false; }
 }
 
 function envTag() {
@@ -217,7 +239,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
-    watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.map(p => ({ ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
+    watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.map(p => (p.exact ? p : { ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
   ];
 }
@@ -227,7 +249,7 @@ async function wishToDay(wid, day, beforeId) {
   const p = S.wishDocs.find(x => x.id === wid);
   if (!p || !day || S.busy || S.offline) return false;
   S.busy = true;
-  const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : {};
+  const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
   try {
     const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: '', address: p.url, note: p.note || '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
@@ -621,7 +643,7 @@ const actions = {
     try {
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
-      if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null ? { ...form, lat: null, lng: null } : form, S.user, S.nickname);
+      if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null ? { ...form, lat: null, lng: null, exact: false } : form, S.user, S.nickname);
       else await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
       S.days[day] = true; S.pday = day;
       closeSheet();
