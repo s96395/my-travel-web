@@ -26,7 +26,7 @@ const color = name => getComputedStyle(document.documentElement).getPropertyValu
 function popup(p, onAct) {
   const el = document.createElement('div');
   el.className = 'mpop';
-  el.innerHTML = `<b>${esc(p.title)}</b>${p.sub ? `<span>${esc(p.sub)}</span>` : ''}
+  el.innerHTML = `${p.sub ? `<span>${esc(p.sub)}</span>` : ''}
     <div class="mpopbtn">${p.kind === 'wish' && p.day ? `<button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}" data-d="${p.day}">加到第 ${p.day} 天</button>` : ''}
     ${p.url ? `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
@@ -58,7 +58,14 @@ export async function syncMap(data, onAct) {
         icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 7, fillColor: day ? warm : accent, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
-      m.addListener('click', () => { info.setContent(popup(p, onAct)); info.open({ map, anchor: m }); });
+      m.addListener('click', () => {
+        // 名稱放在彈出框的標題列（和關閉鈕同一行），上方才不會空一大塊
+        const head = document.createElement('b');
+        head.className = 'mpophead';
+        head.textContent = p.title;
+        info.setOptions({ headerContent: head, content: popup(p, onAct) });
+        info.open({ map, anchor: m });
+      });
       markers.set(p.id, m);
     }
   }
