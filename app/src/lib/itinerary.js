@@ -97,7 +97,8 @@ const cleanName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0
 export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [cleanName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
-export const routeStops = (items, city) => items.filter(onMap).map(it => placeQuery(it, city));
+// 有座標（從想去清單加進來的）就用座標，位置最準
+export const routeStops = (items, city) => items.filter(onMap).map(it => (Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, city)));
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 // 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
 export const placeHref = (it, city = '') => (isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));

@@ -81,6 +81,7 @@ test('地圖：地址欄貼 Google 地圖連結時，地圖直接開連結，路
   assert.ok(isMapLink('https://www.google.com.tw/maps/place/x'));
   assert.equal(placeHref(it, '釜山'), link);
   assert.deepEqual(routeStops([it], '釜山'), ['甘川洞文化村 沙下區 釜山']);
+  assert.deepEqual(routeStops([{ ...it, lat: 35.0975, lng: 129.0106 }], '釜山'), ['35.0975,129.0106']); // 有座標用座標
   assert.ok(placeHref({ ...it, address: '' }, '釜山').includes('/maps/search/'));
 });
 
