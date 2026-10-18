@@ -63,11 +63,19 @@ export function newTripSheet(trip) {
     <div class="grid2"><div class="field"><label for="nt-start">開始</label><input class="input" id="nt-start" type="date" value="${esc(r.startDate || '')}"></div>
       <div class="field"><label for="nt-end">結束</label><input class="input" id="nt-end" type="date" value="${esc(r.endDate || '')}"></div></div>
     <div class="grid2"><div class="field"><label for="nt-country">國家</label><input class="input" id="nt-country" list="nt-countries" maxlength="40" autocomplete="off" placeholder="輸入關鍵字，例如：日" value="${esc(r.country || '')}" data-old="${esc(r.country || '')}">
-        <datalist id="nt-countries">${countryNames().map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+        <datalist id="nt-countries"></datalist></div>
       <div class="field"><label for="nt-city">城市</label><input class="input" id="nt-city" maxlength="20" placeholder="京都" value="${esc(r.city || '')}"></div></div>
     <p class="small muted" style="margin:0">國家要從選單挑，首頁足跡地圖才會算進去；去好幾國用頓號分開，例如：泰國、越南。${trip && !r.country ? '這趟旅程還沒填國家。' : ''}</p>
     <p class="small err-text" id="nt-err" role="alert" hidden></p>
     <button type="button" class="btn primary" data-act="${trip ? 'saveTripEdit' : 'saveTrip'}">${trip ? '儲存' : '建立旅程'}</button>`);
+  // 選單候選前面帶上已填的國家，去多國時打「泰國、越」也會跳出「泰國、越南」
+  const box = $('#nt-country'), list = $('#nt-countries');
+  const fill = () => {
+    const pre = box.value.replace(/[^、,，/／;；&＋+]*$/, '');
+    list.innerHTML = countryNames().map(n => `<option value="${esc(pre + n)}">`).join('');
+  };
+  box.addEventListener('input', fill);
+  fill();
 }
 
 // 讀取並檢查新增旅程表單；有錯時標示欄位並回傳 null
