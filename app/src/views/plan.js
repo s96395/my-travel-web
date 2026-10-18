@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, placeQuery, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, ITEM_ICON, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, placeQuery, routeStops, routeUrl, embedUrl } from '../lib/itinerary.js';
 import { mapsKey } from '../firebase.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
@@ -22,7 +22,7 @@ function itemHtml(it, S, trip) {
     <div class="grow" style="flex:1">
       <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
       ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">📍 地圖</button>` : `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>`) : ''}</div>
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">📍 地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">📍 地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">🧭 導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -32,13 +32,11 @@ function itemHtml(it, S, trip) {
 // 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
 const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
-// 當天路線：上面嵌入 Google 地圖小視窗（有金鑰時），下面一顆開啟完整路線；沒網路時不顯示
+// 當天路線：一顆開啟完整 Google 路線的按鈕；沒網路時不顯示
 function dayRoute(S, trip, its) {
   const stops = routeStops(its, trip.city);
   if (S.offline || !stops.length) return '';
-  const embed = S.wide && S.mapOff ? '' : embedUrl(stops, mapsKey); // 電腦版把地圖收起來時只留按鈕
   return `<div class="maproute" style="display:grid;gap:8px">
-    ${embed ? `<iframe src="${esc(embed)}" title="當天路線地圖" loading="lazy" allowfullscreen style="width:100%;height:220px;border:0;border-radius:12px"></iframe>` : ''}
     <a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">🗺️ ${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>
   </div>`;
 }

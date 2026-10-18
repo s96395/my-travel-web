@@ -97,6 +97,8 @@ export const routeStops = (items, city) => items.filter(onMap).map(it => placeQu
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 // 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
 export const placeHref = (it, city = '') => (isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));
+// 手機的「導航」：從目前位置導航到這個行程；貼了連結就開那個地點（連結沒辦法當目的地）
+export const navHref = (it, city = '') => (isMapLink(it.address) ? it.address : `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: placeQuery(it, city) })}`);
 
 // 開啟完整路線（Google 地圖網址，不需要金鑰）；中途點 Google 最多收 9 個，超過的只留前 9 個
 export function routeUrl(stops) {
