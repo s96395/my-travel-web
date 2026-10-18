@@ -16,18 +16,26 @@ test('解析 Google 匯出的已儲存清單（中文欄位、空白列）', () 
   assert.equal(parseSavedList('名稱,金額\n午餐,100\n'), null);
 });
 
-test('從 Google 頁面內容找座標', () => {
+test('伺服器只認地點標記，不用地圖中心', () => {
   assert.deepEqual(coordsFrom('...!3d35.1531!4d129.1186!16s...'), { lat: 35.1531, lng: 129.1186 });
-  assert.deepEqual(coordsFrom('https://www.google.com/maps/place/x/@22.2793,114.1628,17z'), { lat: 22.2793, lng: 114.1628 });
-  assert.deepEqual(coordsFrom('<meta content="https://maps.google.com/maps/api/staticmap?center=24.15%2C120.66&zoom=15">'), { lat: 24.15, lng: 120.66 });
-  assert.deepEqual(coordsFrom('APP_INITIALIZATION_STATE=[[[2034.5,129.1186,35.1531],[0,0,0]'), { lat: 35.1531, lng: 129.1186 });
+  assert.equal(coordsFrom('https://www.google.com/maps/place/x/@39.04,-84.5,17z'), null); // 美國的伺服器拿到的地圖中心
   assert.equal(coordsFrom('沒有座標'), null);
+});
+
+test('從 Google 地圖連結的地點代碼算出座標', async () => {
+  const { coordsFromUrl } = await import('../src/lib/places.js');
+  // 唐吉訶德國際通店，實際位置約 26.2158, 127.6879
+  const c = coordsFromUrl('https://www.google.com/maps/place/Don+Quijote+Kokusai-dori/data=!4m2!3m1!1s0x34e5697a0d58c635:0x7c12668747aa6dd3');
+  assert.ok(Math.abs(c.lat - 26.2158) < 0.001 && Math.abs(c.lng - 127.6878) < 0.001, JSON.stringify(c));
+  assert.deepEqual(coordsFromUrl('https://www.google.com/maps/place/x/data=!3m1!4b1!4m6!3m5!1s0x1:0x2!8m2!3d35.1531!4d129.1186'), { lat: 35.1531, lng: 129.1186 });
+  assert.equal(coordsFromUrl('https://www.google.com/maps/place/x/@22.2793,114.1628,17z'), null);
+  assert.equal(coordsFromUrl('https://maps.app.goo.gl/abc'), null);
 });
 
 test('查座標：同時查、查不到的留空', async () => {
   const places = [{ url: 'a' }, { url: 'b' }, { url: 'c' }, { url: 'd' }];
-  const fake = async u => (u.endsWith('b') ? { ok: false } : { ok: true, json: async () => (u.endsWith('c') ? {} : { lat: 1, lng: 2 }) });
-  assert.deepEqual(await findCoords(places, fake), [{ lat: 1, lng: 2 }, null, null, { lat: 1, lng: 2 }]);
+  const fake = async u => (u.endsWith('b') ? { ok: false } : { ok: true, json: async () => (u.endsWith('c') ? {} : u.endsWith('d') ? { url: 'https://www.google.com/maps/place/x/data=!3d1.5!4d2.5' } : { lat: 1, lng: 2 }) });
+  assert.deepEqual(await findCoords(places, fake), [{ lat: 1, lng: 2 }, null, null, { lat: 1.5, lng: 2.5 }]);
 });
 
 test('想去清單依離這天行程的距離排序', async () => {
