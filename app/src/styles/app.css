@@ -807,7 +807,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .pin-day b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--warm);color:#fff;font:700 12px/1 var(--font, sans-serif);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .pin-wish{border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
 .mpop{display:grid;gap:4px;min-width:160px;max-width:260px;font-size:13px;color:#1f2937} /* Google 的彈出框固定白底，深色模式也用深色字 */
-.mpop b{font-size:14px}
+.mpophead{font-size:14px;color:#1f2937;line-height:1.4}
 .mpop span{color:#6b7280}
 .mpopbtn{display:flex;gap:6px;margin-top:4px}
 .mpopbtn .btn{text-decoration:none}
@@ -825,3 +825,9 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .withmap .liststick .wishpane{overflow-y:auto;min-height:0;flex:1;padding-right:6px;scrollbar-width:thin}
   .device.wide .withmap .liststick .wishpane:has(.lifted){overflow:visible} /* 拖曳時不被捲動區塊切掉 */
 }
+/* 還沒匯入收藏時，地圖上的說明卡 */
+.mapwrap{position:relative;display:flex;flex-direction:column}
+.device.wide .mapstick .mapwrap{flex:1;min-height:0}
+.mapcta{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100% - 32px));display:grid;gap:8px;justify-items:center;text-align:center;padding:18px 20px;border-radius:16px;background:var(--surface);box-shadow:0 8px 28px rgba(0,0,0,.28);z-index:1}
+.mapcta b{font-size:16px}
+.mapcta span{color:var(--muted)}
