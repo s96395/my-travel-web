@@ -806,9 +806,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .pin{background:none;border:0}
 .pin-day b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--warm);color:#fff;font:700 12px/1 var(--font, sans-serif);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .pin-wish{border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
-.mpop{display:grid;gap:4px;min-width:160px;font-size:13px}
+.mpop{display:grid;gap:4px;min-width:160px;max-width:260px;font-size:13px;color:#1f2937} /* Google 的彈出框固定白底，深色模式也用深色字 */
 .mpop b{font-size:14px}
-.mpop span{color:var(--muted)}
+.mpop span{color:#6b7280}
 .mpopbtn{display:flex;gap:6px;margin-top:4px}
 .mpopbtn .btn{text-decoration:none}
 @media (min-width:1000px){
