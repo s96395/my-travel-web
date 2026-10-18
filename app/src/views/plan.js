@@ -43,7 +43,7 @@ function dayRoute(S, trip, its) {
   </div>`;
 }
 
-// 電腦版右邊常駐的地圖卡：預設看當天路線，按行程的「📍 地圖」換成那個地點（有金鑰、有網路、沒收起來時）
+// 電腦版右邊常駐的地圖卡：預設看當天路線，按行程的「📍 地圖」換成那個地點（下方按鈕開原本貼的連結）；有金鑰、有網路、沒收起來時才出現
 const sideMap = S => S.wide && !!mapsKey && !S.offline && !S.mapOff;
 function mapCard(S, trip, its) {
   const stops = routeStops(its, trip.city);
@@ -53,7 +53,8 @@ function mapCard(S, trip, its) {
     <div class="row" style="justify-content:space-between;gap:8px"><b class="grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${it ? `📍 ${esc(it.title)}` : '🗺️ 當天路線'}</b>
       ${it ? '<button type="button" class="linkbtn" data-act="mapFocus">看整天路線</button>' : ''}<button type="button" class="iconbtn" data-act="mapOff" aria-label="收起地圖" title="收起地圖">×</button></div>
     ${src ? `<iframe src="${esc(src)}" title="${it ? '地點地圖' : '當天路線地圖'}" allowfullscreen></iframe>` : '<div class="empty">這天還沒有可以放上地圖的地點</div>'}
-    ${stops.length ? `<a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>` : ''}
+    ${it ? `<a class="btn sm" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">在 Google 地圖開啟</a>`
+      : stops.length ? `<a class="btn sm" href="${esc(routeUrl(stops))}" target="_blank" rel="noopener" style="justify-self:start;text-decoration:none">${stops.length > 1 ? '開啟完整 Google 路線' : '開啟 Google 地圖'}</a>` : ''}
   </aside>`;
 }
 
