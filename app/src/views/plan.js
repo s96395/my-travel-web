@@ -4,6 +4,7 @@ import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
 import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
+import { mapsKey } from '../firebase.js';
 
 // 行程類型的線條圖示
 const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe, shopping: ICON.shop, transport: ICON.train, stay: ICON.bed, other: ICON.note };
@@ -40,7 +41,8 @@ const sideMap = S => S.wide && !S.offline;
 const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d) => {
   const pts = mapData(S, null).points;
-  return `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '行程'}<i class="dot wish"></i>想去清單${pts.length ? '' : '・還沒有可以插針的地點，匯入收藏後就會出現'}</p><div id="mapslot" class="mapslot"></div>`;
+  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${pts.length ? '' : '・還沒有可以插針的地點，匯入收藏後就會出現'}</p>`;
+  return legend + (mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>');
 };
 function sidePane(S, trip, d) {
   const tab = S.side === 'list' ? 'list' : 'map';
@@ -57,8 +59,8 @@ export function mapData(S, trip) {
   const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
   const its = itemsOfDay(S.items, d);
   const points = [
-    ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: `第 ${d} 天第 ${n} 個`, url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
+    ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${n} 個` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
+    ...nearDay(wishLeft(S), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
   ];
   return { points, fit: `${S.tripId}:${d}:${points.length}`, focus: S.mapFocus };
 }

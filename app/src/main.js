@@ -95,7 +95,7 @@ function render() {
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
   // 地圖只在用到時才載入
-  if ($('#mapslot')) import('./ui/map.js').then(m => { const t = curTrip(); if (t) m.syncMap($('#mapslot'), mapData(S, t), el => actions[el.dataset.act]?.(el)); });
+  if ($('#mapslot')) import('./ui/map.js').then(m => { const t = curTrip(); if (t) return m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
 function envTag() {
