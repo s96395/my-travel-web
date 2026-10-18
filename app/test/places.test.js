@@ -29,3 +29,15 @@ test('查座標：同時查、查不到的留空', async () => {
   const fake = async u => (u.endsWith('b') ? { ok: false } : { ok: true, json: async () => (u.endsWith('c') ? {} : { lat: 1, lng: 2 }) });
   assert.deepEqual(await findCoords(places, fake), [{ lat: 1, lng: 2 }, null, null, { lat: 1, lng: 2 }]);
 });
+
+test('想去清單依離這天行程的距離排序', async () => {
+  const { distanceKm, nearDay, kmText } = await import('../src/lib/places.js');
+  assert.ok(Math.abs(distanceKm({ lat: 25.0478, lng: 121.5170 }, { lat: 25.0330, lng: 121.5654 }) - 5.1) < 0.2); // 台北車站到 101
+  const day = [{ lat: 26.21, lng: 127.68 }];
+  const places = [{ title: '遠', lat: 26.70, lng: 127.88 }, { title: '沒座標' }, { title: '近', lat: 26.215, lng: 127.685 }];
+  assert.deepEqual(nearDay(places, day).map(p => p.title), ['近', '遠', '沒座標']);
+  assert.deepEqual(nearDay(places, []).map(p => p.title), ['遠', '沒座標', '近']);
+  assert.equal(kmText(0.42), '400 公尺');
+  assert.equal(kmText(3.26), '3.3 公里');
+  assert.equal(kmText(25.4), '25 公里');
+});
