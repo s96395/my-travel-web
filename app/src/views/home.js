@@ -262,7 +262,7 @@ export function renderHome(S) {
     <button type="button" class="iconbtn" data-act="account" aria-label="帳號">${ICON.user}</button>
   </header>
   <div class="wrap">
-    <p class="slogan">把嚮往的地方，都變成走過的路</p>
+    <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : worldStrip(S, worldFootprint(trips), hero(pickNextTrip(trips), S))}
     ${loading ? '' : statsHtml(S, st)}
     <p class="eyebrow">我的旅程</p>

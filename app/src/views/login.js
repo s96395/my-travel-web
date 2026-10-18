@@ -4,7 +4,7 @@ import { ICON, esc } from '../ui/dom.js';
 export function renderLogin(S) {
   return `<div class="boot login">
     <div class="brand">沈迷旅行<small>ADDICTED TO YSHEN TRAVEL</small></div>
-    <p class="slogan">把嚮往的地方，都變成走過的路</p>
+    <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     <button type="button" class="btn block login-btn" data-act="signIn" ${S.signingIn || S.offline ? 'disabled' : ''}>${ICON.google}${S.signingIn ? '登入中…' : '用 Google 帳號登入'}</button>
     ${S.offline ? '<p class="small">目前沒有網路，連上網路後才能登入。</p>' : ''}
     ${S.loginError ? `<p class="small err-text" role="alert">${esc(S.loginError)}</p>` : ''}
