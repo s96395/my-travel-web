@@ -40,8 +40,8 @@ const RULES = [
   '刀子、剪刀等尖銳物品要放托運行李。',
   '肉類、水果等動植物產品，多數國家入境有限制，回台灣也不能帶肉製品。',
 ];
-const rulesBox = () => `<details class="tplbox">
-    <summary class="small"><b>搭飛機不能帶的東西</b></summary>
+const rulesBox = () => `<details class="tplbox rulesbox">
+    <summary class="small"><b>⚠ 搭飛機不能帶的東西</b><span class="muted">（點開看）</span></summary>
     <ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px">${RULES.map(x => `<li>${x}</li>`).join('')}</ul>
     <p class="small muted" style="margin:0">規定會變，也各國不同，出發前請看<a href="https://www.caa.gov.tw/" target="_blank" rel="noopener">民航局</a>、<a href="https://www.aphia.gov.tw/" target="_blank" rel="noopener">動植物防疫檢疫署</a>和航空公司的公告。</p>
   </details>`;
@@ -63,6 +63,7 @@ function renderPack(S, trip) {
     ${ring(p)}
     <div><b>我的行李</b><div class="small muted">${!p.total ? '還沒有行李清單，每個人各自一份' : p.done < p.total ? `還剩 ${p.total - p.done} 件沒放` : '都收好了'}</div></div>
   </div>
+  ${rulesBox()}
   ${!mine.length ? `<div class="tplbox">
     <b class="small">從範本開始</b>
     <div class="row" style="gap:8px;flex-wrap:wrap">${['domestic', 'abroad'].sort((a, b) => (b === kind) - (a === kind)).map(k => `<button type="button" class="btn sm${k === kind ? ' primary' : ''}" data-act="packTpl" data-v="${k}" ${off}>套用${PACK_KINDS[k]}</button>`).join('')}</div>
@@ -78,13 +79,12 @@ function renderPack(S, trip) {
     const list = mine.filter(t => (t.group || 'bag') === g).sort((a, b) => a.done - b.done), done = list.filter(t => t.done).length;
     if (!list.length) return '';
     const open = S.packOpen[g] ?? done < list.length;
-    return `<button type="button" class="label donehead packhead" data-act="packFold" data-v="${g}" aria-expanded="${open}"><span aria-hidden="true">${open ? '▾' : '▸'}</span> ${label} ${done}/${list.length}</button>${open ? `<div class="divide">${list.map(t => packRow(t, off)).join('')}</div>` : ''}`;
+    return `<button type="button" class="label donehead packhead" data-act="packFold" data-v="${g}" aria-expanded="${open}"><span aria-hidden="true">${open ? '▾' : '▸'}</span> ${label} ${done}/${list.length}</button>${open ? `<div class="divide packlist">${list.map(t => packRow(t, off)).join('')}</div>` : ''}`;
   }).join('')}
   ${miss.length ? `<div class="tplbox">
     <div class="row"><b class="grow small">${PACK_KINDS[kind]}範本還有這些</b><button type="button" class="btn sm" data-act="packTpl" data-v="${kind}" ${off}>全部加入</button></div>
     <div class="tplchips small muted">${miss.map(x => `<span>${esc(x.text)}</span>`).join('')}</div>
-  </div>` : ''}
-  ${rulesBox()}`;
+  </div>` : ''}`;
 }
 
 function renderTodoList(S, trip) {
