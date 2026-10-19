@@ -14,6 +14,7 @@
     "test:rules": "node --test \"rules-test/**/*.test.js\""
   },
   "dependencies": {
+    "driver.js": "1.8.0",
     "firebase": "^12.0.0"
   },
   "devDependencies": {

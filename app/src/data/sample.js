@@ -1,4 +1,4 @@
-// 測試環境用的範例旅程（內容同雛形），正式環境不會出現這個功能
+// 範例旅程（內容同雛形）：測試環境可以一次載入 6 趟；示範旅程只放京都那趟，正式環境也能用
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { newShareKey } from './trips.js';
@@ -27,7 +27,7 @@ const KYOTO_PLAN = [
   [1, 'stay', '入住四條室町飯店', '15:00 後可入住', '', '', '四條'],
   [1, 'restaurant', '錦市場邊走邊吃', '玉子燒、豆乳甜甜圈', 'want', '', '四條'],
   [2, 'attraction', '清水寺', '早上 8 點前人比較少', 'must', '', '東山'],
-  [2, 'attraction', '和服體驗', '芳佑、小安兩人', 'must', '10:00', '東山'],
+  [2, 'attraction', '和服體驗', '我和小安兩人', 'must', '10:00', '東山'],
   [2, 'attraction', '二年坂、三年坂', '', 'want', '', '東山'],
   [2, 'restaurant', '祇園晚餐', '', 'optional', '', '祇園'],
   [3, 'attraction', '嵐山竹林小徑', '', 'must', '', '嵐山'],
@@ -58,11 +58,14 @@ const SEOUL_LEGACY = {
 };
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
 // 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
-export async function addSampleTrips(user, nickname) {
+// demo：只加京都一趟（標題加「示範」），回傳那趟的 id
+export async function addSampleTrips(user, nickname, demo = false) {
   const batch = writeBatch(db);
   const later = writeBatch(db);
-  for (const t of TRIPS) {
+  let first = '';
+  for (const t of demo ? [{ ...TRIPS[0], title: `${TRIPS[0].title}（示範）` }] : TRIPS) {
     const ref = doc(collection(db, 'trips'));
+    first ||= ref.id;
     const me = doc(collection(db, 'trips')).id, an = doc(collection(db, 'trips')).id, rou = doc(collection(db, 'trips')).id;
     const people = [me, an, rou];
     const { expenses, ...fields } = t;
@@ -104,6 +107,7 @@ export async function addSampleTrips(user, nickname) {
   }
   await batch.commit();
   await later.commit();
+  return first;
 }
 
 // 平均分攤：餘數從名單第一位起每人多分 1 元（同舊版）
