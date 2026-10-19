@@ -74,8 +74,11 @@ function renderPack(S, trip) {
     <button type="submit" ${off} aria-label="新增">＋</button>
   </form>
   ${groups.map(([g, label]) => {
-    const list = mine.filter(t => (t.group || 'bag') === g);
-    return list.length ? `<div class="label donehead">${label} ${list.filter(t => t.done).length}/${list.length}</div><div class="divide">${list.map(t => packRow(t, off)).join('')}</div>` : '';
+    // 已勾的排到這一區最下面；每一區可以收起來，全部勾完的預設收起
+    const list = mine.filter(t => (t.group || 'bag') === g).sort((a, b) => a.done - b.done), done = list.filter(t => t.done).length;
+    if (!list.length) return '';
+    const open = S.packOpen[g] ?? done < list.length;
+    return `<button type="button" class="label donehead packhead" data-act="packFold" data-v="${g}" aria-expanded="${open}"><span aria-hidden="true">${open ? '▾' : '▸'}</span> ${label} ${done}/${list.length}</button>${open ? `<div class="divide">${list.map(t => packRow(t, off)).join('')}</div>` : ''}`;
   }).join('')}
   ${miss.length ? `<div class="tplbox">
     <div class="row"><b class="grow small">${PACK_KINDS[kind]}範本還有這些</b><button type="button" class="btn sm" data-act="packTpl" data-v="${kind}" ${off}>全部加入</button></div>
