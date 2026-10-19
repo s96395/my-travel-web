@@ -47,7 +47,7 @@ const S = {
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
   flightDocs: [], stayDocs: [], transitDocs: [], loadingMove: false, reveal: {},
-  todoDocs: [], packDocs: [], todoSeg: 'todo', loadingTodo: false,
+  todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', loadingTodo: false,
   diveDocs: [], loadingDive: false,
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
   q: '', filter: '全部', years: {}, stats: {},
@@ -156,7 +156,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -727,6 +727,7 @@ const actions = {
     addTodos(miss, `已加入 ${miss.length} 項`);
   },
   todoSeg(el) { S.todoSeg = el.dataset.v; render(); },
+  packFold(el) { S.packOpen[el.dataset.v] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   packTpl(el) {
     const trip = curTrip();
     if (!trip) return;
