@@ -18,7 +18,7 @@ import { normalizeItem, planMove, nextOrder, itemsOfDay, isMapLink } from './lib
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
-import { missingTemplate } from './lib/todos.js';
+import { missingTemplate, missingPack } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
@@ -47,7 +47,7 @@ const S = {
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
   flightDocs: [], stayDocs: [], transitDocs: [], loadingMove: false, reveal: {},
-  todoDocs: [], loadingTodo: false,
+  todoDocs: [], packDocs: [], todoSeg: 'todo', loadingTodo: false,
   diveDocs: [], loadingDive: false,
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
   q: '', filter: '全部', years: {}, stats: {},
@@ -156,7 +156,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -167,7 +167,7 @@ function syncItineraryWatch() {
 
 function fillFromLocal(rec) {
   const x = rec?.subs || {};
-  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], packDocs: x.packing || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
 }
 
 /* ---------- 下載供離線使用 ---------- */
@@ -238,6 +238,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
+    watchRecords(tripId, 'packing', ok(list => { S.packDocs = list; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
     watchRecords(tripId, 'wishlist', ok(list => { S.wishDocs = list.map(p => (p.exact ? p : { ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)); }), fail),
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
@@ -316,6 +317,23 @@ async function addTodos(texts, msg) {
 async function toggleTodo(box) {
   if (S.offline) { box.checked = !box.checked; return; }
   try { await updateRecord(S.tripId, 'todos', box.dataset.todo, { done: box.checked }, S.user, S.nickname); } catch (err) { console.error(err); box.checked = !box.checked; toast('待辦更新失敗，請稍後再試'); }
+}
+
+// 行李清單：每個人各自一份，用 uid 分開；group 是放在哪一區
+async function addPack(items, msg) {
+  if (S.busy || S.offline || !items.length) return false;
+  S.busy = true;
+  const now = Date.now();
+  try {
+    await Promise.all(items.map((x, i) => addRecord(S.tripId, 'packing', { uid: S.user.uid, group: x.group, text: x.text, done: false, order: now + i }, S.user, S.nickname)));
+    toast(msg);
+    return true;
+  } catch (err) { console.error(err); toast('行李新增失敗，請稍後再試'); return false; } finally { S.busy = false; }
+}
+
+async function togglePack(box) {
+  if (S.offline) { box.checked = !box.checked; return; }
+  try { await updateRecord(S.tripId, 'packing', box.dataset.pack, { done: box.checked }, S.user, S.nickname); } catch (err) { console.error(err); box.checked = !box.checked; toast('行李更新失敗，請稍後再試'); }
 }
 
 /* ---------- 共編成員名字：沒綁定同行者的成員讀帳號暱稱 ---------- */
@@ -708,6 +726,21 @@ const actions = {
     const miss = missingTemplate(S.todoDocs, trip.type);
     addTodos(miss, `已加入 ${miss.length} 項`);
   },
+  todoSeg(el) { S.todoSeg = el.dataset.v; render(); },
+  packTpl(el) {
+    const trip = curTrip();
+    if (!trip) return;
+    const miss = missingPack(S.packDocs.filter(t => t.uid === S.user.uid), el.dataset.v, trip.type);
+    addPack(miss, `已加入 ${miss.length} 項`);
+  },
+  async delPack(el, ev) {
+    ev.preventDefault(); // 按鈕在勾選框的 label 裡，不要順便勾選
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
+    if (S.busy) return;
+    S.busy = true;
+    try { await deleteRecord(S.tripId, 'packing', el.dataset.id); toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
   expSeg(el) { S.expSeg = el.dataset.v; render(); },
   expFilter(el) { S.expFilter = el.dataset.v; render(); },
   newExp() {
@@ -1010,6 +1043,7 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const t = ev.target;
   if (t.dataset?.todo) toggleTodo(t);
+  if (t.dataset?.pack) togglePack(t);
   if (t.id === 'imp-file' && t.files?.length) {
     const files = [...t.files];
     Promise.all(files.map(f => f.text())).then(texts => {
@@ -1037,6 +1071,13 @@ document.addEventListener('compositionend', ev => {
   if (ev.target.dataset?.f) onDraftInput(ev.target);
 });
 document.addEventListener('submit', async ev => {
+  if (ev.target.dataset.form === 'pack') {
+    ev.preventDefault();
+    const input = $('#packNew'), text = input.value.trim(), group = $('#packGroup').value;
+    if (!text) { input.focus(); return; }
+    if (await addPack([{ group, text }], `已新增「${text}」`)) { const i = $('#packNew'); if (i) { i.value = ''; i.focus(); } const g = $('#packGroup'); if (g) g.value = group; }
+    return;
+  }
   if (ev.target.dataset.form !== 'todo') return;
   ev.preventDefault();
   const input = $('#todoNew'), text = input.value.trim();

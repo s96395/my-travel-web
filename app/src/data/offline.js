@@ -3,7 +3,7 @@
 import { doc, getDoc, getDocs, collection, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
-const SUBS = ['itinerary', 'flights', 'stays', 'transits', 'todos', 'expenses', 'fundDeposits', 'cover'];
+const SUBS = ['itinerary', 'flights', 'stays', 'transits', 'todos', 'packing', 'expenses', 'fundDeposits', 'cover'];
 let opening;
 
 function openDb() {
