@@ -811,7 +811,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpop span{color:#6b7280}
 .mpopbtn{display:flex;gap:6px;margin-top:4px}
 .mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
-.mpop .mpopbtn .btn.primary{background:#e8792b;border-color:#e8792b;color:#fff}
+.mpop .mpopbtn .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff}
 @media (min-width:1000px){
   .device.wide .mapstick:not(.liststick) .mapslot{flex:1;height:auto;min-height:0}
   .device.wide .mapstick.liststick{position:static;height:auto}
