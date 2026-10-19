@@ -81,7 +81,7 @@ export function bindParticipant(tripId, uid, pid, newName) {
 }
 
 /* ---------- 刪除旅程（規格書 F05）：子資料一筆一筆刪，全部刪完才刪旅程本身 ---------- */
-const SUBS = { itinerary: '行程', flights: '班機', stays: '住宿', todos: '待辦', expenses: '支出', fundDeposits: '公費放入紀錄', transits: '其他交通', diveLogs: '潛水日誌', images: '圖片', accommodations: '舊版住宿', cover: '封面照' };
+const SUBS = { itinerary: '行程', flights: '班機', stays: '住宿', todos: '待辦', expenses: '支出', fundDeposits: '公費放入紀錄', transits: '其他交通', diveLogs: '潛水日誌', packing: '行李清單', images: '圖片', accommodations: '舊版住宿', cover: '封面照' };
 export async function deleteTripAll(tripId) {
   const failed = [];
   for (const [name, label] of Object.entries(SUBS)) {
@@ -116,6 +116,9 @@ export async function deleteAccountData(uid) {
         const logs = await getDocs(query(collection(db, `trips/${trip.id}/diveLogs`), where('createdByUid', '==', uid)));
         await Promise.all(logs.docs.filter(d => !Array.isArray(d.data().divers)).map(d => updateDoc(d.ref, { divers: [mine.id] })));
       }
+      // 自己的行李清單在別人的旅程裡沒用處，一起刪掉
+      const packs = await getDocs(query(collection(db, `trips/${trip.id}/packing`), where('uid', '==', uid)));
+      await Promise.all(packs.docs.map(d => deleteDoc(d.ref)));
       const unbind = mine ? { [`participants.${mine.id}.uid`]: null } : {};
       const left = (trip.memberIds || []).filter(u => u !== uid);
       if (trip.ownerId !== uid) {

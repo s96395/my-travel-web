@@ -833,3 +833,4 @@ button.mate:active .avatar{transform:scale(.92)}
 .mapcta.low{top:auto;bottom:16px;transform:translateX(-50%)}
 .mapcta b{font-size:16px}
 .mapcta span{color:var(--muted)}
+.packhead{display:flex;align-items:center;gap:6px;width:100%;min-height:40px;border:0;background:none;padding:6px 0;text-align:left;font-size:14px;font-weight:700;color:var(--fg);cursor:pointer}
