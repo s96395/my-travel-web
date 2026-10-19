@@ -21,8 +21,8 @@ function loadApi() {
   return ready;
 }
 
-// 地圖底色固定是淺色，針的顏色不跟著網站主題走：行程橘色、想去清單桃紅色，在街道、綠地和海上都看得清楚
-const DAY = '#e8792b', WISH = '#d6336c';
+// 地圖底色固定是淺色，針的顏色不跟著網站主題走：行程橘色、想去清單紅色，在街道、綠地和海上都看得清楚
+const DAY = '#e8792b', WISH = '#e03131';
 
 function popup(p, onAct) {
   const el = document.createElement('div');
