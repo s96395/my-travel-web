@@ -52,6 +52,7 @@ export function renderMore(S, trip) {
     <details>
       <summary><span>💡</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
       <div class="tips">
+        <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
         <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
         <p><b>離線查看</b>：按旅程標題右邊的「離線行程」，把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
         <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>

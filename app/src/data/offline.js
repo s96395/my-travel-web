@@ -3,7 +3,7 @@
 import { doc, getDoc, getDocs, collection, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
-const SUBS = ['itinerary', 'flights', 'stays', 'transits', 'todos', 'packing', 'expenses', 'fundDeposits', 'cover'];
+const SUBS = ['itinerary', 'flights', 'stays', 'transits', 'todos', 'packing', 'expenses', 'fundDeposits', 'diveLogs', 'wishlist', 'cover'];
 let opening;
 
 function openDb() {
@@ -40,7 +40,7 @@ function revive(v) {
 
 const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-// 整趟下載：旅程主檔與行程、班機、其他交通、住宿、待辦、支出、公費、封面照
+// 整趟下載：旅程主檔與行程、班機、其他交通、住宿、待辦、行李清單、支出、公費、潛水紀錄、想去清單、封面照
 export async function downloadTrip(tripId, uid) {
   const tripSnap = await getDoc(doc(db, 'trips', tripId));
   if (!tripSnap.exists()) throw new Error('trip-missing');

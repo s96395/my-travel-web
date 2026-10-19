@@ -95,6 +95,7 @@ function render() {
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
   // 地圖只在用到時才載入
+  tourCheck();
   if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
@@ -118,6 +119,24 @@ async function exactCoords(m) {
       if (xy) await p.save({ ...xy, exact: true }).catch(console.error);
     }
   } finally { locating = false; }
+}
+
+// 操作導覽：第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
+let tour = null; // 用到時才載入 ui/tour.js
+function tourCheck() {
+  if (tour?.touring()) { tour.refreshTour(); return; }
+  if (!S.user || S.localOnly || S.offline || sheetOpen()) return;
+  const which = S.view === 'home' && !S.loadingTrips ? 'Home' : S.view === 'trip' && curTrip() && S.tab === 'plan' && !S.loadingItems ? 'Trip' : '';
+  if (!which || store.get('tour' + which) === '1') return;
+  store.set('tour' + which, '1');
+  startTour(which);
+}
+function startTour(which) {
+  import('./ui/tour.js').then(m => {
+    tour = m;
+    // 等畫面排好再框按鈕
+    setTimeout(() => (which === 'Home' ? m.homeTour(S.wide, !S.trips.length) : m.tripTour(S.wide)), 300);
+  }).catch(err => console.error(err));
 }
 
 function envTag() {
@@ -167,7 +186,7 @@ function syncItineraryWatch() {
 
 function fillFromLocal(rec) {
   const x = rec?.subs || {};
-  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], packDocs: x.packing || [], diveDocs: x.diveLogs || [], depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], packDocs: x.packing || [], diveDocs: x.diveLogs || [], wishDocs: (x.wishlist || []).map(p => (p.exact ? p : { ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)), depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
 }
 
 /* ---------- 下載供離線使用 ---------- */
@@ -491,6 +510,8 @@ const actions = {
     toast('已登出');
   },
   account: () => accountSheet(S),
+  tourHome() { closeSheet(); startTour('Home'); },
+  tourTrip() { if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
   theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   install: () => installSheet(),
   privacy: () => privacySheet(),
@@ -555,6 +576,17 @@ const actions = {
     if (S.env === 'production' || S.busy) return;
     S.busy = true; el.disabled = true;
     try { await addSampleTrips(S.user, S.nickname); closeSheet(); toast('已加入 6 趟範例旅程'); } catch (err) { console.error(err); el.disabled = false; toast('載入失敗'); }
+    S.busy = false;
+  },
+  // 示範旅程：京都 6 天，加到自己的帳號裡，看完可以在「更多」刪掉（正式環境也有）
+  async demoTrip(el) {
+    if (S.offline || S.busy) return;
+    S.busy = true; el.disabled = true;
+    try {
+      const id = await addSampleTrips(S.user, S.nickname, true);
+      closeSheet(); go(`#/trip/${id}`);
+      toast('已加入示範旅程，看完可以在「更多」刪掉');
+    } catch (err) { console.error(err); el.disabled = false; toast('載入失敗，請稍後再試'); }
     S.busy = false;
   },
   open(el) { go(`#/trip/${el.dataset.id}`); },
@@ -1088,7 +1120,7 @@ document.addEventListener('submit', async ev => {
 // 中文輸入法組字時按 Esc 是取消選字，不關閉視窗
 document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !ev.isComposing && ev.keyCode !== 229 && sheetOpen()) tryClose(); });
 window.addEventListener('scroll', () => $('#appbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
-window.addEventListener('hashchange', () => { readRoute(); render(); window.scrollTo(0, 0); });
+window.addEventListener('hashchange', () => { tour?.stopTour(); readRoute(); render(); window.scrollTo(0, 0); });
 initDrag({
   canEdit: () => !S.offline,
   onLocked: () => toast('離線中只能查看，連上網路後才能修改'),

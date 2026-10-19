@@ -844,3 +844,19 @@ button.mate:active .avatar{transform:scale(.92)}
 .packlist .todo{gap:8px;padding:10px 0}
 .packlist .todo .grow{overflow-wrap:anywhere}
 @media (min-width:1000px){.device.wide .packlist{column-gap:32px}.device.wide .packlist .todo{gap:12px;padding:12px 2px}}
+
+/* ---------- 操作導覽（Driver.js）：跟著網站的顏色與深淺色 ---------- */
+.driver-popover.tour{background:var(--surface);color:var(--fg);font-family:var(--font-body);border-radius:var(--r);padding:16px 16px 14px;max-width:min(320px,calc(100vw - 32px));box-shadow:0 12px 32px -10px var(--shade)}
+.driver-popover.tour .driver-popover-title{font-family:var(--font-display);font-size:17px;padding-right:24px}
+.driver-popover.tour .driver-popover-description{font-size:14px;line-height:1.65;color:var(--fg)}
+.driver-popover.tour .driver-popover-close-btn{color:var(--muted);width:36px;height:36px;font-size:20px}
+.driver-popover.tour .driver-popover-progress-text{color:var(--muted);font-size:12px}
+.driver-popover.tour .driver-popover-footer{gap:8px;flex-wrap:wrap}
+.driver-popover.tour .driver-popover-footer-btn{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 14px;font-size:13px;text-shadow:none}
+.driver-popover.tour .driver-popover-next-btn,.driver-popover.tour .tour-extra{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+.driver-popover.tour .driver-popover-navigation-btns button{white-space:nowrap}
+.driver-popover.tour .tour-extra{all:unset;box-sizing:border-box;cursor:pointer;flex:1 0 100%;order:3;text-align:center;border-radius:999px;padding:9px 14px;font-size:14px;font-weight:700;background:var(--accent);color:var(--accent-fg)}
+.driver-popover.tour .driver-popover-arrow-side-left{border-left-color:var(--surface)}
+.driver-popover.tour .driver-popover-arrow-side-right{border-right-color:var(--surface)}
+.driver-popover.tour .driver-popover-arrow-side-top{border-top-color:var(--surface)}
+.driver-popover.tour .driver-popover-arrow-side-bottom{border-bottom-color:var(--surface)}
