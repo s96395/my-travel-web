@@ -21,7 +21,8 @@ function loadApi() {
   return ready;
 }
 
-const color = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+// 地圖底色固定是淺色，針的顏色不跟著網站主題走：行程橘色、想去清單桃紅色，在街道、綠地和海上都看得清楚
+const DAY = '#e8792b', WISH = '#d6336c';
 
 function popup(p, onAct) {
   const el = document.createElement('div');
@@ -50,12 +51,11 @@ export async function syncMap(data, onAct) {
   if (key !== lastKey) {
     lastKey = key;
     markers.forEach(m => m.setMap(null)); markers.clear();
-    const warm = color('--warm') || '#e8792b', accent = color('--accent') || '#1e3a5f';
     for (const p of data.points) {
       const day = p.kind === 'day';
       const m = new g.Marker({
         map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: day ? 2 : 1,
-        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 7, fillColor: day ? warm : accent, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 8, fillColor: day ? DAY : WISH, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
       m.addListener('click', () => {

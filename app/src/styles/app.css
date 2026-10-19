@@ -801,8 +801,8 @@ button.mate:active .avatar{transform:scale(.92)}
 .lmap{width:100%;height:100%}
 .mlegend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0}
 .mlegend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
-.mlegend .dot.wish{background:var(--accent);margin-left:8px}
-.mlegend .dot.day{background:var(--warm)}
+.mlegend .dot.wish{background:#d6336c;margin-left:8px}
+.mlegend .dot.day{background:#e8792b}
 .pin{background:none;border:0}
 .pin-day b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--warm);color:#fff;font:700 12px/1 var(--font, sans-serif);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
 .pin-wish{border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
@@ -810,7 +810,8 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpophead{font-size:14px;color:#1f2937;line-height:1.4}
 .mpop span{color:#6b7280}
 .mpopbtn{display:flex;gap:6px;margin-top:4px}
-.mpopbtn .btn{text-decoration:none}
+.mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
+.mpop .mpopbtn .btn.primary{background:#e8792b;border-color:#e8792b;color:#fff}
 @media (min-width:1000px){
   .device.wide .mapstick:not(.liststick) .mapslot{flex:1;height:auto;min-height:0}
   .device.wide .mapstick.liststick{position:static;height:auto}
