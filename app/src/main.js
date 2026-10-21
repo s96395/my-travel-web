@@ -284,6 +284,9 @@ async function wishToDay(wid, day, beforeId) {
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
 
+// 想去清單、地圖彈出框：旁邊的下拉選單選了第幾天
+const pickDay = el => +(el.closest('.addto')?.querySelector('.daysel')?.value || el.dataset.d || 0);
+
 // 整個區域排進某一天：這區還沒排進這天的地點，照離這天行程的遠近接在最後
 async function areaToDay(area, day) {
   const ps = nearDay(wishLeft(S, day).filter(p => p.area === area), itemsOfDay(S.items, day));
@@ -736,7 +739,7 @@ const actions = {
     S.busy = true; el.disabled = true;
     try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
   },
-  areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, +el.dataset.d); },
+  areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, pickDay(el)); },
   areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
   moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
@@ -781,7 +784,7 @@ const actions = {
       toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },
-  wishAdd(el) { el.disabled = true; wishToDay(el.dataset.id, +el.dataset.d).then(ok => { if (!ok) el.disabled = false; }); },
+  wishAdd(el) { el.disabled = true; wishToDay(el.dataset.id, pickDay(el)).then(ok => { if (!ok) el.disabled = false; }); },
   async wishDel(el) {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.classList.add('sure'); el.textContent = '確定移除'; return; }
     if (S.busy) return;

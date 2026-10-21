@@ -832,7 +832,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpop{display:grid;gap:4px;min-width:160px;max-width:260px;font-size:13px;color:#1f2937} /* Google 的彈出框固定白底，深色模式也用深色字 */
 .mpophead{font-size:15px;color:#1f2937;line-height:1.4}
 .mpop span{color:#6b7280}
-.mpopbtn{display:flex;gap:6px;margin-top:4px}
+.mpopbtn{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
 .mpop .mpopbtn .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff}
 @media (min-width:1000px){
@@ -891,3 +891,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .device:not(.wide) .wrow b{white-space:normal}
 .device:not(.wide) .wrow .more{margin-left:auto}
 .device:not(.wide) .wishtop{flex-wrap:wrap}
+.wghead .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);flex:none;align-self:center}
+.addto{display:inline-flex;align-items:center;gap:4px;flex:none}
+.daysel{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 8px;font-size:13px}
+.mpop .daysel{background:#fff;color:#1f2937;border-color:#d0d5dd}

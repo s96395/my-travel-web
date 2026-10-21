@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -18,6 +18,9 @@ function dayDate(trip, d) {
   dt.setDate(dt.getDate() + d - 1);
   return monthDay(toDateString(dt));
 }
+// 加到第幾天的下拉選單：預設選目前看的那天（看「還沒排天數」時預設第 1 天）
+export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n => `<option value="${n}" ${n === (sel || 1) ? 'selected' : ''}>第 ${n} 天${dayDate(trip, n) ? ' ' + dayDate(trip, n).replace(/（.*）/, '') : ''}</option>`).join('');
+const daySel = (S, trip, d, off) => `<select class="daysel" aria-label="加到第幾天" ${off}>${dayOpts(S, trip, d)}</select>`;
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
 function itemHtml(it, S, trip) {
@@ -42,8 +45,12 @@ const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d) => {
   const pts = mapData(S, null).points;
   const none = !S.wishDocs.length;
+  const colors = areaColors(S.wishDocs);
+  const shown = [...new Set(pts.filter(p => p.kind === 'wish').map(p => p.area))];
+  // 有分區域時，說明列出地圖上每個區域的顏色
+  const wishKey = colors.size ? shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('') : '<i class="dot wish"></i>想去清單';
   const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
+  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}${wishKey}${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
   // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排；已有行程針時移到下方，不擋住針
   const cta = none && !S.offline ? `<div class="mapcta${pts.length ? ' low' : ''}"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
@@ -59,12 +66,13 @@ function sidePane(S, trip, d) {
 
 // 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單放還沒排進這天的
 export function mapData(S, trip) {
+  const colors = areaColors(S.wishDocs);
   const days = trip ? dayList(S, trip) : [];
   const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
   const its = itemsOfDay(S.items, d);
   const points = [
     ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${n} 個` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
+    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, opts: trip ? dayOpts(S, trip, d) : '', area: p.area || '', color: colors.get(p.area) || NO_AREA_COLOR })),
   ];
   return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${points.length}`, focus: S.mapFocus };
 }
@@ -94,12 +102,12 @@ function wishPanel(S, trip, d) {
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個${d && left.some(p => Number.isFinite(p.lat)) ? '・依離第 ' + d + ' 天行程的遠近排' : ''}</p>`;
   if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進這一天了。</p>`;
-  const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
+  const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d))), colors = areaColors(S.wishDocs);
   const named = groups.some(g => g.area);
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
       <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
       ${S.offline || !hasXY(p) ? '' : `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>`}
-      ${d ? `<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到第 ${d} 天</button>` : ''}
+      <span class="addto">${daySel(S, trip, d, off)}<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" ${off}>${ICON.plus}加入</button></span>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
   const addArea = `<span class="row" style="gap:6px;flex:none">${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
@@ -107,9 +115,9 @@ function wishPanel(S, trip, d) {
   return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
     const a = esc(g.area);
     return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
-      <div class="grow"><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點</span></div>
+      <div class="grow"><i class="dot" style="background:${colors.get(g.area) || NO_AREA_COLOR}" aria-hidden="true"></i><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點</span></div>
       ${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="tag" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}">${ICON.pin}地圖看這區</button>` : ''}
-      ${g.area && d ? `<button type="button" class="btn sm primary" data-act="areaAdd" data-area="${a}" data-d="${d}" ${off}>${ICON.plus}整區加到第 ${d} 天</button>` : ''}
+      ${g.area ? `<span class="addto">${daySel(S, trip, d, off)}<button type="button" class="btn sm primary" data-act="areaAdd" data-area="${a}" ${off}>${ICON.plus}整區加入</button></span>` : ''}
       ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}
     </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
   }).join('')}`;
