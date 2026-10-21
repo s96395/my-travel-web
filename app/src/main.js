@@ -122,11 +122,12 @@ async function exactCoords(m) {
   } finally { locating = false; }
 }
 
-// 操作導覽：第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
+// 操作導覽：正式環境第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
 let tour = null; // 用到時才載入 ui/tour.js
 function tourCheck() {
   if (tour?.touring()) { tour.refreshTour(); return; }
-  if (!S.user || S.localOnly || S.offline || sheetOpen()) return;
+  // 測試環境每個預覽網址都記不到看過了，不自動跳出，要看從帳號選單重看
+  if (S.env !== 'production' || !S.user || S.localOnly || S.offline || sheetOpen()) return;
   const which = S.view === 'home' && !S.loadingTrips ? 'Home' : S.view === 'trip' && curTrip() && S.tab === 'plan' && !S.loadingItems ? 'Trip' : '';
   if (!which || store.get('tour' + which) === '1') return;
   store.set('tour' + which, '1');
