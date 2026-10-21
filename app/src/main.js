@@ -273,6 +273,8 @@ function startTripWatch(tripId) {
 async function wishToDay(wid, day, beforeId) {
   const p = S.wishDocs.find(x => x.id === wid);
   if (!p || !day || S.busy || S.offline) return false;
+  // 可以下拉選別天，選到的那天已經有這個地點就不重複加
+  if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
   const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
   try {
