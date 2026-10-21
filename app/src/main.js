@@ -284,11 +284,11 @@ async function areaToDay(area, day) {
   const ps = nearDay(wishLeft(S, day).filter(p => p.area === area), itemsOfDay(S.items, day));
   if (!ps.length || !day || S.busy || S.offline) return;
   S.busy = true;
-  const base = nextOrder(S.items, day);
+  const tid = S.tripId, base = nextOrder(S.items, day); // 加的途中換到別趟旅程，也要寫回原本這趟
   try {
     for (const [i, p] of ps.entries()) {
       const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
-      await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area, address: p.url, note: p.note || '', ...xy, day, order: base + i }, S.user, S.nickname);
+      await addItem(tid, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area, address: p.url, note: p.note || '', ...xy, day, order: base + i }, S.user, S.nickname);
     }
     toast(`「${area}」${ps.length} 個地點已加到第 ${day} 天`);
   } catch (err) { console.error(err); toast('沒有加完，請稍後再試'); }
@@ -299,21 +299,21 @@ async function areaToDay(area, day) {
 async function exactNow(ids) {
   const xy = new Map();
   if (!mapsKey || placesOff) return xy;
-  const m = await import('./ui/map.js');
+  const m = await import('./ui/map.js'), tid = S.tripId;
   for (const id of ids) {
     const p = S.wishDocs.find(x => x.id === id);
     if (!p || p.exact || !Number.isFinite(p.lat)) continue;
     tried.add(id);
     const c = await m.locate(p).catch(() => null);
     if (c === 'off') { placesOff = true; break; }
-    if (c) { xy.set(id, c); updateRecord(S.tripId, 'wishlist', id, { ...c, exact: true }, S.user, S.nickname).catch(console.error); }
+    if (c) { xy.set(id, c); updateRecord(tid, 'wishlist', id, { ...c, exact: true }, S.user, S.nickname).catch(console.error); }
   }
   return xy;
 }
 
 // 還沒分區域的地點依距離自動分組，區域名稱先用中心那個地點，例如「海港城一帶」，之後可以改
 async function groupNear(xy = new Map()) {
-  const free = S.wishDocs.filter(p => !p.area).map(p => ({ ...p, ...(xy.get(p.id) || {}) }));
+  const tid = S.tripId, free = S.wishDocs.filter(p => !p.area).map(p => ({ ...p, ...(xy.get(p.id) || {}) }));
   const groups = clusterNear(free);
   if (!groups.length) { toast('沒有距離 1 公里內的地點可以分在一起'); return; }
   const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean));
@@ -323,7 +323,7 @@ async function groupNear(xy = new Map()) {
     let name = base;
     for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
     names.add(name);
-    g.forEach(p => writes.push(updateRecord(S.tripId, 'wishlist', p.id, { area: name }, S.user, S.nickname)));
+    g.forEach(p => writes.push(updateRecord(tid, 'wishlist', p.id, { area: name }, S.user, S.nickname)));
   }
   try { await Promise.all(writes); toast(`分成 ${groups.length} 個區域，按區域旁的 ⋯ 可以改名`); } catch (err) { console.error(err); toast('沒有分組完成，請稍後再試'); }
 }
@@ -677,7 +677,10 @@ const actions = {
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
     if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
-    S.mapFocus = el.dataset.id || ''; if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    S.mapFocus = el.dataset.id || '';
+    // 只看某區時點了別區的地點，改回看全部，地圖上才有那根針
+    if (S.mapArea && S.wishDocs.find(p => 'w:' + p.id === S.mapFocus && p.area !== S.mapArea)) S.mapArea = '';
+    if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
   // 地圖只看某個區域的想去清單地點；再按一次看全部
   mapArea(el) {
     const a = el.dataset.area || '';
