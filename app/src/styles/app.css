@@ -553,6 +553,8 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .hero.bpi .bp-route b{font-size:38px;font-weight:900;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
 :root[data-style="i"] .hero.bpi small{color:rgba(255,255,255,.82)}
 :root[data-style="i"] .hero.bpi h2{font-size:24px;font-weight:900;margin:0;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+/* 卡片內文字一律白色，按鈕是淺色底，要另外指定字色，不然淺色模式會白底白字 */
+:root[data-style="i"] .hero.bpi .btn:not(.primary){color:var(--fg)}
 :root[data-style="i"] .bp-plane{color:#fff}
 :root[data-style="i"] .bp-plane::before,:root[data-style="i"] .bp-plane::after{border-top:2px dashed rgba(255,255,255,.7)}
 :root[data-style="i"] .bp-fields b{font-weight:800;color:#fff}
