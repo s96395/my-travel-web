@@ -659,6 +659,8 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .ratebox b{font-size:16px}
 .ratebox label{display:flex;align-items:center;gap:6px}
 .ratebox .rate{width:92px;padding:4px 8px;text-align:center}
+.ratebox .ratesrc{max-width:300px;text-align:center;font-size:12px;line-height:1.5}
+.ratebox .ratesrc a{color:inherit;text-decoration:underline}
 .namein{width:100%;border:0;border-bottom:1px dashed var(--line);background:none;text-align:center;padding:6px 4px;font-size:15px}
 .namein:focus{border-bottom-color:var(--warm);outline:none}
 .namein.lg{font-size:20px;font-weight:700;padding:8px 4px}

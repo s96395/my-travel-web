@@ -345,6 +345,7 @@ function rateLine(d, dis) {
     <label class="small muted">1 ${esc(info.name)} =
       <input class="input rate" id="x-rate" data-f="rate" inputmode="decimal" value="${esc(d.rate)}" placeholder="0" aria-label="匯率" ${dis}> 新台幣</label>
     ${note ? `<span class="small ${d.rateState === 'fail' ? '' : 'muted'}"${d.rateState === 'fail' ? ' style="color:var(--warn)"' : ''}>${esc(note)}</span>` : ''}
+    <span class="small muted ratesrc">匯率來自 <a href="https://frankfurter.dev/" target="_blank" rel="noopener">Frankfurter</a> 的各國央行參考匯率，僅供參考，實際金額以刷卡帳單或換匯收據為準</span>
   </div>`;
 }
 
