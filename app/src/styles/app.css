@@ -796,6 +796,18 @@ button.mate:active .avatar{transform:scale(.92)}
 .wrow b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
+.wgroup{display:grid;gap:6px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
+.wgroup.none{border-style:dashed}
+.wghead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wghead .grow{flex:1 0 auto;display:flex;align-items:baseline;gap:8px}
+.wghead .grow b,.wghead .grow span{white-space:nowrap}
+.wishtop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wishtop .btn{white-space:nowrap;flex:none}
+.wghead b{font-size:15px}
+.wghead .btn{white-space:nowrap}
+.arealine{display:flex;align-items:baseline;gap:10px;margin:6px 2px 0;font-size:13px;color:var(--muted)}
+.arealine b{color:var(--fg)}
+.arealine .linkbtn{margin-left:auto;font-size:13px;color:var(--accent)}
 /* 開放地圖：當天行程是編號的橘色針，想去清單是藍色圓點 */
 .mapslot{position:relative;z-index:0;height:45vh;min-height:260px;border-radius:18px;overflow:hidden;background:var(--surface2)}
 .lmap{width:100%;height:100%}
