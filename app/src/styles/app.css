@@ -872,3 +872,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .driver-popover.tour .driver-popover-arrow-side-right{border-right-color:var(--surface)}
 .driver-popover.tour .driver-popover-arrow-side-top{border-top-color:var(--surface)}
 .driver-popover.tour .driver-popover-arrow-side-bottom{border-bottom-color:var(--surface)}
+/* 手機：地點名稱自己一行完整顯示，按鈕排到下一行 */
+.device:not(.wide) .wishes .item.wrow{flex-wrap:wrap;row-gap:6px}
+.device:not(.wide) .wrow .grow{flex-basis:100%}
+.device:not(.wide) .wrow b{white-space:normal}
+.device:not(.wide) .wrow .more{margin-left:auto}
+.device:not(.wide) .wishtop{flex-wrap:wrap}

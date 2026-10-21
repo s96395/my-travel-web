@@ -102,8 +102,8 @@ function wishPanel(S, trip, d) {
       ${d ? `<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到第 ${d} 天</button>` : ''}
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
-  const addArea = `<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button>`;
-  if (!named) return `${count}<div class="tip"><span>可以把附近的地點分成一個區域（例如地鐵站「尖沙咀」），之後整區一次排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  const addArea = `<span class="row" style="gap:6px;flex:none">${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
+  if (!named) return `${count}<div class="tip"><span>可以把附近的地點分成一個區域（例如地鐵站「尖沙咀」），之後整區一次排進某一天。也可以按「依距離分組」，把 1 公里內的地點自動放在一起。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
   return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
     const a = esc(g.area);
     return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
@@ -217,7 +217,7 @@ export function areaSheet(S, area = '') {
   openSheet(`${head(area ? '編輯區域' : '新增區域')}
     <input class="namein lg" id="a-name" maxlength="20" placeholder="區域名稱，例如：尖沙咀" aria-label="區域名稱" value="${esc(area)}">
     <p class="label">勾選放在這區的地點</p>
-    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-ap="${esc(p.id)}" ${area && p.area === area ? 'checked' : ''}>
+    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${area && p.area === area ? 'checked' : ''}>
       <span class="grow" style="flex:1">${esc(p.title)}${p.area && p.area !== area ? ` <small class="muted">（目前在「${esc(p.area)}」）</small>` : ''}</span></label>`).join('')}</div>
     <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
 }
@@ -255,7 +255,18 @@ export function importSheet(places = null, have = new Map()) {
     ${places ? '' : steps}
     <label class="btn${places ? '' : ' primary'}"><input type="file" id="imp-file" accept=".csv,text/csv" multiple hidden>${places ? '換其他檔案' : '選擇 CSV 檔'}</label>
     ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">檔案裡沒有地點</div>') : ''}
+    ${places && n ? areaPick(places) : ''}
     ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入想去清單</button>` : ''}`);
+}
+
+// 匯入時順便分區域：用收藏清單的名稱（一個 CSV 一區），或依距離自動分組
+function areaPick(places) {
+  const lists = [...new Set(places.map(p => p.list).filter(Boolean))];
+  const opts = [['', '先不分'], ['list', '用清單名稱'], ['near', '依距離分組']];
+  const def = lists.length ? 'list' : '';
+  return `<div class="field"><span class="label">放進區域</span>
+    <div class="chips" role="radiogroup" aria-label="放進區域" style="flex-wrap:wrap">${opts.map(([v, t]) => `<label class="chip"><input type="radio" name="imp-area" value="${v}" ${v === def ? 'checked' : ''}>${t}</label>`).join('')}</div>
+    <span class="small muted">用清單名稱：${lists.length ? lists.map(l => `「${esc(l)}」`).join('、') + ' 各成一區' : '這批檔案沒有清單名稱'}。依距離分組：查好位置後，把 1 公里內的地點放在一起，名稱之後可以改。</span></div>`;
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null
