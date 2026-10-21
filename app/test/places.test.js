@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { parseCsv, parseSavedList, findCoords } from '../src/lib/places.js';
+import { parseCsv, parseSavedList, findCoords, clusterNear } from '../src/lib/places.js';
 
 const { coordsFrom } = createRequire(import.meta.url)('../../api/place.js');
 
@@ -50,4 +50,10 @@ test('想去清單依離這天行程的距離排序', async () => {
   assert.equal(kmText(0.42), '400 公尺');
   assert.equal(kmText(3.26), '3.3 公里');
   assert.equal(kmText(25.4), '25 公里');
+});
+
+test('依距離自動分組：1 公里內的放一起，單獨一個的不分組', () => {
+  const p = (id, lat, lng) => ({ id, lat, lng });
+  const g = clusterNear([p('a', 22.2950, 114.1700), p('far', 22.2540, 113.9050), p('b', 22.2960, 114.1680), p('c', 22.3186, 114.1717), p('d', 22.3205, 114.1705), p('e', 22.2938, 114.1702), p('none')]);
+  assert.deepEqual(g.map(x => x.map(q => q.id)), [['a', 'b', 'e'], ['c', 'd']]);
 });

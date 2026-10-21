@@ -123,3 +123,27 @@ export function embedUrl(stops, key) {
   if (stops.length > 2) p.set('waypoints', stops.slice(1, -1).slice(0, 20).join('|'));
   return `https://www.google.com/maps/embed/v1/directions?${p}`;
 }
+
+/* ---------- 區域（母）與地點（子）：區域可以整塊排進某一天，底下的地點跟著過去 ---------- */
+// 依區域分組，保留原本的先後（第一個出現的區域排前面），沒有區域的放最後
+export function groupByArea(list) {
+  const m = new Map();
+  for (const p of list) {
+    const a = (p.area || '').trim();
+    if (!m.has(a)) m.set(a, []);
+    m.get(a).push(p);
+  }
+  return [...m].sort(([a], [b]) => !a - !b).map(([area, places]) => ({ area, places }));
+}
+
+// 整個區域移到別天：這天同區域的行程照原本順序接到目標那天最後；回傳格式同 planMove
+export function planAreaMove(items, fromDay, area, toDay) {
+  if (!area || fromDay === toDay) return [];
+  let list = items;
+  for (const it of itemsOfDay(items, fromDay).filter(x => x.area === area)) {
+    const byId = new Map(planMove(list, it.id, { day: toDay }).map(u => [u.id, u]));
+    list = list.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
+  }
+  const old = new Map(items.map(x => [x.id, x]));
+  return list.filter(x => old.get(x.id).day !== x.day || old.get(x.id).order !== x.order).map(x => ({ id: x.id, day: x.day, order: x.order }));
+}

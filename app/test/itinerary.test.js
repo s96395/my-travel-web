@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref } from '../src/lib/itinerary.js';
+import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -88,4 +88,18 @@ test('地圖：地址欄貼 Google 地圖連結時，地圖直接開連結，路
 test('搜尋地點前拿掉名稱裡的表情符號和｜', () => {
   const it = normalizeItem({ id: 'a', title: '🌶️ 東大門獵奇辣炒年糕｜廣安里店', area: '', type: 'restaurant' });
   assert.deepEqual(routeStops([it], '釜山'), ['東大門獵奇辣炒年糕 廣安里店 釜山']);
+});
+
+test('依區域分組：照第一次出現的先後，沒有區域的放最後', () => {
+  const g = groupByArea([{ id: 1, area: '' }, { id: 2, area: '尖沙咀' }, { id: 3, area: '中環' }, { id: 4, area: '尖沙咀 ' }]);
+  assert.deepEqual(g.map(x => [x.area, x.places.map(p => p.id)]), [['尖沙咀', [2, 4]], ['中環', [3]], ['', [1]]]);
+});
+
+test('整個區域移到別天：同區域照原順序接到那天最後，原本那天重新編號', () => {
+  const a = (id, day, order, area) => normalizeItem({ id, day, order, title: id, area });
+  const items = [a('p', 1, 1, '中環'), a('q', 1, 2, '尖沙咀'), a('r', 1, 3, '中環'), a('s', 1, 4, '尖沙咀'), a('x', 2, 1, '旺角')];
+  assert.deepEqual(planAreaMove(items, 1, '尖沙咀', 2), [
+    { id: 'q', day: 2, order: 2 }, { id: 'r', day: 1, order: 2 }, { id: 's', day: 2, order: 3 },
+  ]);
+  assert.deepEqual(planAreaMove(items, 1, '尖沙咀', 1), []);
 });
