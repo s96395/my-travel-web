@@ -1,6 +1,7 @@
 // 支出分頁：明細、分攤、結算、公費（規格書 F50–F56、S06、S07）
 // 手機用分段切換；電腦左邊明細、右邊切換分攤或結算，公費另一頁
-import { esc, ICON, TYPE_ICO, money, openSheet, $ } from '../ui/dom.js';
+import { esc, ICON, TYPE_ICO, money, openSheet, store, $ } from '../ui/dom.js';
+import { TWD, CURRENCIES, curInfo, tripCurrencies, fxMoney, toTwd, allocate } from '../lib/fx.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
 import { isMember } from '../lib/people.js';
 import {
@@ -101,7 +102,7 @@ function expRow(c, e) {
   return `<button type="button" class="exprow" data-act="editExp" data-id="${esc(e.id)}" style="--k:${CAT_COLOR[cat] || CAT_COLOR.其他}">
     <span class="cat" role="img" aria-label="${esc(cat)}">${CAT_ICON[cat] || ICON.box}</span>
     <span class="grow"><b>${esc(e.name)}</b><span class="small muted">${note}</span></span>
-    <span class="right"><b class="amt num">${money(amountOf(e))}</b>
+    <span class="right"><b class="amt num">${money(amountOf(e))}</b>${e.fx?.cur ? `<span class="small muted num">${esc(fxMoney(e.fx.amount, e.fx.cur))}</span>` : ''}
       ${payIds.length || shareIds.length ? `<span class="people" aria-label="${esc(payIds.map(c.name).join('、'))}付款${shareIds.length ? `，${esc(shareIds.map(c.name).join('、'))}分攤` : ''}">${payIds.map(id => `<span class="paid">${payAv(id)}</span>`).join('')}${shareIds.slice(0, 4).map(c.av).join('')}${shareIds.length > 4 ? `<span class="avatar sym">+${shareIds.length - 4}</span>` : ''}</span>` : ''}
     </span>
   </button>`;
@@ -193,13 +194,20 @@ function expFund(S, c) {
 // 表單的暫存內容；改了任何欄位 dirty 就變成 true，關閉時會提醒
 export function expDraft(S, trip, e) {
   const c = ctxOf(S, trip), active = c.active.map(p => p.id);
-  if (!e) return { id: null, name: '', amt: '', cat: '餐飲', pay: '現金', payer: c.me || '', paid: {}, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
-  const s = sharesOf(e, c.people) || {}, mode = modeOf(e, c.people);
+  // 新的一筆：幣別用這趟上次選的，沒有就用旅程國家的幣別；匯率等打開表單後再查
+  if (!e) {
+    const cur = store.get(`fxCur:${trip.id}`) || tripCurrencies(trip.raw.country)[0] || TWD;
+    return { id: null, name: '', amt: '', cur, rate: '', rateDate: '', rateState: '', cat: '餐飲', pay: '現金', payer: c.me || '', paid: {}, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
+  }
+  const s = sharesOf(e, c.people) || {}, mode = modeOf(e, c.people), fx = e.fx?.cur ? e.fx : null;
   const custom = {}, paid = {};
-  for (const k in s) custom[k] = String(s[k]);
-  if (e.payerId === MULTI) { const pd = paidOf(e); for (const k in pd) paid[k] = String(pd[k]); }
+  // 外幣的平均分攤沒有存外幣金額，改成自訂時再從總額重新平均
+  if (!fx || fx.shares) for (const k in s) custom[k] = String(fx ? fx.shares[k] ?? '' : s[k]);
+  if (e.payerId === MULTI) { const pd = fx?.payers || paidOf(e); for (const k in pd) paid[k] = String(pd[k]); }
   return {
-    id: e.id, name: e.name || '', amt: String(amountOf(e) || ''), cat: e.category || '其他', pay: payMethodOf(e) || '其他',
+    id: e.id, name: e.name || '', amt: String((fx ? fx.amount : amountOf(e)) || ''),
+    cur: fx ? fx.cur : TWD, rate: fx ? String(fx.rate) : '', rateDate: fx?.date || '', rateState: fx ? 'saved' : '',
+    cat: e.category || '其他', pay: payMethodOf(e) || '其他',
     payer: e.payerId || '', paid, mode, sel: new Set(mode === 'none' ? active : Object.keys(s)), custom, note: e.note || '',
     by: e.createdByName || '', edit: canEdit(S, trip, e), dirty: false,
   };
@@ -207,6 +215,9 @@ export function expDraft(S, trip, e) {
 
 const num = v => Number(v) || 0;
 const round2 = v => Math.round(v * 100) / 100;
+const foreign = d => !!d.cur && d.cur !== TWD;
+// 表單裡的金額照這筆的幣別顯示
+const fmt = d => v => (foreign(d) ? fxMoney(v, d.cur) : money(v));
 // 依名單順序列出勾選的人（平均分攤的餘數照這個順序分）
 const selected = (list, d) => list.filter(p => d.sel.has(p.id)).map(p => p.id);
 
@@ -216,21 +227,22 @@ export function payerCheck(d) {
   const amt = num(d.amt), paid = Object.values(d.paid || {}).map(num).filter(v => v > 0);
   const sum = round2(paid.reduce((a, v) => a + v, 0)), gap = round2(amt - sum);
   if (paid.length < 2) return { ok: false, html: '<div class="check bad">請填至少兩位付款人的金額</div>' };
-  return gap === 0 ? { ok: true, html: `<div class="check good"><span>${paid.length} 人付款，加總等於總金額</span><b class="num">${money(amt)}</b></div>` }
+  return gap === 0 ? { ok: true, html: `<div class="check good"><span>${paid.length} 人付款，加總等於總金額</span><b class="num">${esc(fmt(d)(amt))}</b></div>` }
     : { ok: false, html: `<div class="check bad"><span>付款${gap > 0 ? '還差' : '多了'} ${Math.abs(gap).toLocaleString('zh-TW')}，對齊後才能儲存</span><b class="num">${sum.toLocaleString('zh-TW')} / ${amt.toLocaleString('zh-TW')}</b></div>` };
 }
 
 export function draftCheck(d, list) {
   const amt = num(d.amt), ids = selected(list, d);
   const sum = round2(ids.reduce((a, k) => a + num(d.custom[k]), 0)), gap = round2(amt - sum);
-  let ok = !!d.name.trim() && amt > 0 && payerCheck(d).ok, html = '';
+  let ok = !!d.name.trim() && amt > 0 && payerCheck(d).ok && (!foreign(d) || num(d.rate) > 0), html = '';
+  const m = fmt(d);
   if (d.mode === 'equal') {
     ok = ok && ids.length > 0;
-    html = ids.length ? `<div class="check good"><span>${ids.length} 人平均，加總等於總金額</span><b class="num">${money(amt)}</b></div>` : '<div class="check bad">請至少勾選一位分攤對象</div>';
+    html = ids.length ? `<div class="check good"><span>${ids.length} 人平均，加總等於總金額</span><b class="num">${esc(m(amt))}</b></div>` : '<div class="check bad">請至少勾選一位分攤對象</div>';
   } else if (d.mode === 'custom') {
     ok = ok && ids.length > 0 && gap === 0;
     html = !ids.length ? '<div class="check bad">請至少勾選一位分攤對象</div>'
-      : gap === 0 ? `<div class="check good"><span>加總等於總金額</span><b class="num">${money(amt)}</b></div>`
+      : gap === 0 ? `<div class="check good"><span>加總等於總金額</span><b class="num">${esc(m(amt))}</b></div>`
         : `<div class="check bad"><span>${gap > 0 ? '還差' : '多了'} ${Math.abs(gap).toLocaleString('zh-TW')}，對齊後才能儲存</span><b class="num">${sum.toLocaleString('zh-TW')} / ${amt.toLocaleString('zh-TW')}</b></div>`;
   }
   return { ok, html };
@@ -265,12 +277,15 @@ export function expSheetHtml(S, trip, d) {
   payers.push(['', '還不確定']);
   const cats = CATS.includes(d.cat) ? CATS : [...CATS, d.cat], pays = PAYS.includes(d.pay) ? PAYS : [...PAYS, d.pay];
   const inactive = c.people.filter(p => p.status === 'inactive').map(p => p.name);
+  const m = fmt(d);
   return `
     ${head(d.id ? (d.edit ? '編輯支出' : '支出內容') : '記一筆支出')}
     ${d.askClose ? '<div class="confirm"><span>剛剛的修改還沒儲存，確定要離開嗎？</span><div class="row"><button type="button" class="btn sm" data-act="stayExp">繼續編輯</button><button type="button" class="btn sm danger" data-act="discardExp">不儲存，離開</button></div></div>' : ''}
     <div class="amtbox">
-      <label class="label" for="x-amt">金額（新台幣）</label>
+      <label class="label" for="x-amt">金額</label>
+      ${curPicker(trip, d, dis)}
       <input class="amtin data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis}>
+      ${foreign(d) ? rateLine(d, dis) : ''}
       <input class="namein" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
     </div>
     <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div>
@@ -292,7 +307,7 @@ export function expSheetHtml(S, trip, d) {
     <div class="picks who share" aria-label="誰要分攤">${list.map((p, i) => `
       <label class="pick"><input type="checkbox" id="x-sel-${i}" data-sel="${esc(p.id)}" ${d.sel.has(p.id) ? 'checked' : ''} ${dis}>
         ${avatar(p, c.idx.get(p.id) ?? 0)}<span>${esc(p.name)}${p.status === 'inactive' ? '（已停用）' : p.status === 'gone' ? '（已離開）' : ''}</span>
-        <b class="num small">${d.sel.has(p.id) ? money(eq[p.id] || 0) : '不分'}</b></label>`).join('')}</div>
+        <b class="num small">${d.sel.has(p.id) ? esc(m(eq[p.id] || 0)) : '不分'}</b></label>`).join('')}</div>
     ${chk.html}` : `
     <div class="split-who divide">${list.map(p => `
       <label class="r">
@@ -311,6 +326,29 @@ export function expSheetHtml(S, trip, d) {
     ${d.by ? `<p class="small muted" style="margin:0;text-align:center">${esc(d.by)} 新增</p>` : ''}`;
 }
 
+// 幣別選單：這趟旅程國家的幣別排最前面，再來是新台幣和其他常用幣別
+function curPicker(trip, d, dis) {
+  const first = [...tripCurrencies(trip.raw.country), TWD];
+  const rest = CURRENCIES.map(x => x[0]).filter(x => !first.includes(x));
+  if (!first.includes(d.cur) && !rest.includes(d.cur)) rest.push(d.cur);
+  const opt = x => `<option value="${esc(x)}" ${d.cur === x ? 'selected' : ''}>${esc(curInfo(x).name)} ${esc(x)}</option>`;
+  return `<select class="curpick" id="x-cur" data-f="cur" aria-label="幣別" ${dis}>${first.map(opt).join('')}<option disabled>──────</option>${rest.map(opt).join('')}</select>`;
+}
+
+// 外幣：換算成新台幣的金額與匯率，匯率可以自己改
+function rateLine(d, dis) {
+  const info = curInfo(d.cur), rate = num(d.rate);
+  const when = d.rateState === 'manual' ? '自己填的匯率' : d.rateDate ? `${d.rateDate.slice(5).replace('-', '/')} 匯率${d.rateState === 'stale' ? '（離線，用上次查到的）' : ''}` : '';
+  const note = d.rateState === 'loading' ? '正在查匯率…' : d.rateState === 'fail' ? '查不到匯率，請自己填' : when;
+  return `<div class="ratebox">
+    <b class="num">≈ NT$ ${rate > 0 ? money(toTwd(d.amt, rate)) : '—'}</b>
+    <label class="small muted">1 ${esc(info.name)} =
+      <input class="input rate" id="x-rate" data-f="rate" inputmode="decimal" value="${esc(d.rate)}" placeholder="0" aria-label="匯率" ${dis}> 新台幣</label>
+    ${note ? `<span class="small ${d.rateState === 'fail' ? '' : 'muted'}"${d.rateState === 'fail' ? ' style="color:var(--warn)"' : ''}>${esc(note)}</span>` : ''}
+    <span class="small muted ratesrc">匯率來自 <a href="https://frankfurter.dev/" target="_blank" rel="noopener">Frankfurter</a> 的各國央行參考匯率，僅供參考，實際金額以刷卡帳單或換匯收據為準</span>
+  </div>`;
+}
+
 // 重畫表單內容，保留游標位置
 export function renderExpSheet(S, trip, d) {
   const html = expSheetHtml(S, trip, d), sheet = $('#layer .sheet');
@@ -327,10 +365,16 @@ export function draftFields(S, trip, d) {
   const c = ctxOf(S, trip), ids = selected(shareList(c, d), d), amount = num(d.amt);
   const shares = d.mode === 'equal' ? equalSplit(amount, ids)
     : d.mode === 'custom' ? Object.fromEntries(ids.map(k => [k, num(d.custom[k])])) : null;
+  const payers = d.payer === MULTI ? Object.fromEntries(Object.entries(d.paid).map(([k, v]) => [k, num(v)]).filter(x => x[1] > 0)) : null;
+  const base = { name: d.name.trim(), category: d.cat, payMethod: d.pay, note: d.note.trim(), payerId: d.payer, splitMode: shares ? d.mode : null };
+  if (!foreign(d)) return { ...base, amount, payers, personalShares: shares, fx: null };
+  // 外幣：表單填的都是外幣，存檔時換成新台幣；平均分攤用新台幣重新平均，其他照比例分
+  const rate = num(d.rate), twd = toTwd(amount, rate);
   return {
-    name: d.name.trim(), amount, category: d.cat, payMethod: d.pay, note: d.note.trim(), payerId: d.payer,
-    payers: d.payer === MULTI ? Object.fromEntries(Object.entries(d.paid).map(([k, v]) => [k, num(v)]).filter(x => x[1] > 0)) : null,
-    splitMode: shares ? d.mode : null, personalShares: shares,
+    ...base, amount: twd,
+    payers: payers && allocate(twd, payers),
+    personalShares: shares && (d.mode === 'equal' ? equalSplit(twd, ids) : allocate(twd, shares)),
+    fx: { cur: d.cur, amount, rate, date: d.rateState === 'manual' ? '' : d.rateDate, shares: d.mode === 'custom' ? shares : null, payers },
   };
 }
 

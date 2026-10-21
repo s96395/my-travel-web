@@ -21,6 +21,7 @@ import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet,
 import { missingTemplate, missingPack } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
+import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
 import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf } from './views/more.js';
@@ -397,6 +398,22 @@ const joinErr = err => (err?.friendly ? err.message : '沒有成功，請稍後�
 /* ---------- 支出 ---------- */
 const expSheet = () => { const trip = curTrip(); if (trip && S.draft) renderExpSheet(S, trip, S.draft); };
 const dropDraft = () => { S.draft = null; closeSheet(); };
+// 外幣支出：查這個幣別的最新匯率填進表單；自己改過匯率就不蓋掉
+async function loadRate(d) {
+  const cur = d.cur;
+  if (!cur || cur === TWD) return;
+  d.rateState = 'loading'; expSheet();
+  try {
+    const r = await getRate(cur);
+    if (S.draft !== d || d.cur !== cur || d.rateState !== 'loading') return;
+    Object.assign(d, { rate: String(r.rate), rateDate: r.date, rateState: r.stale ? 'stale' : 'ok' });
+  } catch (err) {
+    console.error(err);
+    if (S.draft !== d || d.cur !== cur || d.rateState !== 'loading') return;
+    d.rateState = 'fail';
+  }
+  expSheet();
+}
 // 關閉表單：支出表單有沒儲存的修改時先問一次
 function tryClose() {
   if (S.draft?.dirty && S.draft.edit && !S.draft.askClose && $('#x-name')) { S.draft.askClose = true; expSheet(); return; }
@@ -780,6 +797,7 @@ const actions = {
     const trip = curTrip();
     if (!trip || S.offline) return;
     S.draft = expDraft(S, trip, null); expSheet();
+    loadRate(S.draft);
   },
   editExp(el) {
     const trip = curTrip(), e = (S.expenses.get(S.tripId) || []).find(x => x.id === el.dataset.id);
@@ -805,6 +823,7 @@ const actions = {
     S.busy = true; d.saving = true; expSheet();
     try {
       const ref = await saveExpense(S.tripId, d.id, fields, S.user, S.nickname);
+      if (!d.id) store.set(`fxCur:${trip.id}`, d.cur); // 下一筆預設用同一種幣別
       // 新增時畫面可能已經先收到這筆，用新編號排除，避免重複加總
       syncTotal({ id: d.id || ref?.id, amount: fields.amount });
       dropDraft();
@@ -1047,14 +1066,17 @@ document.addEventListener('click', ev => {
 // 中文輸入法組字時不重畫，否則會打斷組字；組完字再更新列表
 // 支出表單：金額只留數字與小數點；名稱、備註打字時不重畫，以免打斷輸入法
 const cleanAmt = v => { const [a, ...b] = v.replace(/[^\d.]/g, '').split('.'); return b.length ? `${a}.${b.join('').slice(0, 2)}` : a; };
+const cleanRate = v => { const [a, ...b] = v.replace(/[^\d.]/g, '').split('.'); return b.length ? `${a}.${b.join('').slice(0, 6)}` : a; };
 function onDraftInput(t) {
   const d = S.draft;
   if (!d || !$('#x-name')) return;
   if (t.dataset.f) {
-    const v = t.dataset.f === 'amt' ? cleanAmt(t.value) : t.value;
-    d[t.dataset.f] = v; d.dirty = true;
-    if (t.dataset.f === 'amt' && t.value !== v) t.value = v;
-    if (['amt', 'payer', 'cat', 'pay'].includes(t.dataset.f)) expSheet();
+    const f = t.dataset.f, v = f === 'amt' ? cleanAmt(t.value) : f === 'rate' ? cleanRate(t.value) : t.value;
+    d[f] = v; d.dirty = true;
+    if (['amt', 'rate'].includes(f) && t.value !== v) t.value = v;
+    if (f === 'rate') d.rateState = 'manual';
+    if (f === 'cur') { d.rate = ''; d.rateDate = ''; d.rateState = ''; loadRate(d); }
+    if (['amt', 'rate', 'cur', 'payer', 'cat', 'pay'].includes(f)) expSheet();
     else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
   }
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }

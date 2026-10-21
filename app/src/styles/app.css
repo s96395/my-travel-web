@@ -553,6 +553,8 @@ textarea.input{resize:vertical;font-family:inherit}
 :root[data-style="i"] .hero.bpi .bp-route b{font-size:38px;font-weight:900;color:#fff;text-shadow:0 2px 12px rgba(0,0,0,.25)}
 :root[data-style="i"] .hero.bpi small{color:rgba(255,255,255,.82)}
 :root[data-style="i"] .hero.bpi h2{font-size:24px;font-weight:900;margin:0;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+/* 卡片內文字一律白色，按鈕是淺色底，要另外指定字色，不然淺色模式會白底白字 */
+:root[data-style="i"] .hero.bpi .btn:not(.primary){color:var(--fg)}
 :root[data-style="i"] .bp-plane{color:#fff}
 :root[data-style="i"] .bp-plane::before,:root[data-style="i"] .bp-plane::after{border-top:2px dashed rgba(255,255,255,.7)}
 :root[data-style="i"] .bp-fields b{font-weight:800;color:#fff}
@@ -654,6 +656,13 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .amtbox{display:grid;justify-items:center;gap:2px;padding:2px 0 4px}
 .amtin{width:100%;border:0;background:none;text-align:center;font-size:40px;font-weight:800;line-height:1.2;padding:2px 0;color:var(--fg)}
 .amtin::placeholder{color:var(--line)}
+.curpick{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:4px 12px;font-size:14px;font-weight:600}
+.ratebox{display:grid;justify-items:center;gap:4px;margin-bottom:4px}
+.ratebox b{font-size:16px}
+.ratebox label{display:flex;align-items:center;gap:6px}
+.ratebox .rate{width:92px;padding:4px 8px;text-align:center}
+.ratebox .ratesrc{max-width:300px;text-align:center;font-size:12px;line-height:1.5}
+.ratebox .ratesrc a{color:inherit;text-decoration:underline}
 .namein{width:100%;border:0;border-bottom:1px dashed var(--line);background:none;text-align:center;padding:6px 4px;font-size:15px}
 .namein:focus{border-bottom-color:var(--warm);outline:none}
 .namein.lg{font-size:20px;font-weight:700;padding:8px 4px}
