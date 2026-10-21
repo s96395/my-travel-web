@@ -122,12 +122,16 @@ async function exactCoords(m) {
   } finally { locating = false; }
 }
 
-// 操作導覽：第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
+// 操作導覽：只給新使用者，正式環境第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
+// 「看過了」記在這台裝置，換瀏覽器、從主畫面開或清掉資料就記不得，所以另外用旅程數判斷：
+// 首頁要還沒有旅程才自動出現，旅程頁要只有一趟（剛建立第一趟或剛載入示範旅程）
 let tour = null; // 用到時才載入 ui/tour.js
 function tourCheck() {
   if (tour?.touring()) { tour.refreshTour(); return; }
-  if (!S.user || S.localOnly || S.offline || sheetOpen()) return;
-  const which = S.view === 'home' && !S.loadingTrips ? 'Home' : S.view === 'trip' && curTrip() && S.tab === 'plan' && !S.loadingItems ? 'Trip' : '';
+  // 測試環境每個預覽網址都記不到看過了，不自動跳出，要看從帳號選單重看
+  if (S.env !== 'production' || !S.user || S.localOnly || S.offline || sheetOpen() || S.loadingTrips) return;
+  const which = S.view === 'home' && !S.trips.length ? 'Home'
+    : S.view === 'trip' && S.trips.length === 1 && curTrip() && S.tab === 'plan' && !S.loadingItems ? 'Trip' : '';
   if (!which || store.get('tour' + which) === '1') return;
   store.set('tour' + which, '1');
   startTour(which);

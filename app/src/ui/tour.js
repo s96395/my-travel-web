@@ -20,7 +20,14 @@ function run(steps, last) {
     popoverClass: 'tour', stagePadding: 6, stageRadius: 12,
     disableActiveInteraction: true, smoothScroll: true,
     // 最後一步可以多放一個按鈕，例如「載入示範旅程」；按鈕帶 data-act，交給主程式處理
+    // 還沒到最後一步時，左下角放「跳過」，一次關掉整段導覽
     onPopoverRender(pop, { state }) {
+      if (state.activeIndex < list.length - 1) {
+        const s = document.createElement('button');
+        s.type = 'button'; s.className = 'tour-skip'; s.textContent = '跳過';
+        s.addEventListener('click', () => cur?.destroy());
+        pop.footer.prepend(s);
+      }
       if (!last || state.activeIndex !== list.length - 1) return;
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'tour-extra'; b.dataset.act = last.act; b.textContent = last.text;
