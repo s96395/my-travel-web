@@ -108,3 +108,18 @@ export function nearDay(places, dayItems) {
 
 // 距離顯示：1 公里內用公尺
 export const kmText = km => (km < 1 ? `${Math.max(50, Math.round(km * 20) * 50)} 公尺` : `${km < 10 ? km.toFixed(1) : Math.round(km)} 公里`);
+
+// 依距離自動分組：先找附近地點最多的那個當中心，把離它 km 公里內、還沒分組的地點放一起，重複到剩下的都湊不成兩個
+// 回傳 [[中心, ...附近地點], ...]；沒有座標的不分組
+export function clusterNear(places, km = 1) {
+  let left = places.filter(hasXY);
+  const groups = [];
+  for (;;) {
+    const near = left.map(p => left.filter(q => q !== p && distanceKm(p, q) <= km));
+    const best = near.reduce((b, n, i) => (n.length > near[b].length ? i : b), 0);
+    if (!left.length || !near[best].length) return groups;
+    const g = [left[best], ...near[best]];
+    groups.push(g);
+    left = left.filter(p => !g.includes(p));
+  }
+}

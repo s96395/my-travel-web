@@ -1,7 +1,7 @@
 // 進入點：讀取設定、登入狀態、監看資料、畫面切換與事件
 import './styles/app.css';
 import { registerSW } from 'virtual:pwa-register';
-import { initFirebase } from './firebase.js';
+import { initFirebase, mapsKey } from './firebase.js';
 import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn, confirmIdentity, removeAccount } from './auth.js';
 import { watchMyTrips, watchExpenses, createTrip, upgradeShareKeys } from './data/trips.js';
 import { addSampleTrips } from './data/sample.js';
@@ -11,10 +11,10 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData } from './views/plan.js';
-import { parseSavedList, findCoords, coordsFromUrl } from './lib/places.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishLeft, areaSheet, areaMoveSheet } from './views/plan.js';
+import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
+import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
@@ -57,7 +57,7 @@ const S = {
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
-  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點
+  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
@@ -176,7 +176,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapArea: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
@@ -272,12 +272,72 @@ async function wishToDay(wid, day, beforeId) {
   S.busy = true;
   const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
   try {
-    const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: '', address: p.url, note: p.note || '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
     if (beforeId) await moveItem(ref.id, { day, beforeId });
     toast(`已加到第 ${day} 天`);
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
+}
+
+// 整個區域排進某一天：這區還沒排進這天的地點，照離這天行程的遠近接在最後
+async function areaToDay(area, day) {
+  const ps = nearDay(wishLeft(S, day).filter(p => p.area === area), itemsOfDay(S.items, day));
+  if (!ps.length || !day || S.busy || S.offline) return;
+  S.busy = true;
+  const tid = S.tripId, base = nextOrder(S.items, day); // 加的途中換到別趟旅程，也要寫回原本這趟
+  try {
+    for (const [i, p] of ps.entries()) {
+      const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
+      await addItem(tid, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area, address: p.url, note: p.note || '', ...xy, day, order: base + i }, S.user, S.nickname);
+    }
+    toast(`「${area}」${ps.length} 個地點已加到第 ${day} 天`);
+  } catch (err) { console.error(err); toast('沒有加完，請稍後再試'); }
+  S.busy = false;
+}
+
+// 依距離分組前先查好精確位置（收藏連結算出的位置誤差有好幾公里，分組會不準）；回傳 id → 座標
+async function exactNow(ids) {
+  const xy = new Map();
+  if (!mapsKey || placesOff) return xy;
+  const m = await import('./ui/map.js'), tid = S.tripId;
+  for (const id of ids) {
+    const p = S.wishDocs.find(x => x.id === id);
+    if (!p || p.exact || !Number.isFinite(p.lat)) continue;
+    tried.add(id);
+    const c = await m.locate(p).catch(() => null);
+    if (c === 'off') { placesOff = true; break; }
+    if (c) { xy.set(id, c); updateRecord(tid, 'wishlist', id, { ...c, exact: true }, S.user, S.nickname).catch(console.error); }
+  }
+  return xy;
+}
+
+// 還沒分區域的地點依距離自動分組，區域名稱先用中心那個地點，例如「海港城一帶」，之後可以改
+async function groupNear(xy = new Map()) {
+  const tid = S.tripId, free = S.wishDocs.filter(p => !p.area).map(p => ({ ...p, ...(xy.get(p.id) || {}) }));
+  const groups = clusterNear(free);
+  if (!groups.length) { toast('沒有距離 1 公里內的地點可以分在一起'); return; }
+  const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean));
+  const writes = [];
+  for (const g of groups) {
+    const base = `${g[0].title.slice(0, 15)}一帶`;
+    let name = base;
+    for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
+    names.add(name);
+    g.forEach(p => writes.push(updateRecord(tid, 'wishlist', p.id, { area: name }, S.user, S.nickname)));
+  }
+  try { await Promise.all(writes); toast(`分成 ${groups.length} 個區域，按區域旁的 ⋯ 可以改名`); } catch (err) { console.error(err); toast('沒有分組完成，請稍後再試'); }
+}
+
+// 整個區域移到別天
+async function moveArea(area, from, to) {
+  const updates = planAreaMove(S.items, from, area, to);
+  if (!updates.length || S.offline) return;
+  const byId = new Map(updates.map(u => [u.id, u]));
+  S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
+  S.pday = to; render();
+  toast(`「${area}」已從第 ${from} 天移到第 ${to} 天`);
+  try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
 // 移動行程：先更新畫面，再寫回資料庫
@@ -634,7 +694,47 @@ const actions = {
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
     if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
-    S.mapFocus = el.dataset.id || ''; if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    S.mapFocus = el.dataset.id || '';
+    // 只看某區時點了別區的地點，改回看全部，地圖上才有那根針
+    if (S.mapArea && S.wishDocs.find(p => 'w:' + p.id === S.mapFocus && p.area !== S.mapArea)) S.mapArea = '';
+    if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+  // 地圖只看某個區域的想去清單地點；再按一次看全部
+  mapArea(el) {
+    const a = el.dataset.area || '';
+    S.mapArea = S.mapArea === a ? '' : a; S.mapFocus = '';
+    if (S.mapArea) S.side = 'map';
+    render(); if (!S.wide && S.mapArea) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  },
+  areaSheet(el) { if (!S.offline) areaSheet(S, el.dataset.area || ''); },
+  // 存區域：勾的地點放進這區，沒勾的移出；改名時，已排進行程的同區域行程也一起改
+  async areaSave(el) {
+    const old = el.dataset.area || '', drop = !!el.dataset.drop;
+    const inp = $('#a-name'), name = drop ? '' : inp.value.trim();
+    if (!drop && !name) { inp.classList.add('err'); inp.focus(); return; }
+    if (S.busy || S.offline) return;
+    const on = new Set(drop ? [] : [...document.querySelectorAll('[data-apick]:checked')].map(c => c.dataset.apick));
+    const wish = S.wishDocs.filter(p => (on.has(p.id) ? p.area !== name : old && p.area === old)).map(p => [p.id, on.has(p.id) ? name : '']);
+    const its = old && name !== old ? S.items.filter(it => it.area === old) : [];
+    S.busy = true; el.disabled = true;
+    try {
+      await Promise.all([
+        ...wish.map(([id, area]) => updateRecord(S.tripId, 'wishlist', id, { area }, S.user, S.nickname)),
+        ...its.map(it => updateItem(S.tripId, it.id, { area: name }, S.user, S.nickname)),
+      ]);
+      if (S.mapArea === old) S.mapArea = '';
+      closeSheet();
+      toast(drop ? `已取消「${old}」，地點留在想去清單` : `已儲存「${name}」`);
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有儲存成功，請稍後再試'); }
+    S.busy = false;
+  },
+  async areaNear(el) {
+    if (S.busy || S.offline) return;
+    S.busy = true; el.disabled = true;
+    try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
+  },
+  areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, +el.dataset.d); },
+  areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
+  moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
   mside(el) { S.mside = el.dataset.v; render(); window.scrollTo(0, 0); },
   jump(el) {
@@ -655,22 +755,25 @@ const actions = {
     if (!S.imp || S.busy || S.offline) return;
     const picked = [...document.querySelectorAll('[data-imp]:checked')].map(c => S.imp[+c.dataset.imp]);
     if (!picked.length) { toast('請先勾選要匯入的地點'); return; }
+    const mode = $('input[name="imp-area"]:checked')?.value || '';
     S.busy = true; el.disabled = true; el.textContent = '匯入中…';
     try {
-      const todo = [];
+      const todo = [], ids = [];
       for (const p of picked) {
         const old = p.moveId && findItem(p.moveId);
         const xy = coordsFromUrl(p.url) || (old && old.lat !== null ? { lat: old.lat, lng: old.lng } : {});
-        const ref = await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '', ...xy }, S.user, S.nickname);
+        const ref = await addRecord(S.tripId, 'wishlist', { title: p.title.slice(0, 60), note: p.note.slice(0, 200), url: p.url, list: p.list || '', area: mode === 'list' ? (p.list || '').slice(0, 20) : '', ...xy }, S.user, S.nickname);
         if (old) await deleteItem(S.tripId, old.id);
+        ids.push(ref.id);
         if (!xy.lat) todo.push({ ...p, id: ref.id });
       }
       S.imp = null; S.busy = false; // 查位置要一段時間，不擋其他操作
       closeSheet();
-      if (!todo.length) { toast(`已加入想去清單 ${picked.length} 個`); return; }
+      if (!todo.length && mode !== 'near') { toast(`已加入想去清單 ${picked.length} 個`); return; }
       toast(`已加入想去清單 ${picked.length} 個，正在查位置…`);
       const found = await findCoords(todo, fetch, (i, c) => { if (c) updateRecord(S.tripId, 'wishlist', todo[i].id, c, S.user, S.nickname).catch(console.error); });
       const n = found.filter(Boolean).length;
+      if (mode === 'near') { await groupNear(await exactNow(ids)); return; }
       toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },

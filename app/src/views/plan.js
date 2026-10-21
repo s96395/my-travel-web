@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -42,7 +42,8 @@ const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d) => {
   const pts = mapData(S, null).points;
   const none = !S.wishDocs.length;
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
+  const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
+  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}<i class="dot wish"></i>想去清單${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
   // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排；已有行程針時移到下方，不擋住針
   const cta = none && !S.offline ? `<div class="mapcta${pts.length ? ' low' : ''}"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
@@ -63,22 +64,29 @@ export function mapData(S, trip) {
   const its = itemsOfDay(S.items, d);
   const points = [
     ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${n} 個` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S, d), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
+    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, day: d })),
   ];
-  return { points, fit: `${S.tripId}:${d}:${points.length}`, focus: S.mapFocus };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${points.length}`, focus: S.mapFocus };
 }
 
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
   const none = !S.items.length ? '<div class="empty">還沒有任何行程。可以直接新增，或先把 Google 地圖收藏的地點匯入「想去清單」，再一個個加到每天。</div>' : '<div class="empty">這天還沒有安排</div>';
   return `<div class="items">${d ? `<button type="button" class="btn sm" data-act="addItem" data-d="${d}" style="justify-self:start" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增到第 ${d} 天</button>` : ''}
-    ${its.map(it => itemHtml(it, S, trip)).join('') || none}
+    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip)).join('') || none}
   </div>${d ? '' : moveToWish(S)}`;
+}
+
+// 一天跑好幾個區域時，在每段區域前面標出區域名稱，可以整區移到別天
+function areaLine(S, its, i) {
+  const a = its[i].area;
+  if (!a || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
+  return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移到別天</button>`}</div>`;
 }
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
 // 同一個地點可以排進好幾天：只藏起已排在「這一天」的（地圖上已經是行程針），排在別天的標出第幾天
-const wishLeft = (S, d) => { const inDay = new Set(itemsOfDay(S.items, d).map(it => it.address).filter(Boolean)); return S.wishDocs.filter(p => !inDay.has(p.url)); };
+export const wishLeft = (S, d) => { const inDay = new Set(itemsOfDay(S.items, d).map(it => it.address).filter(Boolean)); return S.wishDocs.filter(p => !inDay.has(p.url)); };
 const usedDays = S => { const m = new Map(); S.items.forEach(it => { if (it.address && it.day) m.set(it.address, [...new Set([...(m.get(it.address) || []), it.day])].sort((a, b) => a - b)); }); return m; };
 function wishPanel(S, trip, d) {
   const off = S.offline ? 'disabled' : '';
@@ -86,12 +94,25 @@ function wishPanel(S, trip, d) {
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個${d && left.some(p => Number.isFinite(p.lat)) ? '・依離第 ' + d + ' 天行程的遠近排' : ''}</p>`;
   if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進這一天了。</p>`;
-  return `${count}<div class="wishes">${nearDay(left, itemsOfDay(S.items, d)).map(p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
+  const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
+  const named = groups.some(g => g.area);
+  const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
       <div class="grow"><b>${esc(p.title)}</b><span class="small muted">${[used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null ? `相距 ${kmText(p.km)}` : '', p.note].filter(Boolean).map(esc).join('・')}</span></div>
       ${S.offline || !hasXY(p) ? '' : `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>`}
       ${d ? `<button type="button" class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}" data-d="${d}" ${off}>${ICON.plus}加到第 ${d} 天</button>` : ''}
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
-    </div>`).join('')}</div>`;
+    </div>`;
+  const addArea = `<span class="row" style="gap:6px;flex:none">${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
+  if (!named) return `${count}<div class="tip"><span>可以把附近的地點分成一個區域（例如地鐵站「尖沙咀」），之後整區一次排進某一天。也可以按「依距離分組」，把 1 公里內的地點自動放在一起。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
+    const a = esc(g.area);
+    return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
+      <div class="grow"><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點</span></div>
+      ${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="tag" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}">${ICON.pin}地圖看這區</button>` : ''}
+      ${g.area && d ? `<button type="button" class="btn sm primary" data-act="areaAdd" data-area="${a}" data-d="${d}" ${off}>${ICON.plus}整區加到第 ${d} 天</button>` : ''}
+      ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}
+    </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
+  }).join('')}`;
 }
 
 // 先前匯入時放在「還沒排天數」的收藏地點，可以一次搬到想去清單
@@ -170,8 +191,35 @@ export function itemMenuSheet(S, trip, it, canDel) {
   openSheet(`${head(esc(it.title))}
     <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
+    ${areaChips(S, days, it)}
     <p class="small muted" style="margin:0">也可以在列表上長按行程，直接拖曳到想放的位置。</p>
     <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
+}
+
+// 同一天有其他同區域的行程時，可以整個區域一起移
+function areaChips(S, days, it) {
+  const n = it.area ? S.items.filter(x => x.day === it.day && x.area === it.area).length : 0;
+  if (n < 2) return '';
+  return `<p class="label">整個「${esc(it.area)}」${n} 個一起移</p>
+    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(it.area)}" data-from="${it.day}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>`;
+}
+export function areaMoveSheet(S, trip, area, from) {
+  const days = dayList(S, trip).filter(Boolean), n = S.items.filter(x => x.day === from && x.area === area).length;
+  openSheet(`${head(`「${esc(area)}」移到第幾天`)}
+    <p class="small muted" style="margin:0">這天「${esc(area)}」的 ${n} 個行程會照原本順序，一起排到那一天的最後。</p>
+    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(area)}" data-from="${from}" data-d="${d}" aria-pressed="${from === d}">第 ${d} 天</button>`).join('')}</div>`);
+}
+
+// 新增或編輯區域：取名字，再勾哪些想去清單的地點放在這區；已在這區的排最前面，其次是還沒分區域的
+export function areaSheet(S, area = '') {
+  const rank = p => (area && p.area === area ? 0 : p.area ? 2 : 1);
+  const list = S.wishDocs.map((p, i) => ({ p, i })).sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i).map(x => x.p);
+  openSheet(`${head(area ? '編輯區域' : '新增區域')}
+    <input class="namein lg" id="a-name" maxlength="20" placeholder="區域名稱，例如：尖沙咀" aria-label="區域名稱" value="${esc(area)}">
+    <p class="label">勾選放在這區的地點</p>
+    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${area && p.area === area ? 'checked' : ''}>
+      <span class="grow" style="flex:1">${esc(p.title)}${p.area && p.area !== area ? ` <small class="muted">（目前在「${esc(p.area)}」）</small>` : ''}</span></label>`).join('')}</div>
+    <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
 }
 
 export function itemFormSheet(day, it = null) {
@@ -207,7 +255,18 @@ export function importSheet(places = null, have = new Map()) {
     ${places ? '' : steps}
     <label class="btn${places ? '' : ' primary'}"><input type="file" id="imp-file" accept=".csv,text/csv" multiple hidden>${places ? '換其他檔案' : '選擇 CSV 檔'}</label>
     ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">檔案裡沒有地點</div>') : ''}
+    ${places && n ? areaPick(places) : ''}
     ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入想去清單</button>` : ''}`);
+}
+
+// 匯入時順便分區域：用收藏清單的名稱（一個 CSV 一區），或依距離自動分組
+function areaPick(places) {
+  const lists = [...new Set(places.map(p => p.list).filter(Boolean))];
+  const opts = [['', '先不分'], ['list', '用清單名稱'], ['near', '依距離分組']];
+  const def = lists.length ? 'list' : '';
+  return `<div class="field"><span class="label">放進區域</span>
+    <div class="chips" role="radiogroup" aria-label="放進區域" style="flex-wrap:wrap">${opts.map(([v, t]) => `<label class="chip"><input type="radio" name="imp-area" value="${v}" ${v === def ? 'checked' : ''}>${t}</label>`).join('')}</div>
+    <span class="small muted">用清單名稱：${lists.length ? lists.map(l => `「${esc(l)}」`).join('、') + ' 各成一區' : '這批檔案沒有清單名稱'}。依距離分組：查好位置後，把 1 公里內的地點放在一起，名稱之後可以改。</span></div>`;
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null
