@@ -1,5 +1,5 @@
 // 旅程內頁：上方封面與基本資訊，分頁在手機放底部、電腦放上方
-import { $, esc, ICON, TYPE_ICO, openSheet } from '../ui/dom.js';
+import { $, esc, ICON, TYPE_ICO, openSheet, themeBtn } from '../ui/dom.js';
 import { coverHtml, coverImg, scene, STYLES } from '../ui/scene.js';
 import { monthDay } from '../lib/dates.js';
 import { participantsOf } from '../lib/trips.js';
@@ -37,7 +37,7 @@ export function dlSheet(S, t) {
 function offBanner(S, t) {
   if (!S.offline) return '';
   const at = S.dl[t?.id];
-  const msg = !t || at ? `只能查看，暫時不能修改。${S.localOnly && at ? `顯示的是 ${dlTime(at)} 下載的資料。` : ''}` : `這趟還沒下載到${device(S)}，連上網路後按標題右邊的「離線行程」。`;
+  const msg = !t || at ? `只能查看，暫時不能修改。${S.localOnly && at ? `顯示的是 ${dlTime(at)} 下載的資料。` : ''}` : `這趟還沒下載到${device(S)}，連上網路後按標題右邊的下載鈕（離線行程）。`;
   return `<div class="banner" role="status"><b>離線中</b><span>${msg}</span></div>`;
 }
 
@@ -100,7 +100,7 @@ export function renderTrip(S) {
   const body = VIEWS[tab](S, t);
   return `
   ${offBanner(S, t)}
-  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${dlBtn(S, t)}</header>
+  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
     ${tab === 'plan' || S.wide ? tripHead(S, t) : ''}

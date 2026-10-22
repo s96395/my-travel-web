@@ -24,7 +24,7 @@ import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
-import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf } from './views/more.js';
+import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf, quickSheet } from './views/more.js';
 import { renderJoin } from './views/join.js';
 import { addParticipant, patchParticipants, removeMember, kickMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
@@ -41,6 +41,10 @@ const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || na
 // 外觀：跟著系統、淺色或深色，記在這台裝置上
 const applyTheme = v => { if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; };
 applyTheme(store.get('theme') || '');
+function setTheme(v) {
+  S.theme = v; store.set('theme', v); applyTheme(v);
+  document.querySelectorAll('[data-act="theme"]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === v));
+}
 
 const S = {
   env: '', user: null, nickname: '', ready: false,
@@ -597,8 +601,11 @@ const actions = {
   },
   account: () => accountSheet(S),
   tourHome() { closeSheet(); startTour('Home'); },
-  tourTrip() { if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
-  theme(el) { S.theme = el.dataset.v; store.set('theme', S.theme); applyTheme(S.theme); el.parentElement.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', b === el)); },
+  tourTrip() { closeSheet(); if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
+  theme(el) { setTheme(el.dataset.v); },
+  // 標題列的切換鈕：照目前看到的外觀換成另一種
+  toggleTheme() { setTheme((S.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'); },
+  quick: () => quickSheet(S),
   install: () => installSheet(),
   privacy: () => privacySheet(),
   exportIcs() {
