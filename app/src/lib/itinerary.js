@@ -147,3 +147,11 @@ export function planAreaMove(items, fromDay, area, toDay) {
   const old = new Map(items.map(x => [x.id, x]));
   return list.filter(x => old.get(x.id).day !== x.day || old.get(x.id).order !== x.order).map(x => ({ id: x.id, day: x.day, order: x.order }));
 }
+
+// 地圖上每個區域一種顏色（照名稱排序後輪流用，換天也不會變色）；沒分區域的維持紅色。避開行程針的橘色
+export const NO_AREA_COLOR = '#e03131';
+const AREA_COLORS = ['#1c7ed6', '#2f9e44', '#7048e8', '#0c8599', '#d6336c', '#8d5524', '#5c940d', '#364fc7'];
+export function areaColors(list) {
+  const names = [...new Set(list.map(p => (p.area || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
+  return new Map(names.map((a, i) => [a, AREA_COLORS[i % AREA_COLORS.length]]));
+}

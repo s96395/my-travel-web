@@ -28,13 +28,13 @@ function popup(p, onAct) {
   const el = document.createElement('div');
   el.className = 'mpop';
   el.innerHTML = `${p.sub ? `<span>${esc(p.sub)}</span>` : ''}
-    <div class="mpopbtn">${p.kind === 'wish' && p.day ? `<button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}" data-d="${p.day}">加到第 ${p.day} 天</button>` : ''}
+    <div class="mpopbtn">${p.kind === 'wish' && p.opts ? `<span class="addto"><select class="daysel" aria-label="加到第幾天">${p.opts}</select><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入</button></span>` : ''}
     ${p.url ? `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
 }
 
-// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, day }], fit, focus }
+// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, focus }
 export async function syncMap(data, onAct) {
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
@@ -55,7 +55,7 @@ export async function syncMap(data, onAct) {
       const day = p.kind === 'day';
       const m = new g.Marker({
         map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: day ? 2 : 1,
-        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 8, fillColor: day ? DAY : WISH, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 },
+        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 8, fillColor: day ? DAY : p.color || WISH, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
       m.addListener('click', () => {
