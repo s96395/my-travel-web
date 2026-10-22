@@ -23,7 +23,7 @@ export function renderMore(S, trip) {
   const people = participantsOf(t);
   const ownerHasP = people.some(p => p.uid && p.uid === t.ownerId);
   const nameOf = u => boundTo(t, u)?.name || S.userNames[u] || '讀取中…';
-  return `<div class="moregrid">
+  return `<div class="moregrid"><div class="morecol">
   <section class="card">
     <div class="sec-h"><h2>同行者</h2></div>
     <div class="crew">${people.map((p, i) => {
@@ -35,6 +35,11 @@ export function renderMore(S, trip) {
     <p class="small muted" style="margin:8px 0 0">虛線圈是沒有帳號的人，也能被分攤費用${owner ? '。點頭像可以改名、停用或調整順序' : ''}。</p>
     ${owner && !ownerHasP ? `<button type="button" class="btn sm" data-act="createOwnerP" ${off} style="margin-top:8px">建立我的同行者</button>` : ''}
   </section>
+  ${owner ? `<section class="card menulist">
+    <button type="button" data-act="editTrip" ${off}><span>✏️</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
+    <button type="button" class="danger" data-act="delTrip" ${off}><span>🗑️</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>
+  </section>` : ''}
+  </div>
   <section class="card">
     <div class="sec-h"><h2>共編成員</h2></div>
     <div class="pertable divide" style="margin-top:6px">${memberUids(t).map((u, i) => `
@@ -47,23 +52,27 @@ export function renderMore(S, trip) {
       <input class="input data small" id="invite" readonly value="${esc(inviteUrl(trip))}" aria-label="邀請連結">
       <span class="small muted">傳給朋友，對方登入後選自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
   </section>
-  <section class="card menulist">
-    <button type="button" data-act="exportIcs"><span>📅</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
-    <details>
-      <summary><span>💡</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
-      <div class="tips">
-        <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
-        <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
-        <p><b>離線查看</b>：按旅程標題右邊的「離線行程」，把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
-        <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
-        ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
-        <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
-      </div>
-    </details>
-    ${owner ? `<button type="button" data-act="editTrip" ${off}><span>✏️</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
-    <button type="button" class="danger" data-act="delTrip" ${off}><span>🗑️</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>` : ''}
-  </section>
   </div>`;
+}
+
+// 標題列的快速選單：外觀、加到手機行事曆、使用小技巧，在旅程的哪個分頁都能打開
+export function quickSheet(S) {
+  openSheet(`${head('快速選單')}
+    <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
+    <div class="menulist">
+      <button type="button" data-act="exportIcs"><span>📅</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
+      <details>
+        <summary><span>💡</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
+        <div class="tips">
+          <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
+          <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
+          <p><b>離線查看</b>：按旅程標題右邊的下載鈕（離線行程），把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
+          <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
+          ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
+          <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
+        </div>
+      </details>
+    </div>`);
 }
 
 // companions：常用旅伴；新增時可以直接選，沒有帳號的同行者可以綁到其中一位

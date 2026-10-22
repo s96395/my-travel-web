@@ -63,6 +63,7 @@ export function tripTour(wide) {
     ...(wide ? [] : [{ element: '[data-act="mside"][data-v="wish"]', title: '想去清單', text: '把 Google 地圖收藏的地點匯進來，再一個個排進每一天，名稱和位置都不會錯。' }]),
     { element: '.dlbtn', title: '離線行程', text: '出國前按一下，把這趟存到裝置上，沒有網路也能看。' },
     { element: `${tabs} [data-v="exp"]`, title: '支出', text: '記下每筆花費，選誰付、怎麼分。沒有帳號的同行者也能一起分攤。' },
-    { element: `${tabs} [data-v="more"]`, title: '更多', text: '邀請旅伴一起編輯、匯出行事曆，也可以在「使用小技巧」重看這段導覽。' },
+    { element: '[data-act="quick"]', title: '快速選單', text: '切換淺色、深色，把行程加到手機行事曆，也可以在「使用小技巧」重看這段導覽。旁邊的月亮（太陽）按一下就能直接換外觀。' },
+    { element: `${tabs} [data-v="more"]`, title: '更多', text: '管理同行者、邀請旅伴一起編輯，或修改旅程名稱與日期。' },
   ]);
 }
