@@ -62,6 +62,9 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .appbar h1{font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .iconbtn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:inline-grid;place-items:center;flex:none;padding:0}
 .iconbtn svg{width:18px;height:18px}
+.thm .sun{display:none}
+:root[data-theme="dark"] .thm .sun{display:block} :root[data-theme="dark"] .thm .moon{display:none}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .thm .sun{display:block} :root:not([data-theme="light"]) .thm .moon{display:none} }
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .label{font-size:12px;color:var(--muted);letter-spacing:.06em}
 .sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
@@ -300,12 +303,15 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
   .device.wide .split2 .side{position:sticky;top:76px}
   .device.wide .narrowcol{display:grid;gap:16px;max-width:620px}
   .device.wide .moregrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+  .device.wide .morecol{gap:16px}
   .device.wide .sheet-layer{align-items:center}
   .device.wide .sheet{max-width:540px;max-height:86%;border-radius:var(--r);padding-bottom:20px}
   .device.wide .sheet .grab{display:none}
   .device.wide .toast{bottom:28px}
 }
-.moregrid{display:grid;gap:18px}
+.moregrid,.morecol{display:grid;gap:18px}
+.device:not(.wide) .morecol{display:contents} /* 手機一欄：旅程設定排在共編成員後面 */
+.device:not(.wide) .moregrid .menulist{order:1}
 .days{display:grid;gap:18px}
 .split2 .col{display:grid;gap:16px}
 
@@ -384,6 +390,9 @@ textarea.input{resize:vertical;font-family:inherit}
 .dlbtn:disabled{opacity:.6}
 .dlbtn.done{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
 .dlbtn .spin{width:16px;height:16px;border-width:2px}
+/* 手機標題列放了外觀、快速選單，離線鈕只留圖示，旅程名稱才放得下 */
+.device:not(.wide) .appbar .dlbtn{width:38px;padding:0;justify-content:center}
+.device:not(.wide) .appbar .dlbtn span:not(.spin){display:none}
 .item p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 .item .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .more{border:0;background:none;color:var(--muted);padding:2px 4px;font-size:17px;line-height:1}
@@ -835,6 +844,10 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpopbtn{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 .mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
 .mpop .mpopbtn .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff}
+/* 彈出框右上角的關閉鈕：Google 預設的叉叉很淡，改成灰底圓鈕，淺色、深色模式都看得到 */
+.gm-style .gm-style-iw-chr .gm-ui-hover-effect{opacity:1!important;width:32px!important;height:32px!important;margin:6px 6px 0 4px!important;border-radius:50%!important;background:#e5e7eb!important}
+.gm-style .gm-style-iw-chr .gm-ui-hover-effect:hover{background:#d1d5db!important}
+.gm-style .gm-style-iw-chr .gm-ui-hover-effect>span{width:20px!important;height:20px!important;margin:6px!important;background-color:#1f2937!important}
 @media (min-width:1000px){
   .device.wide .mapstick:not(.liststick) .mapslot{flex:1;height:auto;min-height:0}
   .device.wide .mapstick.liststick{position:static;height:auto}
