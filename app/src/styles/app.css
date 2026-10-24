@@ -36,6 +36,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 button,input,select,textarea{font:inherit;color:inherit}
+/* 下拉展開的選項清單：選單本身常設透明底、沿用淺色字，深色模式下選項會變白底淺字，所以選項一律給底色和字色 */
+select option,select optgroup{background-color:var(--surface);color:var(--fg)}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .num{font-variant-numeric:tabular-nums}
@@ -842,6 +844,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpophead{font-size:15px;color:#1f2937;line-height:1.4}
 .mpop span{color:#6b7280}
 .mpopbtn{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.mpop select,.mpop select option{color-scheme:light;background-color:#fff;color:#1f2937} /* 地圖彈出框固定白底，選單跟著用淺色 */
 .mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
 .mpop .mpopbtn .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff}
 /* 彈出框右上角的關閉鈕：Google 預設的叉叉很淡，改成灰底圓鈕，淺色、深色模式都看得到 */
