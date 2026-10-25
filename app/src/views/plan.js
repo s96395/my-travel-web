@@ -23,23 +23,16 @@ export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n 
 const daySel = (S, trip, d, off) => `<select class="daysel" aria-label="加到第幾天" ${off}>${dayOpts(S, trip, d)}</select>`;
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
-// 行程卡片：左邊類型色塊加編號（和地圖針一樣），中間時間、名稱、停留多久，右邊導航
-const NAV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>';
-function navBtn(it, S, trip) {
-  if (!onMap(it) || S.offline) return '';
-  if (sideMap(S) && hasXY(it)) return `<button type="button" class="navbtn" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="在地圖上看「${esc(it.title)}」">${ICON.pin}</button>`;
-  return S.wide ? `<a class="navbtn" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener" aria-label="開 Google 地圖">${ICON.pin}</a>` : `<a class="navbtn" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」">${NAV}</a>`;
-}
-function itemHtml(it, S, trip, n) {
+// 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
+function itemHtml(it, S, trip) {
   const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', it.note].filter(Boolean).map(esc).join('・');
-  return `<div class="item stop" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
-    <span class="thumb" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}${n ? `<i class="no num">${n}</i>` : ''}</span>
-    <div class="grow">
-      ${it.time || it.priority ? `<p class="meta">${it.time ? `<b class="num">${esc(it.time)}</b>` : ''}${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}</p>` : ''}
-      <h4>${esc(it.title)}</h4>
-      ${sub ? `<p class="sub">${sub}</p>` : ''}
+  return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
+    <span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>
+    <div class="grow" style="flex:1">
+      <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
+      ${sub ? `<p>${sub}</p>` : ''}
+      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
-    ${navBtn(it, S, trip)}
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
   </div>`;
@@ -86,8 +79,8 @@ export function mapData(S, trip) {
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
   const none = !S.items.length ? '<div class="empty">還沒有行程，按右下角 ＋ 新增</div>' : '<div class="empty">這天還沒有安排</div>';
-  return `<div class="items stops">
-    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip, d ? i + 1 : 0)).join('') || none}
+  return `<div class="items">
+    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip)).join('') || none}
   </div>${d ? '' : moveToWish(S)}`;
 }
 
