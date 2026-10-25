@@ -47,3 +47,18 @@ test('現在的位置：最後一個已經過了的時間之後', () => {
   assert.equal(nowIndex(rows, 16 * 60), 3);
   assert.equal(nowIndex(buildDay([it('A')], []), 600), -1);
 });
+
+test('站與站的交通：近的走路、遠的搭車，推算時間加上路上的時間', async () => {
+  const { legOf } = await import('../src/lib/timeline.js');
+  const a = it('A', { time: '09:00', stay: 60, lat: 34.9671, lng: 135.7727 });
+  const b = it('B', { lat: 34.9676, lng: 135.7792 }); // 約 600 公尺
+  const c = it('C', { lat: 35.0116, lng: 135.7681 });
+  assert.equal(legOf(a, b).mode, 'WALKING');
+  assert.equal(legOf(b, c).mode, 'TRANSIT');
+  assert.equal(legOf(a, it('X')), null);
+  const legs = new Map([[legOf(a, b).key, 10]]);
+  const rows = buildDay([a, b, c], [], legs);
+  assert.equal(rows[1].at, 9 * 60 + 60 + 10);
+  assert.equal(rows[1].leg.min, 10);
+  assert.equal(rows[2].leg.min, null);
+});
