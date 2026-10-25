@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -102,4 +102,14 @@ test('整個區域移到別天：同區域照原順序接到那天最後，原�
     { id: 'q', day: 2, order: 2 }, { id: 'r', day: 1, order: 2 }, { id: 's', day: 2, order: 3 },
   ]);
   assert.deepEqual(planAreaMove(items, 1, '尖沙咀', 1), []);
+});
+
+test('停留時間：讀 stay 分鐘數，顯示成幾小時幾分', () => {
+  assert.equal(normalizeItem({ id: 'a', stay: 90 }).stay, 90);
+  assert.equal(normalizeItem({ id: 'a', stay: 'x' }).stay, 0);
+  assert.equal(normalizeItem({ id: 'a' }).stay, 0);
+  assert.equal(stayText(90), '1 小時 30 分');
+  assert.equal(stayText(60), '1 小時');
+  assert.equal(stayText(45), '45 分');
+  assert.equal(stayText(0), '');
 });

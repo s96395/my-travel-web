@@ -2,7 +2,7 @@
 import { esc, ICON, openSheet, $ } from '../ui/dom.js';
 import { parseDate, toDateString, monthDay } from '../lib/dates.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR, STAY_MINS, stayText } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -23,21 +23,27 @@ export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n 
 const daySel = (S, trip, d, off) => `<select class="daysel" aria-label="加到第幾天" ${off}>${dayOpts(S, trip, d)}</select>`;
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
-function itemHtml(it, S, trip) {
-  return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
-    <span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>
-    <div class="grow" style="flex:1">
-      <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
-      ${it.note ? `<p>${esc(it.note)}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+// 行程卡片：左邊類型色塊加編號（和地圖針一樣），中間時間、名稱、停留多久，右邊導航
+const NAV = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-8-8 18-2-8z"/></svg>';
+function navBtn(it, S, trip) {
+  if (!onMap(it) || S.offline) return '';
+  if (sideMap(S) && hasXY(it)) return `<button type="button" class="navbtn" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="在地圖上看「${esc(it.title)}」">${ICON.pin}</button>`;
+  return S.wide ? `<a class="navbtn" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener" aria-label="開 Google 地圖">${ICON.pin}</a>` : `<a class="navbtn" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」">${NAV}</a>`;
+}
+function itemHtml(it, S, trip, n) {
+  const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', it.note].filter(Boolean).map(esc).join('・');
+  return `<div class="item stop" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
+    <span class="thumb" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}${n ? `<i class="no num">${n}</i>` : ''}</span>
+    <div class="grow">
+      ${it.time || it.priority ? `<p class="meta">${it.time ? `<b class="num">${esc(it.time)}</b>` : ''}${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}</p>` : ''}
+      <h4>${esc(it.title)}</h4>
+      ${sub ? `<p class="sub">${sub}</p>` : ''}
     </div>
+    ${navBtn(it, S, trip)}
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
   </div>`;
 }
-
-// 第一次進行程分頁出現一次的小提示，按「知道了」或拖曳過一次就不再出現
-const dragTip = S => (S.tipDrag || S.offline || !S.items.length ? '' : `<div class="tip" role="note"><span>長按行程（右邊有 ⋮⋮ 的那一列）就能拖曳，換順序或移到別天。</span><button type="button" class="linkbtn" data-act="tipDrag">知道了</button></div>`);
 
 // 電腦版右半邊：「地圖｜清單」兩個分頁。地圖上想去清單和當天行程（編號）都插針，點針可加到這天或開 Google 地圖
 const sideMap = S => S.wide && !S.offline;
@@ -79,9 +85,9 @@ export function mapData(S, trip) {
 
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d);
-  const none = !S.items.length ? '<div class="empty">還沒有任何行程。可以直接新增，或先把 Google 地圖收藏的地點匯入「想去清單」，再一個個加到每天。</div>' : '<div class="empty">這天還沒有安排</div>';
-  return `<div class="items">${d ? `<button type="button" class="btn sm" data-act="addItem" data-d="${d}" style="justify-self:start" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增到第 ${d} 天</button>` : ''}
-    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip)).join('') || none}
+  const none = !S.items.length ? '<div class="empty">還沒有行程，按右下角 ＋ 新增</div>' : '<div class="empty">這天還沒有安排</div>';
+  return `<div class="items stops">
+    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip, d ? i + 1 : 0)).join('') || none}
   </div>${d ? '' : moveToWish(S)}`;
 }
 
@@ -129,6 +135,17 @@ function moveToWish(S) {
   return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到想去清單，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到想去清單</button></div>` : '';
 }
 
+// 右下角的「＋」：點開選自己輸入、從想去清單挑、或匯入 Google 地圖收藏
+function addFab(S, d) {
+  if (S.offline) return '';
+  const wish = S.wide ? 'data-act="side" data-v="list"' : 'data-act="mside" data-v="wish"';
+  return `<details class="addfab"><summary aria-label="新增景點">${ICON.plus}</summary><div class="fabmenu">
+    <button type="button" data-act="addItem" data-d="${d || 1}">${ICON.note}自己輸入</button>
+    <button type="button" ${wish}>${ICON.pin}從想去清單選</button>
+    <button type="button" data-act="importSheet">${ICON.map}匯入 Google 地圖收藏</button>
+  </div></details>`;
+}
+
 // 天數清單：1..N，再加上「還沒排天數」（有這種項目時才出現）
 const dayList = (S, trip) => {
   const n = planDays(S.items, tripDays(trip));
@@ -162,12 +179,12 @@ function planNarrow(S, trip) {
   return `
   ${dayPills(S, trip, days, sel)}
   ${seg}
-  ${dragTip(S)}
   <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
     <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div></div>
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
-  </section>`;
+  </section>
+  ${addFab(S, sel)}`;
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
@@ -179,13 +196,13 @@ function planWide(S, trip) {
   return `${dayPills(S, trip, days, sel)}
   <div class="planwide${side ? ' withmap' : ''}">
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-      ${dragTip(S)}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div>
         <span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></span></div>
       ${dayItems(S, trip, sel)}
     </section>
     ${side}
-  </div>`;
+  </div>
+  ${addFab(S, sel)}`;
 }
 
 export function renderPlan(S, trip) {
@@ -200,7 +217,6 @@ export function itemMenuSheet(S, trip, it, canDel) {
     <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     ${areaChips(S, days, it)}
-    <p class="small muted" style="margin:0">也可以在列表上長按行程，直接拖曳到想放的位置。</p>
     <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
 }
 
@@ -231,14 +247,15 @@ export function areaSheet(S, area = '') {
 }
 
 export function itemFormSheet(day, it = null) {
-  const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', note: '' };
+  const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', stay: 0, note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
     <input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}">
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
-    <div class="grid2"><div class="field"><label for="n-time">預約時間（有預約才填）</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
-      <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div></div>
+    <div class="grid2"><div class="field"><label for="n-time">幾點到</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
+      <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">不設定</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
     <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
@@ -286,6 +303,7 @@ export function readItemForm() {
     type: $('input[name="n-type"]:checked')?.value || 'other',
     priority: $('input[name="n-pri"]:checked')?.value || '',
     reservationTime: $('#n-time').value,
+    stay: +$('#n-stay').value || 0,
     area: $('#n-area').value.trim(),
     address: $('#n-addr').value.trim(),
     note: $('#n-note').value.trim(),
