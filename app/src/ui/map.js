@@ -102,3 +102,17 @@ export async function locate(p) {
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
   }
 }
+
+// 兩站之間要花幾分鐘（Routes API）；要在 Google Cloud 啟用 Routes API，沒啟用時回傳 'off'
+export async function travelMin(a, b, mode) {
+  await loadApi();
+  const { Route } = await window.google.maps.importLibrary('routes');
+  try {
+    const { routes } = await Route.computeRoutes({ origin: { lat: a.lat, lng: a.lng }, destination: { lat: b.lat, lng: b.lng }, travelMode: mode, fields: ['durationMillis'] });
+    const ms = routes?.[0]?.durationMillis;
+    return Number.isFinite(ms) ? Math.max(1, Math.round(ms / 60000)) : null;
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
+  }
+}
