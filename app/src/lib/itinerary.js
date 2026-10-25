@@ -1,4 +1,4 @@
-// 每日行程：沿用舊版 itinerary 子集合欄位（day、order、title、area、type、priority、reservationTime、note）
+// 每日行程：沿用舊版 itinerary 子集合欄位（day、order、title、area、type、priority、reservationTime、note），新版加 stay（停留幾分鐘）
 import { coordsFromUrl } from './places.js';
 export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'transport', 'stay', 'other'];
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
@@ -21,6 +21,7 @@ export function normalizeItem(raw) {
     type: ITEM_TYPES.includes(raw.type) ? raw.type : 'other',
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : '',
     time: raw.reservationTime || '',
+    stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
@@ -29,6 +30,10 @@ export function normalizeItem(raw) {
     ...((!raw.exact && coordsFromUrl(raw.address)) || { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null }),
   };
 }
+
+// 停留時間：90 → 「1 小時 30 分」
+export const STAY_MINS = [15, 30, 45, 60, 90, 120, 150, 180, 240, 300];
+export const stayText = m => (!m ? '' : [Math.floor(m / 60) ? `${Math.floor(m / 60)} 小時` : '', m % 60 ? `${m % 60} 分` : ''].filter(Boolean).join(' '));
 
 // 同舊版：先比天數，再比順序（有順序的排前面），最後比時間與 ID
 export function sortItems(items) {
