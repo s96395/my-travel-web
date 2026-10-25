@@ -1,6 +1,9 @@
 // 行程分頁：上面一排日期一次看一天，電腦版右邊是想去清單和地圖（規格書 F20–F22、U06）
-import { esc, ICON, openSheet, $ } from '../ui/dom.js';
-import { parseDate, toDateString, monthDay } from '../lib/dates.js';
+import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
+import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
+import { amountOf } from '../lib/expenses.js';
+import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
+import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
 import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR, STAY_MINS, stayText } from '../lib/itinerary.js';
 import { nearDay, kmText } from '../lib/places.js';
@@ -12,6 +15,13 @@ const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const PRI_TAG = { must: ' bad', want: ' accent', optional: '' };
 
+// 第 d 天的日期字串（2026-11-20）；超出旅程日期或沒設日期時是空的
+function dayIso(trip, d) {
+  if (!d || !trip.start || d > tripDays(trip)) return '';
+  const dt = parseDate(trip.start);
+  dt.setDate(dt.getDate() + d - 1);
+  return toDateString(dt);
+}
 function dayDate(trip, d) {
   if (!d || !trip.start || d > tripDays(trip)) return '';
   const dt = parseDate(trip.start);
@@ -24,14 +34,15 @@ const daySel = (S, trip, d, off) => `<select class="daysel" aria-label="加到�
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
 // 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
-function itemHtml(it, S, trip) {
+function itemHtml(it, S, trip, r = {}) {
+  const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '';
   const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', it.note].filter(Boolean).map(esc).join('・');
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     <span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>
     <div class="grow" style="flex:1">
-      <h4>${it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : ''}${esc(it.title)}</h4>
+      <h4>${when}${esc(it.title)}</h4>
       ${sub ? `<p>${sub}</p>` : ''}
-      <div class="tags">${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -76,12 +87,36 @@ export function mapData(S, trip) {
   return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${points.length}`, focus: S.mapFocus };
 }
 
+// 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
+const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed };
+const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${r.kind === 'in' || r.kind === 'out' ? 'stay' : 'transport'}">
+    <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
+    <div class="grow" style="flex:1"><h4>${r.at !== null ? `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> ` : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
+    <span class="tag">交通住宿</span>
+  </button>`;
+const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+
 function dayItems(S, trip, d) {
-  const its = itemsOfDay(S.items, d);
+  const its = itemsOfDay(S.items, d), date = dayIso(trip, d);
+  const rows = d ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its)) : its.map(it => ({ kind: 'item', it, at: null }));
+  // 旅途中看今天：在時間已經過了的最後一站後面畫一條「現在」
+  const now = date && date === todayString() ? nowIndex(rows, nowMin()) : -1;
+  const nowLine = `<div class="nowline" role="note"><span class="data">現在 ${hmOf(nowMin())}</span></div>`;
   const none = !S.items.length ? '<div class="empty">還沒有行程，按右下角 ＋ 新增</div>' : '<div class="empty">這天還沒有安排</div>';
+  let n = -1;
+  const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? (n++, (d && areaLine(S, its, n) || '') + itemHtml(r.it, S, trip, r)) : eventHtml(r))).join('');
   return `<div class="items">
-    ${its.map((it, i) => (d && areaLine(S, its, i) || '') + itemHtml(it, S, trip)).join('') || none}
+    ${html ? html + (now === rows.length ? nowLine : '') : none}
   </div>${d ? '' : moveToWish(S)}`;
+}
+
+// 天數標題下面那行：日期、幾個地方、那天記了多少錢；出發前在第 1 天提醒還有幾件待辦
+function dayMeta(S, trip, d, n) {
+  const date = dayIso(trip, d);
+  const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => e.createdAt?.toDate && todayString(e.createdAt.toDate()) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
+  const left = d === 1 && trip.start && todayString() < trip.start ? S.todoDocs.filter(t => !t.done).length : 0;
+  return [dayDate(trip, d), `${n} 個地方`, spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
+    + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
 }
 
 // 一天跑好幾個區域時，在每段區域前面標出區域名稱，可以整區移到別天
@@ -173,7 +208,7 @@ function planNarrow(S, trip) {
   ${dayPills(S, trip, days, sel)}
   ${seg}
   <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-    <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div></div>
+    <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
   </section>
@@ -189,7 +224,7 @@ function planWide(S, trip) {
   return `${dayPills(S, trip, days, sel)}
   <div class="planwide${side ? ' withmap' : ''}">
     <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${[dayDate(trip, sel), `${n} 個地方`].filter(Boolean).join('・')}</span></div>
+      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div>
         <span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></span></div>
       ${dayItems(S, trip, sel)}
     </section>

@@ -5,7 +5,7 @@ import { initFirebase, mapsKey } from './firebase.js';
 import { watchUser, signIn, logOut, nicknameOf, exposeTestSignIn, confirmIdentity, removeAccount } from './auth.js';
 import { watchMyTrips, watchExpenses, createTrip, upgradeShareKeys } from './data/trips.js';
 import { addSampleTrips } from './data/sample.js';
-import { viewTrip } from './lib/trips.js';
+import { viewTrip, countdown } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
@@ -185,6 +185,9 @@ function syncItineraryWatch() {
   itin = { tripId: want, stops: [], tries: 0 };
   Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapArea: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
+  // 旅途中打開旅程，直接看今天
+  const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
+  if (c?.ongoing) S.pday = c.day;
   // 這裡在畫完畫面之後才執行，填好資料要再畫一次
   if (S.localOnly) { fillFromLocal(local.get(want)); queueMicrotask(render); return; }
   startTripWatch(want);
