@@ -94,17 +94,25 @@ const eventHtml = r => `<button type="button" class="item auto" data-act="tab" d
     <div class="grow" style="flex:1"><h4>${r.at !== null ? `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> ` : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
     <span class="tag">交通住宿</span>
   </button>`;
+// 站與站之間的交通時間畫在虛線上，點了開 Google 地圖路線
+function legHtml(r) {
+  const l = r.leg;
+  if (!l?.min) return '';
+  const walk = l.mode === 'WALKING', xy = p => `${p.lat},${p.lng}`;
+  const href = `https://www.google.com/maps/dir/?api=1&origin=${xy(l.from)}&destination=${xy(r.it)}&travelmode=${walk ? 'walking' : 'transit'}`;
+  return `<a class="legline" href="${esc(href)}" target="_blank" rel="noopener" title="開 Google 地圖看路線">${walk ? '步行' : '搭車'} ${stayText(l.min)}</a>`;
+}
 const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
 
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d), date = dayIso(trip, d);
-  const rows = d ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its)) : its.map(it => ({ kind: 'item', it, at: null }));
+  const rows = d ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
   // 旅途中看今天：在時間已經過了的最後一站後面畫一條「現在」
   const now = date && date === todayString() ? nowIndex(rows, nowMin()) : -1;
   const nowLine = `<div class="nowline" role="note"><span class="data">現在 ${hmOf(nowMin())}</span></div>`;
   const none = !S.items.length ? '<div class="empty">還沒有行程，按右下角 ＋ 新增</div>' : '<div class="empty">這天還沒有安排</div>';
   let n = -1;
-  const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? (n++, (d && areaLine(S, its, n) || '') + itemHtml(r.it, S, trip, r)) : eventHtml(r))).join('');
+  const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? (n++, (d && areaLine(S, its, n) || '') + legHtml(r) + itemHtml(r.it, S, trip, r)) : eventHtml(r))).join('');
   return `<div class="items">
     ${html ? html + (now === rows.length ? nowLine : '') : none}
   </div>${d ? '' : moveToWish(S)}`;

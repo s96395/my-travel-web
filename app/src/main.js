@@ -15,6 +15,7 @@ import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishL
 import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
+import { legOf } from './lib/timeline.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
@@ -100,6 +101,7 @@ function render() {
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
   // 地圖只在用到時才載入
   tourCheck();
+  fetchLegs();
   if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
@@ -123,6 +125,29 @@ async function exactCoords(m) {
       if (xy) await p.save({ ...xy, exact: true }).catch(console.error);
     }
   } finally { locating = false; }
+}
+
+// 站與站的交通時間：看行程時查這天還沒查過的，記在這台裝置（同樣兩點、同樣方式只查一次）
+const legTried = new Set();
+let legsBusy = false, legsOff = false;
+S.legs = (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
+async function fetchLegs() {
+  if (legsBusy || legsOff || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
+  const its = itemsOfDay(S.items, S.pday);
+  const todo = its.slice(1).map((b, i) => ({ a: its[i], b, leg: legOf(its[i], b) })).filter(x => x.leg && !S.legs.has(x.leg.key) && !legTried.has(x.leg.key));
+  if (!todo.length) return;
+  legsBusy = true;
+  try {
+    const m = await import('./ui/map.js');
+    for (const { a, b, leg } of todo) {
+      legTried.add(leg.key);
+      const min = await m.travelMin(a, b, leg.mode);
+      if (min === 'off') { legsOff = true; toast('要在 Google Cloud 啟用 Routes API，才看得到站與站的交通時間'); break; }
+      if (min) S.legs.set(leg.key, min);
+    }
+    store.set('legs', JSON.stringify(Object.fromEntries([...S.legs].slice(-300))));
+  } catch (err) { console.error(err); } finally { legsBusy = false; }
+  render();
 }
 
 // 操作導覽：只給新使用者，正式環境第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
