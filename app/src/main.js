@@ -59,7 +59,6 @@ const S = {
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
-  tipDrag: store.get('tipDrag') === '1', // 拖曳提示看過了
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域
   signingIn: false, loginError: '', busy: false,
@@ -509,7 +508,6 @@ function syncTanks() {
 }
 
 function onDrop(id, t) {
-  if (!S.tipDrag) { S.tipDrag = true; store.set('tipDrag', '1'); } // 拖曳過一次就不再提示
   // 從想去清單拖過來的地點：拖到日期或某天就排在最後，拖到行程上就插在那個位置
   if (id.startsWith('w:')) {
     const ref = t.kind === 'item' ? findItem(t.id) : null;
@@ -647,7 +645,6 @@ const actions = {
     } finally { S.busy = false; }
   },
   hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
-  tipDrag() { S.tipDrag = true; store.set('tipDrag', '1'); render(); },
   newTrip() { if (!S.offline) newTripSheet(); },
   ntType(el) { el.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   async saveTrip(el) {
@@ -1177,6 +1174,9 @@ let downOn = null, upOn = null; // 最後一次按下、放開的位置，用來
 document.addEventListener('pointerdown', ev => { downOn = ev.target; }, true);
 document.addEventListener('pointerup', ev => { upOn = ev.target; }, true);
 document.addEventListener('click', ev => {
+  // 行程頁右下角「＋」選單：點了選項或點外面就收起
+  const fab = document.querySelector('.addfab[open]');
+  if (fab && (!fab.contains(ev.target) || ev.target.closest('[data-act]'))) fab.open = false;
   const el = ev.target.closest('[data-act]');
   if (!el || el.disabled) return;
   const fn = actions[el.dataset.act];
