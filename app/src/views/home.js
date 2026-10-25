@@ -1,5 +1,5 @@
 // 首頁：下一趟登機證、四張統計、搜尋與類型篩選、依年度分組的旅程卡
-import { esc, money, ICON, TYPE_ICO } from '../ui/dom.js';
+import { esc, money, ICON, TYPE_ICO, themeBtn } from '../ui/dom.js';
 import { scene, art, coverHtml } from '../ui/scene.js';
 import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
@@ -259,6 +259,7 @@ export function renderHome(S) {
   <header class="appbar" id="appbar">
     <div class="brand" style="flex:1">沈迷旅行<small>ADDICTED TO YSHEN TRAVEL</small></div>
     ${S.wide ? `<button type="button" class="btn primary" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>` : ''}
+    ${themeBtn()}
     <button type="button" class="iconbtn" data-act="account" aria-label="帳號">${ICON.user}</button>
   </header>
   <div class="wrap">
@@ -268,7 +269,7 @@ export function renderHome(S) {
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
-    ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的「離線行程」。</div>' : ''}
+    ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載鈕（離線行程）。</div>' : ''}
     ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，或先看一趟填好的示範旅程。<br><button type="button" class="btn sm" data-act="demoTrip" style="margin-top:8px" ${S.offline ? 'disabled' : ''}>載入示範旅程</button></div>` : ''}
     ${years.map(y => {
       const ts = list.filter(t => (t.start || '未知').startsWith(y));
