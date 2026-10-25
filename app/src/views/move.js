@@ -74,9 +74,8 @@ export function renderMove(S, trip) {
   return `
   <div class="sec-h"><h2>班機</h2>${addBtn(S, 'flightForm', '新增航段')}</div>
   <div class="list two">${flights.map(f => flightCard(S, f)).join('') || `<div class="empty">還沒有班機${trip.type === '潛旅' ? '，搭船的話記在下方「其他交通」' : ''}</div>`}</div>
-  <p class="small muted" style="margin:-8px 0 0">轉機請分成兩個航段輸入，會依實際起飛時間排序。</p>
   <div class="sec-h"><h2>其他交通</h2>${addBtn(S, 'transitForm', '新增交通')}</div>
-  <div class="list two">${transits.map(t => transitCard(S, t)).join('') || '<div class="empty">船、高鐵、火車、巴士都可以記在這裡</div>'}</div>
+  <div class="list two">${transits.map(t => transitCard(S, t)).join('') || '<div class="empty">還沒有其他交通</div>'}</div>
   <div class="sec-h"><h2>住宿</h2>${addBtn(S, 'stayForm', '新增住宿')}</div>
   <div class="list two">${stays.map(s => stayCard(S, s)).join('') || '<div class="empty">還沒有住宿</div>'}</div>`;
 }

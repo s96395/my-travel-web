@@ -32,7 +32,7 @@ export function renderMore(S, trip) {
       return owner ? `<button type="button" class="mate${p.status === 'inactive' ? ' off' : ''}" data-act="renameP" data-id="${esc(p.id)}" ${off}>${inner}</button>`
         : `<span class="mate${p.status === 'inactive' ? ' off' : ''}">${inner}</span>`;
     }).join('')}${owner ? `<button type="button" class="mate add" data-act="addPerson" ${off}><span class="avatar">＋</span><span class="nm">新增</span></button>` : ''}</div>
-    <p class="small muted" style="margin:8px 0 0">虛線圈是沒有帳號的人，也能被分攤費用${owner ? '。點頭像可以改名、停用或調整順序' : ''}。</p>
+    <p class="small muted" style="margin:8px 0 0">虛線圈＝沒有帳號的人</p>
     ${owner && !ownerHasP ? `<button type="button" class="btn sm" data-act="createOwnerP" ${off} style="margin-top:8px">建立我的同行者</button>` : ''}
   </section>
   ${owner ? `<section class="card menulist">
@@ -49,8 +49,7 @@ export function renderMore(S, trip) {
       </div>`).join('')}</div>
     ${owner ? `<div class="field" style="margin-top:10px">
       <button type="button" class="btn primary" data-act="copyInvite">🔗 複製邀請連結</button>
-      <input class="input data small" id="invite" readonly value="${esc(inviteUrl(trip))}" aria-label="邀請連結">
-      <span class="small muted">傳給朋友，對方登入後選自己是名單上的哪一位，之前分給那個人的費用會算進他的帳號。</span></div>` : ''}
+      <input class="input data small" id="invite" readonly value="${esc(inviteUrl(trip))}" aria-label="邀請連結"></div>` : ''}
   </section>
   </div>`;
 }
