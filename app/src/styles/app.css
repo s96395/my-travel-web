@@ -153,8 +153,6 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .crophint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:4px 10px;border-radius:999px;pointer-events:none;white-space:nowrap}
 .cropframe.dragging .crophint{opacity:0}
 #cropZoom{accent-color:var(--accent);width:100%}
-.covbtns{position:absolute;left:12px;bottom:12px;display:flex;gap:8px}
-.covbtns .btn{background:color-mix(in srgb,var(--surface) 92%,transparent)}
 .stylegrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .stylepick{border:0;background:none;padding:0;color:var(--fg);font:inherit;font-size:13px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer}
 .stylepick .thumb{display:block;position:relative;width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;border:2px solid transparent}
@@ -938,3 +936,8 @@ button.mate:active .avatar{transform:scale(.92)}
 .device.wide .addfab{bottom:24px}
 @media (min-width:860px){.addfab{right:16px}}
 .day:has(~.addfab),.planwide:has(~.addfab){padding-bottom:72px}
+/* 旅程頁封面縮成一條，換封面收成右上角相機鈕；日期地點和同行者頭像排一行 */
+.tripcover .cover.big{aspect-ratio:16/6}
+.covbtn{position:absolute;right:12px;bottom:12px;width:38px;height:38px;border-radius:50%;border:0;display:grid;place-items:center;background:rgba(0,0,0,.45);color:#fff;backdrop-filter:blur(4px);cursor:pointer}
+.covbtn svg{width:18px;height:18px}
+.triphead{grid-template-columns:1fr auto;align-items:center}
