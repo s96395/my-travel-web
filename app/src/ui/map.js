@@ -65,13 +65,12 @@ function showPlace(p) {
 }
 export function clearPlace() { temp?.setMap(null); info?.close(); if (search) search.value = ''; }
 
-// 右下角「＋」選「從地圖搜尋」：地圖出來後把游標放進搜尋框
-export async function focusSearch() {
+// 右下角「＋」：地圖出來後捲到地圖（不先放游標，免得手機鍵盤蓋住地圖）
+export async function showSearch() {
   await loadApi();
   for (let i = 0; i < 20 && !search?.isConnected; i++) await new Promise(r => setTimeout(r, 100));
   if (!search) return;
   search.closest('.mapwrap')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); // 封面照占掉上半，捲到地圖讓彈出框放得下
-  search.focus({ preventScroll: true });
 }
 
 // Google 地點類型對到行程類型

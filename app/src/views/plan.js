@@ -60,7 +60,8 @@ const mapBox = (S, d) => {
   // 有分區域時，說明列出地圖上每個區域的顏色
   const wishKey = colors.size ? shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('') : '<i class="dot wish"></i>想去清單';
   const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}${wishKey}${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
+  const self = S.offline ? '' : `<button type="button" class="linkbtn" data-act="addItem" data-d="${d || 1}" style="margin-left:auto">找不到？自己輸入</button>`;
+  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}${wishKey}${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}${self}</p>`;
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
@@ -171,12 +172,12 @@ function moveToWish(S) {
   return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到想去清單，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到想去清單</button></div>` : '';
 }
 
-// 右下角的「＋」：從地圖搜尋、從想去清單挑、匯入 Google 地圖收藏，或自己輸入
+// 右下角的「＋」：有地圖時直接打開地圖（搜尋或點地圖加地點）；沒有地圖金鑰時才跳選單
 function addFab(S, d) {
   if (S.offline) return '';
+  if (mapsKey) return `<div class="addfab"><button type="button" class="fabbtn" data-act="mapSearch" aria-label="從地圖加地點">${ICON.plus}</button></div>`;
   const wish = S.wide ? 'data-act="side" data-v="list"' : 'data-act="mside" data-v="wish"';
   return `<details class="addfab"><summary aria-label="新增景點">${ICON.plus}</summary><div class="fabmenu">
-    ${mapsKey ? `<button type="button" data-act="mapSearch">${ICON.search}從地圖搜尋</button>` : ''}
     <button type="button" ${wish}>${ICON.pin}從想去清單選</button>
     <button type="button" data-act="importSheet">${ICON.map}匯入 Google 地圖收藏</button>
     <button type="button" data-act="addItem" data-d="${d || 1}">${ICON.note}自己輸入</button>

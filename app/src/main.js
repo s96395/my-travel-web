@@ -815,12 +815,12 @@ const actions = {
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear()); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear()); },
-  // 「＋」選「從地圖搜尋」：電腦切到右邊的地圖，手機切到想去清單（上面有地圖），游標放進搜尋框
+  // 右下角「＋」：電腦切到右邊的地圖，手機切到想去清單（上面有地圖），捲到地圖
   mapSearch() {
     if (S.offline) return;
     if (S.wide) { S.side = 'map'; store.set('side', S.side); } else S.mside = 'wish';
     render();
-    import('./ui/map.js').then(m => m.focusSearch()).catch(console.error);
+    import('./ui/map.js').then(m => m.showSearch()).catch(console.error);
   },
   importSheet() { S.imp = null; importSheet(); },
   // 勾選的地點加進想去清單，再到 /api/place 查座標；查不到座標也照樣留在清單

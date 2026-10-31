@@ -912,9 +912,10 @@ button.mate:active .avatar{transform:scale(.92)}
 
 /* 右下角「＋」：點開往上長出三個選項 */
 .addfab{position:fixed;right:max(16px,calc(50% - var(--appw)/2 + 16px));bottom:calc(78px + env(safe-area-inset-bottom,0px));z-index:8}
-.addfab>summary{list-style:none;width:56px;height:56px;border-radius:50%;background:var(--warm);color:#fff;display:grid;place-items:center;box-shadow:var(--sh-pop);cursor:pointer}
+.addfab>.fabbtn{border:0;padding:0}
+.addfab>summary,.addfab>.fabbtn{list-style:none;width:56px;height:56px;border-radius:50%;background:var(--warm);color:#fff;display:grid;place-items:center;box-shadow:var(--sh-pop);cursor:pointer}
 .addfab>summary::-webkit-details-marker{display:none}
-.addfab>summary svg{width:26px;height:26px;transition:transform .2s}
+.addfab>summary svg,.addfab>.fabbtn svg{width:26px;height:26px;transition:transform .2s}
 .addfab[open]>summary svg{transform:rotate(45deg)}
 .fabmenu{position:absolute;right:0;bottom:66px;display:grid;gap:8px;justify-items:end}
 .fabmenu button{display:flex;align-items:center;gap:8px;border:0;border-radius:999px;background:var(--surface);color:var(--fg);padding:10px 16px;font:inherit;font-size:15px;font-weight:700;box-shadow:var(--sh-pop);white-space:nowrap;cursor:pointer}
