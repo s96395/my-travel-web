@@ -58,11 +58,12 @@ const mapBox = (S, d) => {
   const colors = areaColors(S.wishDocs);
   const shown = [...new Set(pts.filter(p => p.kind === 'wish').map(p => p.area))];
   // 有分區域時，說明列出地圖上每個區域的顏色
-  const wishKey = colors.size ? shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('') : '<i class="dot wish"></i>想去清單';
+  const wishKey = shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('');
   const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}${wishKey}${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}</p>`;
-  // 還沒匯入過收藏時，地圖上直接放一張說明卡，一眼就知道可以先匯入再排；已有行程針時移到下方，不擋住針
-  const cta = none && !S.offline ? `<div class="mapcta${pts.length ? ' low' : ''}"><b>先把 Google 地圖收藏匯進來</b><span class="small">收藏的地點會插在地圖上，看得出彼此多遠，點一下就能排進行程。</span><button type="button" class="btn primary" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
+  // 只有分了區域時才列顏色說明，平常地圖上方不放字
+  const legend = colors.size || only ? `<p class="mlegend small muted">${wishKey}${only}</p>` : '';
+  // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
+  const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
 };
 function sidePane(S, trip, d) {
@@ -84,7 +85,7 @@ export function mapData(S, trip) {
     ...its.map((it, i) => ({ it, n: i + 1 })).filter(x => hasXY(x.it)).map(({ it, n }) => ({ id: it.id, kind: 'day', n, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${n} 個` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
     ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, opts: trip ? dayOpts(S, trip, d) : '', area: p.area || '', color: colors.get(p.area) || NO_AREA_COLOR })),
   ];
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${points.length}`, focus: S.mapFocus };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${points.length}`, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '' };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
@@ -171,14 +172,15 @@ function moveToWish(S) {
   return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到想去清單，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到想去清單</button></div>` : '';
 }
 
-// 右下角的「＋」：點開選自己輸入、從想去清單挑、或匯入 Google 地圖收藏
+// 右下角的「＋」：有地圖時直接打開地圖（搜尋或點地圖加地點）；沒有地圖金鑰時才跳選單
 function addFab(S, d) {
   if (S.offline) return '';
+  if (mapsKey) return `<div class="addfab"><button type="button" class="fabbtn" data-act="mapSearch" aria-label="從地圖加地點">${ICON.plus}</button></div>`;
   const wish = S.wide ? 'data-act="side" data-v="list"' : 'data-act="mside" data-v="wish"';
   return `<details class="addfab"><summary aria-label="新增景點">${ICON.plus}</summary><div class="fabmenu">
-    <button type="button" data-act="addItem" data-d="${d || 1}">${ICON.note}自己輸入</button>
     <button type="button" ${wish}>${ICON.pin}從想去清單選</button>
     <button type="button" data-act="importSheet">${ICON.map}匯入 Google 地圖收藏</button>
+    <button type="button" data-act="addItem" data-d="${d || 1}">${ICON.note}自己輸入</button>
   </div></details>`;
 }
 
@@ -204,11 +206,15 @@ const dayPills = (S, trip, days, sel) => `<div class="dpills" role="group" aria-
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
 }).join('')}</div>`;
 
+// 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
+const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d).replace(/^<p class="mlegend[^]*?<\/p>/, '')}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
+
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
-  const wish = S.mside === 'wish' && !S.offline;
+  const full = S.mapFull && mapsKey && !S.offline;
+  const wish = S.mside === 'wish' && !S.offline && !full;
   const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
   if (wish) return `${dayPills(S, trip, days, sel)}${seg}
   <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${mapBox(S, sel)}${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
@@ -220,7 +226,7 @@ function planNarrow(S, trip) {
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
   </section>
-  ${addFab(S, sel)}`;
+  ${full ? fullMap(S, sel) : addFab(S, sel)}`;
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
@@ -282,10 +288,11 @@ export function areaSheet(S, area = '') {
     <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
 }
 
-export function itemFormSheet(day, it = null) {
+// near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null
+export function itemFormSheet(day, it = null, near = null) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', stay: 0, note: '' };
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
-    <input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}">
+    <div class="suggwrap"><input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}"></div>
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
@@ -295,6 +302,17 @@ export function itemFormSheet(day, it = null) {
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
     <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
+  // 打名稱時跳出 Google 候選地點，選了自動帶入名稱、類型、地圖連結和位置
+  const t = $('#n-title');
+  if (mapsKey && t) {
+    import('../ui/map.js').then(m => m.attachSuggest(t, () => near, p => {
+      t.value = p.title; t.classList.remove('err');
+      t.dataset.place = JSON.stringify({ url: p.url, lat: p.lat, lng: p.lng });
+      $('#n-addr').value = p.url;
+      const r = document.querySelector(`input[name="n-type"][value="${p.type}"]`);
+      if (r && !it) r.checked = true;
+    })).catch(console.error);
+  }
 }
 
 // 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到想去清單：先教怎麼匯出，選檔後勾要的地點
@@ -334,7 +352,11 @@ function areaPick(places) {
 export function readItemForm() {
   const t = $('#n-title');
   if (!t.value.trim()) { t.classList.add('err'); t.focus(); return null; }
+  // 從候選地點選的：地址欄還是那個連結，就連同位置一起存
+  let xy = {};
+  try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true }; } catch { /* 沒選過 */ }
   return {
+    ...xy,
     title: t.value.trim(),
     type: $('input[name="n-type"]:checked')?.value || 'other',
     priority: $('input[name="n-pri"]:checked')?.value || '',
