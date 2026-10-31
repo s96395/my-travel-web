@@ -102,7 +102,7 @@ function render() {
   // 地圖只在用到時才載入
   tourCheck();
   fetchLegs();
-  if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el)); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
+  if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el), placeAct); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
 // 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
@@ -315,6 +315,31 @@ async function wishToDay(wid, day, beforeId) {
     toast(`已加到第 ${day} 天`);
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
+}
+
+// 地圖上搜尋到、或點到的 Google 地點：直接加到某一天，或先放想去清單；成功回傳 true
+async function placeAct(kind, p, day) {
+  if (S.busy || S.offline || !S.tripId) return false;
+  const xy = { lat: p.lat, lng: p.lng, exact: true };
+  if (kind === 'placeWish') {
+    if (p.url && S.wishDocs.some(w => w.url === p.url)) { toast(`「${p.title}」已經在想去清單了`); return false; }
+    S.busy = true;
+    try { await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area: '', ...xy }, S.user, S.nickname); toast('已放進想去清單'); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+  }
+  if (!day) return false;
+  if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
+  S.busy = true;
+  try {
+    await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: '', address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    toast(`已加到第 ${day} 天`);
+    return true;
+  } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+}
+// 行程和想去清單有位置的地點取中心，自己輸入時 Google 候選地點優先找這附近
+function tripNear() {
+  const pts = [...S.items, ...S.wishDocs].filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (!pts.length) return null;
+  return { center: { lat: pts.reduce((a, p) => a + p.lat, 0) / pts.length, lng: pts.reduce((a, p) => a + p.lng, 0) / pts.length }, radius: 30000 };
 }
 
 // 想去清單、地圖彈出框：旁邊的下拉選單選了第幾天
@@ -788,8 +813,15 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
-  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it); },
-  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d); },
+  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear()); },
+  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear()); },
+  // 「＋」選「從地圖搜尋」：電腦切到右邊的地圖，手機切到想去清單（上面有地圖），游標放進搜尋框
+  mapSearch() {
+    if (S.offline) return;
+    if (S.wide) { S.side = 'map'; store.set('side', S.side); } else S.mside = 'wish';
+    render();
+    import('./ui/map.js').then(m => m.focusSearch()).catch(console.error);
+  },
   importSheet() { S.imp = null; importSheet(); },
   // 勾選的地點加進想去清單，再到 /api/place 查座標；查不到座標也照樣留在清單
   async doImport(el) {
@@ -854,7 +886,7 @@ const actions = {
     try {
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
-      if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null ? { ...form, lat: null, lng: null, exact: false } : form, S.user, S.nickname);
+      if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null && !('lat' in form) ? { ...form, lat: null, lng: null, exact: false } : form, S.user, S.nickname);
       else await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
       S.days[day] = true; S.pday = day;
       closeSheet();

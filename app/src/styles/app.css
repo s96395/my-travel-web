@@ -939,3 +939,19 @@ button.mate:active .avatar{transform:scale(.92)}
 /* 站與站之間的交通時間，放在時間軸虛線上 */
 .legline{position:relative;align-self:flex-start;display:inline-flex;align-items:center;gap:4px;margin:2px 0 -2px;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);text-decoration:none;justify-self:start}
 .legline::before{content:"";position:absolute;left:-23px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--muted);opacity:.5}
+
+/* Google 候選地點：自己輸入的名稱欄、地圖左上角搜尋框 */
+.suggwrap,.msearch{position:relative}
+.sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;display:grid;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-pop);overflow:hidden}
+.sugg[hidden]{display:none}
+.sugg button{display:grid;gap:2px;text-align:left;border:0;background:none;padding:10px 12px;font:inherit;color:var(--fg);cursor:pointer}
+.sugg button+button{border-top:1px solid var(--line)}
+.sugg button:hover,.sugg button[aria-selected="true"]{background:var(--surface2)}
+.sugg b{font-size:15px}
+.sugg span{font-size:12px;color:var(--muted)}
+.msearch{margin:10px;width:min(340px,calc(100vw - 120px))}
+.msearch .input{width:100%;box-shadow:var(--sh-pop);background:#fff;color:#1f2937;color-scheme:light}
+.msearch .sugg{background:#fff;border-color:#e5e7eb;color-scheme:light} /* 地圖底色固定淺色，搜尋框也固定白底 */
+.msearch .sugg button{color:#1f2937}
+.msearch .sugg button:hover,.msearch .sugg button[aria-selected="true"]{background:#f3f4f6}
+.msearch .sugg span{color:#6b7280}
