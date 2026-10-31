@@ -4,7 +4,7 @@ import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
 import { distanceKm } from '../lib/places.js';
 
-let ready, map, box, info, temp, search, act, lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
+let ready, map, box, info, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
 
 function loadApi() {
@@ -39,7 +39,7 @@ function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
   el.innerHTML = `${p.addr ? `<span>${esc(p.addr)}</span>` : ''}
-    <div class="mpopbtn">${lastOpts ? `<span class="addto"><select class="daysel" aria-label="加到第幾天">${lastOpts}</select><button type="button" class="btn sm primary" data-pact="placeAdd">加入</button></span>` : ''}
+    <div class="mpopbtn">${dayOptsHtml ? `<span class="addto"><select class="daysel" aria-label="加到第幾天">${dayOptsHtml}</select><button type="button" class="btn sm primary" data-pact="placeAdd">加入</button></span>` : ''}
     <button type="button" class="btn sm" data-pact="placeWish">放想去清單</button>
     ${p.url ? `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
@@ -169,7 +169,10 @@ export async function syncMap(data, onAct, onPlace) {
     });
   }
   act = onPlace;
-  lastOpts = data.opts || '';
+  // 換了旅程或天數選項，先前搜到的地點彈出框裡的天數已經不對，收掉
+  const opts = `${String(data.fit).split(':')[0]}|${data.opts || ''}`;
+  if (opts !== lastOpts) { lastOpts = opts; clearPlace(); }
+  dayOptsHtml = data.opts || '';
   if (box.parentNode !== slot) slot.appendChild(box);
   const key = JSON.stringify(data.points);
   if (key !== lastKey) {
