@@ -620,13 +620,21 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 :root[data-theme="dark"]{ --k-A:#f39a55; --k-E:#a98ddb; --k-N:#ee8090; --k-S:#5cc98a; --k-F:#e8c04f; --k-O:#5cc3e0; --land:#2c3a4e }
 .k-A{--kc:var(--k-A)} .k-E{--kc:var(--k-E)} .k-N{--kc:var(--k-N)} .k-S{--kc:var(--k-S)} .k-F{--kc:var(--k-F)} .k-O{--kc:var(--k-O)}
 .worldpanel,.wcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:grid;gap:10px}
-.worldmap{position:relative;height:210px;background:var(--surface2);border-radius:var(--r-sm);overflow:hidden}
+.worldmap{position:relative;height:210px;background:var(--sea);border-radius:var(--r-sm);overflow:hidden;--sea:color-mix(in srgb,#5b9bd5 22%,var(--surface2));--foam:rgba(255,255,255,.9)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .worldmap{--sea:color-mix(in srgb,#3d7fc4 20%,var(--surface2));--foam:rgba(190,220,250,.4)} }
+:root[data-theme="dark"] .worldmap{--sea:color-mix(in srgb,#3d7fc4 20%,var(--surface2));--foam:rgba(190,220,250,.4)}
 .worldmap svg{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
 .worldmap.zoomed svg{touch-action:none}
 .worldmap svg:active{cursor:grabbing}
-.worldmap path{fill:var(--land);stroke:var(--surface2);stroke-width:.6;vector-effect:non-scaling-stroke}
-.worldmap .on{fill:var(--kc);cursor:pointer}
-.worldmap circle.on{stroke:var(--surface);stroke-width:1.5;vector-effect:non-scaling-stroke}
+/* 沒去過的國家沉在水裡（淡淡的淺灘色）；去過的是浮出海面的島：浪花邊＋厚度＋洲別顏色 */
+.worldmap path{fill:color-mix(in srgb,var(--land) 65%,var(--surface));stroke:var(--sea);stroke-width:.6;vector-effect:non-scaling-stroke}
+.worldmap .isl{cursor:pointer;transition:opacity .45s,transform .7s cubic-bezier(.2,1.5,.4,1)}
+.worldmap .isl.down{opacity:0;transform:translateY(calc(var(--lift,2px) * 4))}
+.worldmap .isl .foam{fill:var(--foam);stroke:var(--foam);stroke-width:3.5;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.worldmap .isl .side{fill:color-mix(in srgb,var(--kc) 55%,#000);stroke:none;transform:translateY(var(--lift,2px))}
+.worldmap .on{fill:var(--kc);stroke:rgba(255,255,255,.45);stroke-width:.5;vector-effect:non-scaling-stroke}
+.worldmap .isl:hover .on{filter:brightness(1.08)}
+@media (prefers-reduced-motion: reduce){ .worldmap .isl{transition:none} }
 .wz{position:absolute;left:6px;bottom:6px;display:grid;grid-auto-flow:column;gap:4px}
 .wz button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);font-size:15px;line-height:1;padding:0;box-shadow:var(--sh-1)}
 .winfo{position:absolute;left:8px;top:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 12px;font-size:15px;font-weight:700;box-shadow:var(--sh-1)}
