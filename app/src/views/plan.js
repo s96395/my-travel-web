@@ -58,10 +58,10 @@ const mapBox = (S, d) => {
   const colors = areaColors(S.wishDocs);
   const shown = [...new Set(pts.filter(p => p.kind === 'wish').map(p => p.area))];
   // 有分區域時，說明列出地圖上每個區域的顏色
-  const wishKey = colors.size ? shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('') : '<i class="dot wish"></i>想去清單';
+  const wishKey = shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('');
   const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
-  const self = S.offline ? '' : `<button type="button" class="linkbtn" data-act="addItem" data-d="${d || 1}" style="margin-left:auto">找不到？自己輸入</button>`;
-  const legend = `<p class="mlegend small muted"><i class="dot day"></i>${d ? `第 ${d} 天行程` : '還沒排天數'}${wishKey}${only}${pts.length || none ? '' : '・還沒有可以插針的地點'}${self}</p>`;
+  // 只有分了區域時才列顏色說明，平常地圖上方不放字
+  const legend = colors.size || only ? `<p class="mlegend small muted">${wishKey}${only}</p>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
@@ -206,11 +206,15 @@ const dayPills = (S, trip, days, sel) => `<div class="dpills" role="group" aria-
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
 }).join('')}</div>`;
 
+// 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
+const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d).replace(/^<p class="mlegend[^]*?<\/p>/, '')}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
+
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
-  const wish = S.mside === 'wish' && !S.offline;
+  const full = S.mapFull && mapsKey && !S.offline;
+  const wish = S.mside === 'wish' && !S.offline && !full;
   const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
   if (wish) return `${dayPills(S, trip, days, sel)}${seg}
   <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${mapBox(S, sel)}${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
@@ -222,7 +226,7 @@ function planNarrow(S, trip) {
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
   </section>
-  ${addFab(S, sel)}`;
+  ${full ? fullMap(S, sel) : addFab(S, sel)}`;
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單

@@ -208,7 +208,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapArea: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -320,6 +320,13 @@ async function wishToDay(wid, day, beforeId) {
 // 地圖上搜尋到、或點到的 Google 地點：直接加到某一天，或先放想去清單；成功回傳 true
 async function placeAct(kind, p, day) {
   if (S.busy || S.offline || !S.tripId) return false;
+  // 搜尋找不到：開自己輸入的表單，名稱先帶進去
+  if (kind === 'placeSelf') {
+    itemFormSheet(S.pday || 1, null, tripNear());
+    const t = $('#n-title');
+    if (t) t.value = p.title || '';
+    return false;
+  }
   const xy = { lat: p.lat, lng: p.lng, exact: true };
   if (kind === 'placeWish') {
     if (p.url && S.wishDocs.some(w => w.url === p.url)) { toast(`「${p.title}」已經在想去清單了`); return false; }
@@ -815,13 +822,14 @@ const actions = {
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear()); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear()); },
-  // 右下角「＋」：電腦切到右邊的地圖，手機切到想去清單（上面有地圖），捲到地圖
+  // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖
   mapSearch() {
     if (S.offline) return;
-    if (S.wide) { S.side = 'map'; store.set('side', S.side); } else S.mside = 'wish';
+    if (S.wide) { S.side = 'map'; store.set('side', S.side); } else S.mapFull = true;
     render();
-    import('./ui/map.js').then(m => m.showSearch()).catch(console.error);
+    if (S.wide) import('./ui/map.js').then(m => m.showSearch()).catch(console.error);
   },
+  mapClose() { S.mapFull = false; render(); },
   importSheet() { S.imp = null; importSheet(); },
   // 勾選的地點加進想去清單，再到 /api/place 查座標；查不到座標也照樣留在清單
   async doImport(el) {

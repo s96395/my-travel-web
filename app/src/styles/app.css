@@ -841,10 +841,13 @@ button.mate:active .avatar{transform:scale(.92)}
 .mpop{display:grid;gap:4px;min-width:160px;max-width:260px;font-size:13px;color:#1f2937} /* Google 的彈出框固定白底，深色模式也用深色字 */
 .mpophead{font-size:15px;color:#1f2937;line-height:1.4}
 .mpop span{color:#6b7280}
-.mpopbtn{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.mpopsub{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px}
+.mpoprow{display:flex;gap:6px;align-items:center;margin-top:6px}
+.mpoprow .daysel{flex:1 1 0;min-width:0;width:0}
+.mpoplinks{display:flex;gap:14px;margin-top:2px;font-size:12px}
+.mpoplinks a,.mpoplinks button{border:0;background:none;padding:2px 0;font:inherit;color:#c2410c;text-decoration:none;cursor:pointer}
 .mpop select,.mpop select option{color-scheme:light;background-color:#fff;color:#1f2937} /* 地圖彈出框固定白底，選單跟著用淺色 */
-.mpopbtn .btn{text-decoration:none;white-space:nowrap;background:#fff;border-color:#d1d5db;color:#1f2937}
-.mpop .mpopbtn .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff}
+.mpop .mpoprow .btn.primary{background:#c2410c;border-color:#c2410c;color:#fff;white-space:nowrap}
 /* 彈出框右上角的關閉鈕：Google 預設的叉叉很淡，改成灰底圓鈕，淺色、深色模式都看得到 */
 .gm-style .gm-style-iw-chr .gm-ui-hover-effect{opacity:1!important;width:32px!important;height:32px!important;margin:6px 6px 0 4px!important;border-radius:50%!important;background:#e5e7eb!important}
 .gm-style .gm-style-iw-chr .gm-ui-hover-effect:hover{background:#d1d5db!important}
@@ -956,3 +959,13 @@ button.mate:active .avatar{transform:scale(.92)}
 .msearch .sugg button{color:#1f2937}
 .msearch .sugg button:hover,.msearch .sugg button[aria-selected="true"]{background:#f3f4f6}
 .msearch .sugg span{color:#6b7280}
+
+.sugg .suggself span{font-size:14px;color:var(--accent)}
+.msearch .sugg .suggself span{color:#c2410c}
+/* 手機按「＋」打開的全螢幕地圖：只留搜尋框和關閉鈕 */
+.mapfull{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column}
+.mapfull .mapwrap{flex:1}
+.mapfull .mapslot{flex:1;height:auto;min-height:0;border-radius:0}
+.mapfull .gm-fullscreen-control{display:none}
+.mapfull .msearch{margin-top:calc(10px + env(safe-area-inset-top,0px));width:calc(100vw - 72px)}
+.mapclose{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:10px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#1f2937;font-size:22px;line-height:1;box-shadow:var(--sh-pop);z-index:2;cursor:pointer}

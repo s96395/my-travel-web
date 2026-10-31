@@ -27,9 +27,10 @@ const DAY = '#e8792b', WISH = '#e03131';
 function popup(p, onAct) {
   const el = document.createElement('div');
   el.className = 'mpop';
-  el.innerHTML = `${p.sub ? `<span>${esc(p.sub)}</span>` : ''}
-    <div class="mpopbtn">${p.kind === 'wish' && p.opts ? `<span class="addto"><select class="daysel" aria-label="加到第幾天">${p.opts}</select><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入</button></span>` : ''}
-    ${p.url ? `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
+  // 一行放「第幾天＋加入」，其他動作放下面一行小字連結
+  el.innerHTML = `${p.sub ? `<span class="mpopsub">${esc(p.sub)}</span>` : ''}
+    ${p.kind === 'wish' && p.opts ? `<div class="mpoprow addto"><select class="daysel" aria-label="加到第幾天">${p.opts}</select><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入</button></div>` : ''}
+    ${p.url ? `<div class="mpoplinks"><a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a></div>` : ''}`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
 }
@@ -38,10 +39,9 @@ function popup(p, onAct) {
 function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
-  el.innerHTML = `${p.addr ? `<span>${esc(p.addr)}</span>` : ''}
-    <div class="mpopbtn">${dayOptsHtml ? `<span class="addto"><select class="daysel" aria-label="加到第幾天">${dayOptsHtml}</select><button type="button" class="btn sm primary" data-pact="placeAdd">加入</button></span>` : ''}
-    <button type="button" class="btn sm" data-pact="placeWish">放想去清單</button>
-    ${p.url ? `<a class="btn sm" href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
+  el.innerHTML = `${p.addr ? `<span class="mpopsub">${esc(p.addr)}</span>` : ''}
+    ${dayOptsHtml ? `<div class="mpoprow"><select class="daysel" aria-label="加到第幾天">${dayOptsHtml}</select><button type="button" class="btn sm primary" data-pact="placeAdd">加入</button></div>` : ''}
+    <div class="mpoplinks"><button type="button" data-pact="placeWish">放想去清單</button>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">Google 地圖</a>` : ''}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
   el.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', ev => {
     ev.stopPropagation();
@@ -90,7 +90,8 @@ async function placeInfo(place) {
 
 // 輸入框打字時跳出 Google 候選地點（Places API (New) 自動完成）
 // near()：回傳要優先找的範圍（地圖目前看到的範圍，或行程大約位置），沒有就回傳 null；onPick(地點)
-export async function attachSuggest(input, near, onPick) {
+// onSelf(名稱)：有給的話，清單最後一列是「自己輸入」，找不到地點時用
+export async function attachSuggest(input, near, onPick, onSelf) {
   await loadApi();
   const { AutocompleteSuggestion, AutocompleteSessionToken } = await window.google.maps.importLibrary('places');
   const list = document.createElement('div');
@@ -105,7 +106,7 @@ export async function attachSuggest(input, near, onPick) {
   async function pick(i) {
     const pred = rows[i];
     close();
-    if (!pred) return;
+    if (!pred) { if (onSelf && i === rows.length) onSelf(input.value.trim()); return; }
     try {
       const p = await placeInfo(pred.toPlace());
       token = new AutocompleteSessionToken();
@@ -121,8 +122,9 @@ export async function attachSuggest(input, near, onPick) {
       if (my !== seq || document.activeElement !== input) return;
       rows = suggestions.map(s => s.placePrediction).filter(Boolean).slice(0, 5);
       at = -1;
-      list.innerHTML = rows.map((r, i) => `<button type="button" role="option" data-i="${i}"><b>${esc(r.mainText?.text || r.text.text)}</b><span>${esc(r.secondaryText?.text || '')}</span></button>`).join('');
-      list.hidden = !rows.length;
+      list.innerHTML = rows.map((r, i) => `<button type="button" role="option" data-i="${i}"><b>${esc(r.mainText?.text || r.text.text)}</b><span>${esc(r.secondaryText?.text || '')}</span></button>`).join('')
+        + (onSelf ? `<button type="button" role="option" data-i="${rows.length}" class="suggself"><span>找不到？自己輸入「${esc(q)}」</span></button>` : '');
+      list.hidden = !list.children.length;
     } catch (err) { console.error(err); close(); }
   }
   input.addEventListener('input', ev => { if (ev.isComposing) return; clearTimeout(timer); timer = setTimeout(run, 250); });
@@ -132,7 +134,8 @@ export async function attachSuggest(input, near, onPick) {
     if (input.closest('.msearch')) ev.stopPropagation(); // 不讓地圖拿方向鍵去移動畫面
     if (list.hidden) return;
     ev.stopPropagation(); // 候選清單開著時，Enter、Esc 只管清單
-    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); at = (at + (ev.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length; mark(); }
+    const n = list.children.length;
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); at = (at + (ev.key === 'ArrowDown' ? 1 : n - 1)) % n; mark(); }
     else if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); pick(Math.max(at, 0)); }
     else if (ev.key === 'Escape') close();
   });
@@ -158,7 +161,7 @@ export async function syncMap(data, onAct, onPlace) {
     bar.innerHTML = `<input type="search" class="input" placeholder="搜尋地點，加進行程" aria-label="搜尋地點">`;
     search = bar.querySelector('input');
     map.controls[g.ControlPosition.TOP_LEFT].push(bar);
-    attachSuggest(search, () => map.getBounds() || null, showPlace).catch(console.error);
+    attachSuggest(search, () => map.getBounds() || null, showPlace, title => act?.('placeSelf', { title }, 0)).catch(console.error);
     // 點地圖上的店家、景點圖示：不開 Google 原本的小視窗，改開可以加入行程的彈出框
     const { Place } = await g.importLibrary('places');
     map.addListener('click', async ev => {
