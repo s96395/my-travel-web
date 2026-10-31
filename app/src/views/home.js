@@ -99,15 +99,16 @@ function showIsles(ids) {
 function endPlay(skip) {
   clearInterval(playTimer); playTimer = 0;
   if (!hidden) return;
-  showIsles([...hidden]); hidden = null;
+  hidden = null; document.querySelectorAll('.worldmap .isl.down').forEach(g => g.classList.remove('down'));
   const info = playInfo(); if (!info) return;
   info.hidden = false; info.textContent = `一共去過 ${playTotal} 個國家`;
   setTimeout(() => { if (!hidden && info.textContent.startsWith('一共')) info.hidden = true; }, skip ? 1200 : 2500);
 }
-function startPlay(steps, ids) {
+// 只藏時間軸上的國家；沒填出發日期的旅程排不進時間軸，那些國家一直顯示
+function startPlay(steps, ids, total) {
   endPlay(true);
-  playSteps = steps; playTotal = ids.length; hidden = new Set(ids);
-  document.querySelectorAll('.worldmap .isl').forEach(g => g.classList.add('down'));
+  playSteps = steps; playTotal = total; hidden = new Set(ids);
+  ids.forEach(id => document.querySelectorAll(`.worldmap [data-wid="${id}"]`).forEach(g => g.classList.add('down')));
   let i = 0;
   const gap = Math.max(250, Math.min(700, 4500 / steps.length)); // 全部大約 4～5 秒播完
   playTimer = setInterval(() => {
@@ -129,7 +130,7 @@ function worldStrip(S, w, hero) {
   const conts = w.continents.filter(c => c.got).length;
   const open = !!S.stats.country;
   const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
-  const [steps, ids] = lastPlay = playSet(S);
+  const [steps, ids] = lastPlay = [...playSet(S), w.visited.size + w.unmatched.length];
   const auto = steps.length > 1 && !hidden && !playTimer && !reduceMotion() && !playedOnce();
   if (auto) hidden = new Set(ids); // 先藏起來再畫，避免島先出現又消失
   const card = `<section class="wcard" aria-label="足跡地圖">
@@ -142,7 +143,7 @@ function worldStrip(S, w, hero) {
     ${open && !S.wide ? `<div class="wdetail">${worldList(w, true)}</div>` : ''}
   </section>`;
   if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
-  if (auto) setTimeout(() => startPlay(steps, ids), 600);
+  if (auto) setTimeout(() => startPlay(...lastPlay), 600);
   if (!S.wide) return hero + card;
   return `<div class="toprow">${hero}${card}</div>${open ? `<section class="worldpanel wide" aria-label="去過的國家">
     <div class="wp-head">${title}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
@@ -253,7 +254,7 @@ if (typeof document !== 'undefined') {
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
-    if (e.target.closest?.('[data-wplay]')) { const [steps, ids] = lastPlay; if (steps.length) startPlay(steps, ids); return; }
+    if (e.target.closest?.('[data-wplay]')) { const [steps, ids, total] = lastPlay; if (steps.length) startPlay(steps, ids, total); return; }
     const btn = e.target.closest?.('[data-wz]');
     const map = e.target.closest?.('.worldmap'); if (!map) return;
     const svg = map.querySelector('svg'), info = map.querySelector('.winfo');
