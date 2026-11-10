@@ -127,7 +127,7 @@ async function exactCoords(m) {
     updateItem(S.tripId, it.id, { lat: p.lat, lng: p.lng, exact: true, geoq: geoKey(it) }, S.user, S.nickname).catch(console.error);
   }
   const again = x => far.has(x.id) && !tried.has('far:' + x.id);
-  const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, save });
+  const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, own: { lat: x.lat, lng: x.lng }, save });
   const todo = [
     ...S.wishDocs.filter(again).map(p => fix(p, c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname))),
     ...S.items.filter(again).map(it => fix(it, c => updateItem(S.tripId, it.id, c, S.user, S.nickname))),

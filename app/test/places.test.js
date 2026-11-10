@@ -65,3 +65,10 @@ test('離整趟旅程其他地點太遠的當成位置有誤', () => {
   assert.ok(Math.abs(far.center.lng - 129.12) < 0.1);
   assert.equal(farOff(pts.slice(2)).size, 0);
 });
+
+test('位置有誤的判斷：精確位置不算有誤，重複的地點只算一次', () => {
+  const kr = [{ id: 'a', lat: 35.16, lng: 129.16 }, { id: 'b', lat: 35.10, lng: 129.03 }];
+  assert.equal(farOff([...kr, { id: 'p', lat: 48.86, lng: 2.35, exact: true }]).size, 0);
+  const bad = { lat: 36.21, lng: 36.16 };
+  assert.deepEqual([...farOff([...kr, { id: 'w', ...bad }, { id: 'd1', ...bad }, { id: 'd2', ...bad }])].sort(), ['d1', 'd2', 'w']);
+});

@@ -232,9 +232,10 @@ export async function locate(p) {
     const max = p.maxKm || 30;
     const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], ...(near ? { locationBias: { center: near, radius: Math.min(max, 50) * 1000 } } : {}), maxResultCount: 1, language: 'zh-TW' });
     const loc = places?.[0]?.location;
-    if (!loc) return null;
-    const xy = { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6) };
-    return !near || distanceKm(near, xy) < max ? xy : null; // 查到太遠的同名地點就不用
+    const xy = loc && { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6) };
+    if (xy && (!near || distanceKm(near, xy) < max)) return xy; // 查到太遠的同名地點就不用
+    // 用旅程中心查不到時，可能本來就在別的城市（例如兩國的旅程），改在它原本的位置附近查
+    return p.own ? locate({ ...p.own, title: p.title }) : null;
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;

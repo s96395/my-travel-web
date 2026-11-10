@@ -111,12 +111,14 @@ export const kmText = km => (km < 1 ? `${Math.max(50, Math.round(km * 20) * 50)}
 
 // 整趟旅程的地點取中位數當中心，離中心超過 km 公里的當成位置有誤（例如連結換算錯，韓國的店跑到中東）
 // 回傳有誤的 id 集合，center 是中心；地點少於 3 個時無法判斷，回傳空的
+// 同一個地點排進好幾天會有好幾份，取中心前先去掉重複；查過 Google 的精確位置（exact）不會被當成有誤，只拿來算中心
 export function farOff(points, km = 2000) {
   const xy = points.filter(hasXY), out = new Set();
-  if (xy.length < 3) return out;
+  const uniq = [...new Map(xy.map(p => [`${p.lat.toFixed(3)},${p.lng.toFixed(3)}`, p])).values()];
+  if (uniq.length < 3) return out;
   const mid = a => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
-  out.center = { lat: mid(xy.map(p => p.lat)), lng: mid(xy.map(p => p.lng)) };
-  xy.forEach(p => { if (distanceKm(out.center, p) > km) out.add(p.id); });
+  out.center = { lat: mid(uniq.map(p => p.lat)), lng: mid(uniq.map(p => p.lng)) };
+  xy.forEach(p => { if (!p.exact && distanceKm(out.center, p) > km) out.add(p.id); });
   return out;
 }
 
