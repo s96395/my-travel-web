@@ -11,6 +11,8 @@ const num = v => (v === '' || v === null || v === undefined ? null : Number.isFi
 // 舊資料有 activity、location 等舊欄位名，這裡統一成畫面用的形狀；day 不是正整數時記為 0（還沒排天數）
 export function normalizeItem(raw) {
   const day = num(raw.day);
+  // 自動查到的座標記著當時用什麼查（geoq）；之後名稱或地址改了，舊座標就不算數，地圖載入時重查
+  const stale = !!raw.geoq && raw.geoq !== geoKey({ title: raw.title || raw.activity, address: raw.address });
   return {
     id: raw.id,
     day: day && day >= 1 && Number.isInteger(day) ? day : 0,
@@ -26,8 +28,8 @@ export function normalizeItem(raw) {
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
     // 座標：查過 Google 的精確位置（exact）優先；其次由地點連結算出大約位置，再來用存下來的
-    exact: !!raw.exact && Number.isFinite(raw.lat),
-    ...((!raw.exact && coordsFromUrl(raw.address)) || { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null }),
+    exact: !stale && !!raw.exact && Number.isFinite(raw.lat),
+    ...((!raw.exact && coordsFromUrl(raw.address)) || (stale ? { lat: null, lng: null } : { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null })),
   };
 }
 
@@ -101,6 +103,11 @@ export function isMapLink(s) {
 // 有填地址用地址，沒有（或貼的是連結）就用名稱＋區域＋城市搜尋；連結不能放進路線網址
 // 名稱裡的表情符號和「｜」會讓 Google 找不到地點，搜尋前先拿掉
 const cleanName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/[｜|]/g, ' ').replace(/\s+/g, ' ').trim();
+// 比對名稱是不是同一個地方：拿掉表情符號和空白，只比「｜」前面那段，例如「🐰 Miffy 海雲台商店｜買水手服」和「Miffy 海雲台商店」
+const bareName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}\s]/gu, '').split(/[｜|]/)[0].toLowerCase();
+export const sameName = (a, b) => !!bareName(a) && bareName(a) === bareName(b);
+// 自己打的行程沒有座標時，用地址（沒有就用名稱）請 Google 查位置；區域名稱像「○○一帶」會讓 Google 找錯，不放進去
+export const geoKey = it => (it.address && !isMapLink(it.address) ? String(it.address).trim() : cleanName(it.title));
 export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [cleanName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
