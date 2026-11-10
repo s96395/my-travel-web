@@ -14,7 +14,7 @@ import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishLeft, areaSheet, areaMoveSheet } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink } from './lib/itinerary.js';
+import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
@@ -111,9 +111,23 @@ let locating = false, placesOff = false;
 async function exactCoords(m) {
   if (locating || placesOff || S.offline || !S.tripId) return;
   const rough = x => !x.exact && Number.isFinite(x.lat) && !tried.has(x.id);
+  // 自己打的行程（沒從想去清單加、沒貼連結）沒有座標，地圖上就沒有針、對不起來：用名稱或地址、城市請 Google 查，
+  // 靠近這趟旅程其他地點的才用；先查正在看的那天
+  const mid = list => { const xy = list.filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng)); return xy.length ? { lat: xy.reduce((a, x) => a + x.lat, 0) / xy.length, lng: xy.reduce((a, x) => a + x.lng, 0) / xy.length } : null; };
+  const near = d => mid(itemsOfDay(S.items, d)) || mid([...S.items, ...S.wishDocs]) || {};
+  const city = curTrip()?.city || '';
+  const bare = S.items.filter(it => it.day && !Number.isFinite(it.lat) && geoKey(it) && !tried.has(it.id + '|' + geoKey(it))).sort((a, b) => (b.day === S.pday) - (a.day === S.pday));
+  // 想去清單裡有同名地點的，直接用它的座標（不必再查）；其餘才請 Google 查，類型是交通、其他又沒填地址的不查
+  const same = it => S.wishDocs.find(p => p.exact && sameName(p.title, it.title));
+  for (const it of bare.filter(same)) {
+    tried.add(it.id + '|' + geoKey(it));
+    const p = same(it);
+    updateItem(S.tripId, it.id, { lat: p.lat, lng: p.lng, exact: true, geoq: geoKey(it) }, S.user, S.nickname).catch(console.error);
+  }
   const todo = [
     ...S.wishDocs.filter(rough).map(p => ({ ...p, save: c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname) })),
     ...S.items.filter(it => rough(it) && coordsFromUrl(it.address)).map(it => ({ ...it, save: c => updateItem(S.tripId, it.id, c, S.user, S.nickname) })),
+    ...bare.filter(it => onMap(it) && !same(it)).map(it => ({ id: it.id + '|' + geoKey(it), title: [geoKey(it), city].filter(Boolean).join(' '), ...near(it.day), save: c => updateItem(S.tripId, it.id, { ...c, geoq: geoKey(it) }, S.user, S.nickname) })),
   ];
   if (!todo.length) return;
   locating = true;

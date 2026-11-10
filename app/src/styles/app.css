@@ -720,6 +720,10 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .item[data-type="transport"]{--k:#2f80c9}
 .item[data-type="stay"]{--k:#7a5bc7}
 .item .ico{position:absolute;left:-46px;top:9px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;background:color-mix(in srgb,var(--k) 24%,var(--surface));box-shadow:0 0 0 3px var(--bg)}
+/* 有右邊地圖時，時間軸圓圈換成和地圖針一樣的橘底白字號碼；按了在地圖上看那一站 */
+.item .ico.pinno{background:#e8792b;color:#fff;font:700 15px/1 var(--font-data,inherit);border:0;padding:0;cursor:pointer}
+.item .ico.pinno[aria-pressed="true"]{box-shadow:0 0 0 3px var(--bg),0 0 0 6px #e8792b}
+.item .ico.pinno:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 :root:is([data-style="h"],[data-style="i"]) .items{margin-left:18px;padding-left:28px}
 :root:is([data-style="h"],[data-style="i"]) .item::before{display:none}
 :root:is([data-style="h"],[data-style="i"]) .item.lifted .ico{left:-36px}
@@ -834,7 +838,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mlegend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0}
 .mlegend .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
 .mlegend .dot.wish{background:#e03131;margin-left:8px}
-.mlegend .dot.day{background:#e8792b}
+.mlegend .dot.day{background:#e8792b;width:18px;height:18px;color:#fff;font-size:11px;font-weight:700;line-height:14px;text-align:center;font-style:normal}
 .pin{background:none;border:0}
 .pin-day b{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--warm);color:#fff;font:700 12px/1 var(--font, sans-serif);border:2px solid #fff;box-shadow:var(--sh-1)}
 .pin-wish{border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:var(--sh-1)}
