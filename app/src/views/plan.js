@@ -54,28 +54,41 @@ function itemHtml(it, S, trip, r = {}) {
 // 區域卡片：一個區域在時間軸上只佔一張卡，展開看這區想去清單的地點，按「加入」才排進時間軸
 const GRIP = '<span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>';
 const inDayOf = (S, d, p) => S.items.some(it => it.day === d && it.kind !== 'area' && ((p.url && it.address === p.url) || sameName(it.title, p.title)));
+// 步行時間用直線距離粗估：路會繞，乘 1.3；每小時走 4.5 公里
+const walkMin = km => Math.max(1, Math.round(km * 1.3 / 4.5 * 60));
+const OPEN_TAG = { true: '<span class="tag good">營業中</span>', false: '<span class="tag">已打烊</span>', gone: '<span class="tag bad">已歇業</span>' };
 function areaCard(it, S, trip, r) {
-  const places = it.area ? S.wishDocs.filter(p => p.area === it.area) : [], d = it.day;
+  const d = it.day, here = S.here;
+  let places = it.area ? S.wishDocs.filter(p => p.area === it.area) : [];
   const must = places.filter(p => inDayOf(S, d, p)).length;
   const open = !!S.areaOpen?.[it.id], off = S.offline ? 'disabled' : '';
+  // 附近模式：照離我多遠排，逛過的放最後
+  const km = p => (here && hasXY(p) ? distanceKm(here, p) : null);
+  if (here) places = [...places].sort((a, b) => !!a.visited - !!b.visited || (km(a) ?? Infinity) - (km(b) ?? Infinity));
   const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : '';
-  const sub = [places.length ? `${places.length} 個點` : '這區還沒有地點', must ? `${must} 個排進時間軸` : '', it.note].filter(Boolean).map(esc).join('・');
+  const seen = places.filter(p => p.visited).length;
+  const sub = [places.length ? `${places.length} 個點` : '這區還沒有地點', must ? `${must} 個排進時間軸` : '', seen ? `逛過 ${seen} 個` : '', it.note].filter(Boolean).map(esc).join('・');
   const row = p => {
-    const done = inDayOf(S, d, p);
-    return `<li class="aplace${done ? ' done' : ''}"><span class="grow">${esc(p.title)}${p.note ? `<small class="muted">${esc(p.note)}</small>` : ''}</span>
-      ${sideMap(S) && hasXY(p) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>` : ''}
+    const done = inDayOf(S, d, p), k = km(p), h = here ? S.hours?.get(p.id) : undefined;
+    const info = [k !== null ? `${kmText(k)}・步行約 ${walkMin(k)} 分` : '', p.note].filter(Boolean).map(esc).join('・');
+    return `<li class="aplace${done ? ' done' : ''}${p.visited ? ' seen' : ''}">
+      <button type="button" class="seenbox" data-act="wishSeen" data-id="${esc(p.id)}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button>
+      <span class="grow">${esc(p.title)}${info || OPEN_TAG[h] ? `<small class="muted">${info}${OPEN_TAG[h] ? ' ' + OPEN_TAG[h] : ''}</small>` : ''}</span>
+      ${sideMap(S) && hasXY(p) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>` : !S.wide && hasXY(p) && here ? `<a class="tag" href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}
       ${done ? '<span class="tag accent">已加入</span>' : `<button type="button" class="tag" data-act="areaMust" data-id="${esc(it.id)}" data-wid="${esc(p.id)}" ${off}>${ICON.plus}加入</button>`}</li>`;
   };
+  const nearBtn = S.offline || !places.some(hasXY) ? '' : `<button type="button" class="tag${here ? ' accent' : ''}" data-act="nearMe" aria-pressed="${!!here}">${ICON.pin}${here ? '附近模式（按一下關閉）' : '我在附近'}</button>`;
+  const nearNote = here ? `<p class="small muted" style="margin:6px 0 0">依離你多遠排，距離是直線估算。逛過的點打勾會排到最後。<button type="button" class="linkbtn" data-act="nearMe" data-again="1">重新定位</button></p>` : '<p class="small muted" style="margin:6px 0 0">按「加入」會排進時間軸，放在這張卡片後面，其他的到當地再挑。</p>';
   return `<div class="item areacard" data-iid="${esc(it.id)}" data-type="area">
     <span class="ico" role="img" aria-label="區域">${ICON.pin}</span>
     <div class="grow" style="flex:1">
       <h4>${when}${esc(it.title)}</h4>
       <p>${sub}</p>
-      <div class="tags">${places.length ? `<button type="button" class="tag accent" data-act="areaOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${open ? '收起清單' : '展開清單'}</button>` : ''}${places.some(hasXY) && !S.offline ? `<button type="button" class="tag" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}">${ICON.map}地圖看這區</button>` : ''}</div>
+      <div class="tags">${places.length ? `<button type="button" class="tag accent" data-act="areaOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${open ? '收起清單' : '展開清單'}</button>` : ''}${places.some(hasXY) && !S.offline ? `<button type="button" class="tag" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}">${ICON.map}地圖看這區</button>` : ''}${open ? nearBtn : ''}</div>
     </div>
     ${GRIP}
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${off} aria-label="移動或編輯">⋯</button>
-    ${open && places.length ? `<div class="aplacebox"><ul class="aplaces">${places.map(row).join('')}</ul><p class="small muted" style="margin:6px 0 0">按「加入」會排進時間軸，放在這張卡片後面，其他的到當地再挑。</p></div>` : ''}
+    ${open && places.length ? `<div class="aplacebox"><ul class="aplaces">${places.map(row).join('')}</ul>${nearNote}</div>` : ''}
   </div>`;
 }
 

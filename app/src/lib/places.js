@@ -136,3 +136,18 @@ export function clusterNear(places, km = 1) {
     left = left.filter(p => !g.includes(p));
   }
 }
+
+// 照 Google 的營業時間（periods：{ open: { day, hour, minute }, close }，day 0＝週日）和當地時差（分鐘），算現在有沒有營業
+// 沒有時段資料回傳 null；只有開始、沒有結束的時段表示 24 小時營業
+export function openAt(periods, offsetMin, now = new Date()) {
+  if (!Array.isArray(periods) || !periods.length || !Number.isFinite(offsetMin)) return null;
+  const local = new Date(now.getTime() + offsetMin * 60000);
+  const WEEK = 7 * 1440, t = local.getUTCDay() * 1440 + local.getUTCHours() * 60 + local.getUTCMinutes();
+  const at = x => x.day * 1440 + (x.hour || 0) * 60 + (x.minute || 0);
+  return periods.some(p => {
+    if (!p.open) return false;
+    if (!p.close) return true;
+    const a = at(p.open), b = at(p.close) <= a ? at(p.close) + WEEK : at(p.close);
+    return (t >= a && t < b) || (t + WEEK >= a && t + WEEK < b);
+  });
+}

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { parseCsv, parseSavedList, findCoords, clusterNear, farOff } from '../src/lib/places.js';
+import { parseCsv, parseSavedList, findCoords, clusterNear, farOff, openAt } from '../src/lib/places.js';
 
 const { coordsFrom } = createRequire(import.meta.url)('../../api/place.js');
 
@@ -71,4 +71,16 @@ test('位置有誤的判斷：精確位置不算有誤，重複的地點只算�
   assert.equal(farOff([...kr, { id: 'p', lat: 48.86, lng: 2.35, exact: true }]).size, 0);
   const bad = { lat: 36.21, lng: 36.16 };
   assert.deepEqual([...farOff([...kr, { id: 'w', ...bad }, { id: 'd1', ...bad }, { id: 'd2', ...bad }])].sort(), ['d1', 'd2', 'w']);
+});
+
+test('openAt 照營業時段和當地時差判斷現在有沒有營業', () => {
+  // 首爾 UTC+9；每天 10:00–22:00
+  const daily = [0, 1, 2, 3, 4, 5, 6].map(day => ({ open: { day, hour: 10, minute: 0 }, close: { day, hour: 22, minute: 0 } }));
+  assert.equal(openAt(daily, 540, new Date('2026-11-21T03:00:00Z')), true); // 當地 12:00
+  assert.equal(openAt(daily, 540, new Date('2026-11-21T14:00:00Z')), false); // 當地 23:00
+  // 跨午夜：週六 18:00 到週日 02:00
+  const late = [{ open: { day: 6, hour: 18, minute: 0 }, close: { day: 0, hour: 2, minute: 0 } }];
+  assert.equal(openAt(late, 540, new Date('2026-11-21T16:30:00Z')), true); // 週日 01:30
+  assert.equal(openAt([{ open: { day: 0, hour: 0, minute: 0 } }], 540), true); // 24 小時
+  assert.equal(openAt([], 540), null);
 });
