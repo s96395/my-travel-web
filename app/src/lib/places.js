@@ -109,6 +109,17 @@ export function nearDay(places, dayItems) {
 // 距離顯示：1 公里內用公尺
 export const kmText = km => (km < 1 ? `${Math.max(50, Math.round(km * 20) * 50)} 公尺` : `${km < 10 ? km.toFixed(1) : Math.round(km)} 公里`);
 
+// 整趟旅程的地點取中位數當中心，離中心超過 km 公里的當成位置有誤（例如連結換算錯，韓國的店跑到中東）
+// 回傳有誤的 id 集合，center 是中心；地點少於 3 個時無法判斷，回傳空的
+export function farOff(points, km = 2000) {
+  const xy = points.filter(hasXY), out = new Set();
+  if (xy.length < 3) return out;
+  const mid = a => [...a].sort((x, y) => x - y)[Math.floor(a.length / 2)];
+  out.center = { lat: mid(xy.map(p => p.lat)), lng: mid(xy.map(p => p.lng)) };
+  xy.forEach(p => { if (distanceKm(out.center, p) > km) out.add(p.id); });
+  return out;
+}
+
 // 依距離自動分組：先找附近地點最多的那個當中心，把離它 km 公里內、還沒分組的地點放一起，重複到剩下的都湊不成兩個
 // 回傳 [[中心, ...附近地點], ...]；沒有座標的不分組
 export function clusterNear(places, km = 1) {

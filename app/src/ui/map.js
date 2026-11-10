@@ -228,11 +228,13 @@ export async function locate(p) {
   // 沒有大約位置（整趟旅程都還沒有座標）時只靠名稱加城市查
   const near = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : null;
   try {
-    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], ...(near ? { locationBias: { center: near, radius: 20000 } } : {}), maxResultCount: 1, language: 'zh-TW' });
+    // maxKm：查到的地點離大約位置多遠以內才算數（預設 30 公里；位置有誤重查時用旅程中心，放寬）
+    const max = p.maxKm || 30;
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], ...(near ? { locationBias: { center: near, radius: Math.min(max, 50) * 1000 } } : {}), maxResultCount: 1, language: 'zh-TW' });
     const loc = places?.[0]?.location;
     if (!loc) return null;
     const xy = { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6) };
-    return !near || distanceKm(near, xy) < 30 ? xy : null; // 查到太遠的同名地點就不用
+    return !near || distanceKm(near, xy) < max ? xy : null; // 查到太遠的同名地點就不用
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
