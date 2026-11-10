@@ -70,3 +70,14 @@ export function closeSheet() {
 }
 
 export const sheetOpen = () => !!$('#layer .sheet');
+
+// 24 小時制時間欄位：數字鍵盤、自動補冒號（整理規則在 lib/time24.js）
+export const timeInput = (id, val = '', extra = '') => `<input class="input t24" id="${id}" type="text" inputmode="numeric" autocomplete="off" maxlength="5" placeholder="例如 14:30" value="${esc(val)}" ${extra}>`;
+
+// 日期＋24 小時制時間：畫面上是兩格，合起來的「YYYY-MM-DDTHH:MM」放在同 id 的隱藏欄位，讀值照舊用 #id
+export function dtField(id, label, val = '') {
+  const [d = '', t = ''] = String(val).replace(' ', 'T').split('T');
+  return `<div class="field dt"><span class="label">${label}</span>
+    <div class="dt-row"><input class="input" id="${id}-d" type="date" data-dt="${id}" value="${esc(d)}" aria-label="${esc(label)}日期">${timeInput(`${id}-t`, t.slice(0, 5), `data-dt="${id}" aria-label="${esc(label)}時間"`)}</div>
+    <input class="input" type="hidden" id="${id}" value="${esc(d && t ? `${d}T${t.slice(0, 5)}` : '')}"></div>`;
+}

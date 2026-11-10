@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { parseCsv, parseSavedList, findCoords, clusterNear } from '../src/lib/places.js';
+import { parseCsv, parseSavedList, findCoords, clusterNear, farOff } from '../src/lib/places.js';
 
 const { coordsFrom } = createRequire(import.meta.url)('../../api/place.js');
 
@@ -56,4 +56,19 @@ test('依距離自動分組：1 公里內的放一起，單獨一個的不分組
   const p = (id, lat, lng) => ({ id, lat, lng });
   const g = clusterNear([p('a', 22.2950, 114.1700), p('far', 22.2540, 113.9050), p('b', 22.2960, 114.1680), p('c', 22.3186, 114.1717), p('d', 22.3205, 114.1705), p('e', 22.2938, 114.1702), p('none')]);
   assert.deepEqual(g.map(x => x.map(q => q.id)), [['a', 'b', 'e'], ['c', 'd']]);
+});
+
+test('離整趟旅程其他地點太遠的當成位置有誤', () => {
+  const pts = [{ id: 'a', lat: 35.16, lng: 129.16 }, { id: 'b', lat: 35.10, lng: 129.03 }, { id: 'c', lat: 35.15, lng: 129.12 }, { id: 'x', lat: 36.2, lng: 36.2 }];
+  const far = farOff(pts);
+  assert.deepEqual([...far], ['x']);
+  assert.ok(Math.abs(far.center.lng - 129.12) < 0.1);
+  assert.equal(farOff(pts.slice(2)).size, 0);
+});
+
+test('位置有誤的判斷：精確位置不算有誤，重複的地點只算一次', () => {
+  const kr = [{ id: 'a', lat: 35.16, lng: 129.16 }, { id: 'b', lat: 35.10, lng: 129.03 }];
+  assert.equal(farOff([...kr, { id: 'p', lat: 48.86, lng: 2.35, exact: true }]).size, 0);
+  const bad = { lat: 36.21, lng: 36.16 };
+  assert.deepEqual([...farOff([...kr, { id: 'w', ...bad }, { id: 'd1', ...bad }, { id: 'd2', ...bad }])].sort(), ['d1', 'd2', 'w']);
 });

@@ -1,6 +1,7 @@
 // 交通住宿分頁：班機、其他交通（船、高鐵、火車、巴士）與住宿都可以多筆（規格書 F30–F32）
-import { esc, ICON, openSheet, $ } from '../ui/dom.js';
+import { esc, ICON, openSheet, $, dtField } from '../ui/dom.js';
 import { monthDay } from '../lib/dates.js';
+import { normTime } from '../lib/time24.js';
 import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
 
 // 新資料加上還沒轉過的舊版單筆資料
@@ -95,12 +96,12 @@ export function flightFormSheet(trip, f, canDel) {
     <fieldset class="leg"><legend>出發</legend>
       <div class="grid2">${fld('ff-from', '機場代碼', v.from, 'text', 'placeholder="TPE" maxlength="3" data-ap="from"')}${fld('ff-fromCity', '城市', v.fromCity, 'text', 'maxlength="20"')}</div>
       ${fld('ff-fromTerminal', '航廈', v.fromTerminal, 'text', 'placeholder="例如：第 2 航廈、國際航廈" maxlength="20"')}
-      <div class="grid2">${fld('ff-dep', '起飛（當地時間）', (v.dep || '').replace(' ', 'T'), 'datetime-local')}<div class="field"><label for="ff-fromTz">時區</label>${tzSel('ff-fromTz', v.fromTz)}</div></div>
+      <div class="dtz">${dtField('ff-dep', '起飛（當地時間）', v.dep)}<div class="field"><label for="ff-fromTz">時區</label>${tzSel('ff-fromTz', v.fromTz)}</div></div>
     </fieldset>
     <fieldset class="leg"><legend>抵達</legend>
       <div class="grid2">${fld('ff-to', '機場代碼', v.to, 'text', 'placeholder="KIX" maxlength="3" data-ap="to"')}${fld('ff-toCity', '城市', v.toCity, 'text', 'maxlength="20"')}</div>
       ${fld('ff-toTerminal', '航廈', v.toTerminal, 'text', 'placeholder="例如：第 1 航廈" maxlength="20"')}
-      <div class="grid2">${fld('ff-arr', '抵達（當地時間）', (v.arr || '').replace(' ', 'T'), 'datetime-local')}<div class="field"><label for="ff-toTz">時區</label>${tzSel('ff-toTz', v.toTz)}</div></div>
+      <div class="dtz">${dtField('ff-arr', '抵達（當地時間）', v.arr)}<div class="field"><label for="ff-toTz">時區</label>${tzSel('ff-toTz', v.toTz)}</div></div>
     </fieldset>
     <div class="check" id="ff-dur"></div>
     <div class="grid2">${fld('ff-pnr', '訂位代碼', v.pnr, 'text', 'placeholder="例如：F8FMCW" maxlength="20"')}${fld('ff-note', '備註', v.note, 'text', 'placeholder="例如：託運 23 公斤" maxlength="100"')}</div>
@@ -139,10 +140,19 @@ export function fillAirport(input) {
   updateDuration();
 }
 
+// 時間欄打了看不懂的內容（例如 25:00），標紅
+function badTime() {
+  const bad = [...document.querySelectorAll('#layer .t24')].filter(i => normTime(i.value) === null);
+  bad.forEach(i => i.classList.add('err'));
+  return bad.length ? { error: '時間請用 24 小時制填寫，例如 14:30' } : null;
+}
+
 // 讀航段表單；有錯時標紅並回傳錯誤訊息
 export function readFlightForm() {
   const f = formFlight();
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
+  const bad = badTime();
+  if (bad) return bad;
   const need = ['flightNo', 'from', 'to', 'dep', 'arr'].filter(k => !f[k]);
   if (need.length) { need.forEach(k => $(`#ff-${k}`).classList.add('err')); return { error: '請把紅框的欄位填好' }; }
   if (!flightMinutes(f)) { $('#ff-arr').classList.add('err'); return { error: '抵達時間早於起飛時間，請檢查' }; }
@@ -156,8 +166,8 @@ export function transitFormSheet(trip, t, canDel) {
     <div class="seg" id="tf-mode" style="justify-self:start;max-width:100%;overflow-x:auto">${TRANSIT_MODES.map(([m, i]) => `<button type="button" data-act="pickSeg" data-v="${m}" aria-pressed="${v.mode === m}">${i} ${m}</button>`).join('')}</div>
     <div class="grid2">${fld('tf-operator', '業者', v.operator, 'text', 'placeholder="例如：凱旋客輪、台灣高鐵" maxlength="30"')}${fld('tf-number', '班次／車次', v.number, 'text', 'placeholder="例如：0803" maxlength="20"')}</div>
     <div class="grid2">${fld('tf-from', '出發地', v.from, 'text', 'placeholder="例如：台東富岡漁港" maxlength="30"')}${fld('tf-to', '抵達地', v.to, 'text', 'placeholder="例如：綠島南寮漁港" maxlength="30"')}</div>
-    ${fld('tf-dep', '出發時間', (v.dep || '').replace(' ', 'T'), 'datetime-local')}
-    ${fld('tf-arr', '抵達時間', (v.arr || '').replace(' ', 'T'), 'datetime-local')}
+    ${dtField('tf-dep', '出發時間', v.dep)}
+    ${dtField('tf-arr', '抵達時間', v.arr)}
     <div class="grid2">${fld('tf-pnr', '訂位代號', v.pnr, 'text', 'placeholder="沒有可不填" maxlength="20"')}${fld('tf-note', '備註', v.note, 'text', 'placeholder="例如：提前 30 分鐘報到" maxlength="100"')}</div>
     <p class="small muted" style="margin:0">時間請填當地時間。訂位代號平常會遮起來，點一下才會顯示。</p>
     <div class="row">${delBtn(t, 'delTransit', canDel)}<button type="button" class="btn primary grow" data-act="saveTransit" data-id="${esc(t?.id || '')}">儲存</button></div>`);
@@ -165,6 +175,8 @@ export function transitFormSheet(trip, t, canDel) {
 
 export function readTransitForm() {
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
+  const bad = badTime();
+  if (bad) return bad;
   const t = { mode: $('#tf-mode [aria-pressed="true"]')?.dataset.v || '船', operator: val('tf-operator'), number: val('tf-number'), from: val('tf-from'), to: val('tf-to'), dep: val('tf-dep').replace('T', ' '), arr: val('tf-arr').replace('T', ' '), pnr: val('tf-pnr'), note: val('tf-note') };
   const need = ['from', 'to', 'dep'].filter(k => !t[k]);
   if (need.length) { need.forEach(k => $(`#tf-${k}`).classList.add('err')); return { error: '請把紅框的欄位填好' }; }
