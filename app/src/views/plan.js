@@ -1,12 +1,13 @@
 // 行程分頁：上面一排日期一次看一天，電腦版右邊是想去清單和地圖（規格書 F20–F22、U06）
-import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
+import { esc, ICON, openSheet, $, money, timeInput } from '../ui/dom.js';
+import { normTime } from '../lib/time24.js';
 import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
 import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
 import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR, sameName, STAY_MINS, stayText } from '../lib/itinerary.js';
-import { nearDay, kmText, distanceKm } from '../lib/places.js';
+import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
 // 行程類型的線條圖示
@@ -58,11 +59,13 @@ const mapBox = (S, d) => {
   const colors = areaColors(S.wishDocs);
   const shown = [...new Set(pts.filter(p => p.kind === 'wish').map(p => p.area))];
   // 有分區域時，說明列出地圖上每個區域的顏色
-  const wishKey = shown.sort((a, b) => !a - !b).map(a => `<i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}`).join('');
+  // 區域名稱常是長長的店名，說明列只放前面一段，滑過去看全名
+  const wishKey = shown.sort((a, b) => !a - !b).map(a => `<span class="lg" title="${a ? esc(a) : '還沒分區域'}"><i class="dot wish" style="background:${a ? colors.get(a) : NO_AREA_COLOR}"></i>${a ? esc(a) : '還沒分區域'}</span>`).join('');
   const only = S.mapArea ? `・只看「${esc(S.mapArea)}」<button type="button" class="linkbtn" data-act="mapArea" data-area="">看全部</button>` : '';
   // 有分區域，或當天有地點還查不到位置時才放說明列（才知道為什麼左邊有、地圖上沒有），平常地圖上方不放字
-  const lost = itemsOfDay(S.items, d).filter(it => onMap(it) && !hasXY(it)).length;
-  const legend = colors.size || only || lost ? `<p class="mlegend small muted"><i class="dot day">1</i>${d ? `第 ${d} 天行程` : '還沒排天數'}${lost ? `（${lost} 個還找不到位置）` : ''}${wishKey}${only}</p>` : '';
+  const far = farOf(S), lost = itemsOfDay(S.items, d).filter(it => onMap(it) && (!hasXY(it) || far.has(it.id))).length;
+  const odd = S.wishDocs.filter(p => far.has(p.id)).length;
+  const legend = colors.size || only || lost || odd ? `<p class="mlegend small muted"><span class="lg"><i class="dot day">1</i>${d ? `第 ${d} 天行程` : '還沒排天數'}${lost ? `（${lost} 個還找不到位置）` : ''}</span>${wishKey}${only}${odd ? `<span>・${odd} 個收藏位置有誤，正在重查</span>` : ''}</p>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
@@ -78,18 +81,21 @@ function sidePane(S, trip, d) {
 
 // 當天有座標的行程照順序編 1、2、3…，左邊時間軸和地圖上的針用同一個號碼
 const pinsOf = its => its.filter(hasXY);
+// 位置明顯有誤（離整趟旅程其他地點太遠）的先不插針、不編號，免得整張地圖被拉到世界地圖；地圖載入後會重查
+const farOf = S => farOff([...S.wishDocs, ...S.items]);
 
 // 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單放還沒排進這天的
 export function mapData(S, trip) {
   const colors = areaColors(S.wishDocs);
   const days = trip ? dayList(S, trip) : [];
   const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
-  const its = itemsOfDay(S.items, d), pins = pinsOf(its);
+  const far = farOf(S);
+  const its = itemsOfDay(S.items, d), pins = pinsOf(its).filter(it => !far.has(it.id));
   // 想去清單裡和當天行程同一個地方的（名稱一樣或幾乎同一點）不再插一次，免得一個地方兩根針
   const dup = p => its.some(it => sameName(it.title, p.title)) || pins.some(it => distanceKm(it, p) < 0.05);
   const points = [
     ...pins.map((it, i) => ({ id: it.id, kind: 'day', n: i + 1, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${i + 1} 站` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).filter(p => !dup(p)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, opts: trip ? dayOpts(S, trip, d) : '', area: p.area || '', color: colors.get(p.area) || NO_AREA_COLOR })),
+    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [d && p.km !== null ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', p.note].filter(Boolean).join('・'), url: p.url, opts: trip ? dayOpts(S, trip, d) : '', area: p.area || '', color: colors.get(p.area) || NO_AREA_COLOR })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
   return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '' };
@@ -120,7 +126,7 @@ function dayItems(S, trip, d) {
   const nowLine = `<div class="nowline" role="note"><span class="data">現在 ${hmOf(nowMin())}</span></div>`;
   const none = !S.items.length ? '<div class="empty">還沒有行程，按右下角 ＋ 新增</div>' : '<div class="empty">這天還沒有安排</div>';
   // 有右邊地圖時，時間軸上的圓圈換成和地圖針一樣的號碼
-  const pinNo = sideMap(S) ? new Map(pinsOf(its).map((it, i) => [it.id, i + 1])) : new Map();
+  const far = farOf(S), pinNo = sideMap(S) ? new Map(pinsOf(its).filter(it => !far.has(it.id)).map((it, i) => [it.id, i + 1])) : new Map();
   rows.forEach(r => { if (r.kind === 'item') r.pin = pinNo.get(r.it.id) || 0; });
   let n = -1;
   const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? (n++, (d && areaLine(S, its, n) || '') + legHtml(r) + itemHtml(r.it, S, trip, r)) : eventHtml(r))).join('');
@@ -306,7 +312,7 @@ export function itemFormSheet(day, it = null, near = null) {
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
-    <div class="grid2"><div class="field"><label for="n-time">幾點到</label><input class="input" id="n-time" type="time" value="${esc(v.time)}"></div>
+    <div class="grid2"><div class="field"><label for="n-time">幾點到</label>${timeInput('n-time', v.time)}</div>
       <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">不設定</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
     <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
@@ -362,6 +368,8 @@ function areaPick(places) {
 export function readItemForm() {
   const t = $('#n-title');
   if (!t.value.trim()) { t.classList.add('err'); t.focus(); return null; }
+  const tm = $('#n-time');
+  if (normTime(tm.value) === null) { tm.classList.add('err'); tm.focus(); return null; }
   // 從候選地點選的：地址欄還是那個連結，就連同位置一起存
   let xy = {};
   try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true }; } catch { /* 沒選過 */ }
@@ -370,7 +378,7 @@ export function readItemForm() {
     title: t.value.trim(),
     type: $('input[name="n-type"]:checked')?.value || 'other',
     priority: $('input[name="n-pri"]:checked')?.value || '',
-    reservationTime: $('#n-time').value,
+    reservationTime: normTime(tm.value),
     stay: +$('#n-stay').value || 0,
     area: $('#n-area').value.trim(),
     address: $('#n-addr').value.trim(),

@@ -12,10 +12,11 @@ import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishLeft, areaSheet, areaMoveSheet } from './views/plan.js';
-import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear, distanceKm } from './lib/places.js';
+import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear, distanceKm, farOff } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
+import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
@@ -110,21 +111,27 @@ const tried = new Set();
 let locating = false, placesOff = false;
 async function exactCoords(m) {
   if (locating || placesOff || S.offline || !S.tripId) return;
-  const rough = x => !x.exact && Number.isFinite(x.lat) && !tried.has(x.id);
+  // 離整趟旅程其他地點太遠的（連結換算錯），用旅程中心＋名稱＋城市重查一次
+  const far = farOff([...S.wishDocs, ...S.items]);
+  const rough = x => !x.exact && Number.isFinite(x.lat) && !tried.has(x.id) && !far.has(x.id);
   // 自己打的行程（沒從想去清單加、沒貼連結）沒有座標，地圖上就沒有針、對不起來：用名稱或地址、城市請 Google 查，
   // 靠近這趟旅程其他地點的才用；先查正在看的那天
-  const mid = list => { const xy = list.filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng)); return xy.length ? { lat: xy.reduce((a, x) => a + x.lat, 0) / xy.length, lng: xy.reduce((a, x) => a + x.lng, 0) / xy.length } : null; };
+  const mid = list => { const xy = list.filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng) && !far.has(x.id)); return xy.length ? { lat: xy.reduce((a, x) => a + x.lat, 0) / xy.length, lng: xy.reduce((a, x) => a + x.lng, 0) / xy.length } : null; };
   const near = d => mid(itemsOfDay(S.items, d)) || mid([...S.items, ...S.wishDocs]) || {};
   const city = curTrip()?.city || '';
   const bare = S.items.filter(it => it.day && !Number.isFinite(it.lat) && geoKey(it) && !tried.has(it.id + '|' + geoKey(it))).sort((a, b) => (b.day === S.pday) - (a.day === S.pday));
   // 沒填地址、想去清單裡有同名地點的，直接用它的座標（不必再查）；其餘才請 Google 查，類型是交通、其他又沒填地址的不查
-  const same = it => !it.address && S.wishDocs.find(p => p.exact && sameName(p.title, it.title)); // 自己填了地址的照地址查，不拿同名地點的座標
+  const same = it => !it.address && S.wishDocs.find(p => p.exact && !far.has(p.id) && sameName(p.title, it.title)); // 自己填了地址的照地址查，不拿同名地點的座標
   for (const it of bare.filter(same)) {
     tried.add(it.id + '|' + geoKey(it));
     const p = same(it);
     updateItem(S.tripId, it.id, { lat: p.lat, lng: p.lng, exact: true, geoq: geoKey(it) }, S.user, S.nickname).catch(console.error);
   }
+  const again = x => far.has(x.id) && !tried.has('far:' + x.id);
+  const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, own: { lat: x.lat, lng: x.lng }, save });
   const todo = [
+    ...S.wishDocs.filter(again).map(p => fix(p, c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname))),
+    ...S.items.filter(again).map(it => fix(it, c => updateItem(S.tripId, it.id, c, S.user, S.nickname))),
     ...S.wishDocs.filter(rough).map(p => ({ ...p, save: c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname) })),
     ...S.items.filter(it => rough(it) && coordsFromUrl(it.address)).map(it => ({ ...it, save: c => updateItem(S.tripId, it.id, c, S.user, S.nickname) })),
     ...bare.filter(it => onMap(it) && !same(it)).map(it => ({ id: it.id + '|' + geoKey(it), title: [geoKey(it), city].filter(Boolean).join(' '), ...near(it.day), save: c => updateItem(S.tripId, it.id, { ...c, geoq: geoKey(it) }, S.user, S.nickname) })),
@@ -1286,8 +1293,27 @@ function onDraftInput(t) {
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }
   if (t.dataset.paid) { d.paid[t.dataset.paid] = cleanAmt(t.value); d.dirty = true; expSheet(); }
 }
-document.addEventListener('input', ev => {
+// 24 小時制時間欄：打字時補冒號；日期＋時間兩格合成到同名隱藏欄位，下面照舊用隱藏欄位的 id 判斷
+function onTimeInput(ev) {
   const t = ev.target;
+  if (t.classList?.contains('t24') && !String(ev.inputType || '').startsWith('delete')) {
+    const v = maskTime(t.value);
+    if (v !== t.value) t.value = v;
+  }
+  if (!t.dataset?.dt) return t;
+  const id = t.dataset.dt, hidden = $(`#${id}`);
+  hidden.value = joinDateTime($(`#${id}-d`).value, $(`#${id}-t`).value);
+  return hidden;
+}
+document.addEventListener('focusout', ev => {
+  const t = ev.target;
+  if (!t.classList?.contains('t24')) return;
+  const v = normTime(t.value);
+  t.classList.toggle('err', v === null);
+  if (v && v !== t.value) { t.value = v; t.dispatchEvent(new Event('change', { bubbles: true })); }
+});
+document.addEventListener('input', ev => {
+  const t = onTimeInput(ev);
   if (!ev.isComposing) onDraftInput(t);
   if (t.id === 'joinName' && S.join) S.join.newName = t.value;
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
@@ -1300,7 +1326,7 @@ document.addEventListener('input', ev => {
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
 });
 document.addEventListener('change', ev => {
-  const t = ev.target;
+  const t = ev.target, key = t.dataset?.dt || t.id;
   if (t.dataset?.todo) toggleTodo(t);
   if (t.dataset?.pack) togglePack(t);
   if (t.id === 'imp-file' && t.files?.length) {
@@ -1322,7 +1348,8 @@ document.addEventListener('change', ev => {
     const name = t.selectedOptions[0]?.textContent || '';
     updateTrip(S.tripId, { 'fund.keeper': t.value }).then(() => toast(`保管人改為 ${name}`), err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
   }
-  if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(ev.target.id)) updateDuration();
+  if (t.dataset?.dt) onTimeInput(ev);
+  if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(key)) updateDuration();
   if (['sf-in', 'sf-out'].includes(ev.target.id)) updateNights();
 });
 document.addEventListener('compositionend', ev => {
