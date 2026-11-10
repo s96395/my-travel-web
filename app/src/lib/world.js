@@ -40,15 +40,32 @@ export function matchPlaces(text) {
   return { ids, unmatched };
 }
 
+const counted = trips => trips.filter(t => t.status === '已完成' || t.status === '已封存');
+// 一趟旅程對到的國家；國家對不到時改用城市欄位再找一次
+function tripPlaces(t) {
+  const m = matchPlaces(t.country);
+  if (!m.ids.length && t.city) {
+    const c = matchPlaces(t.city);
+    if (c.ids.length) return { ids: c.ids, unmatched: [] };
+  }
+  return m;
+}
+
+// 足跡播放：照出發日期排好，每趟列出「第一次去」的國家（沒有新國家的旅程也列，播放時照樣顯示）
+export function footprintTimeline(trips) {
+  const seen = new Set();
+  return counted(trips).filter(t => t.start).sort((a, b) => a.start.localeCompare(b.start)).map(t => {
+    const fresh = [...new Set(tripPlaces(t).ids)].filter(id => !seen.has(id));
+    fresh.forEach(id => seen.add(id));
+    return { start: t.start, name: t.name || '', fresh };
+  }).filter(s => s.fresh.length || s.name);
+}
+
 export function worldFootprint(trips) {
   const { info } = index || build();
   const visited = new Map(), unmatched = new Set();
-  trips.filter(t => t.status === '已完成' || t.status === '已封存').forEach(t => {
-    let m = matchPlaces(t.country);
-    if (!m.ids.length && t.city) {
-      const c = matchPlaces(t.city);
-      if (c.ids.length) m = { ids: c.ids, unmatched: [] };
-    }
+  counted(trips).forEach(t => {
+    const m = tripPlaces(t);
     m.unmatched.forEach(n => unmatched.add(n));
     new Set(m.ids).forEach(id => visited.set(id, (visited.get(id) || 0) + 1));
   });

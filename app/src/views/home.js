@@ -4,7 +4,7 @@ import { scene, art, coverHtml } from '../ui/scene.js';
 import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
 import { slashDate, todayString } from '../lib/dates.js';
-import { worldFootprint, countryInfo, SHAPES, DOTS } from '../lib/world.js';
+import { worldFootprint, footprintTimeline, countryInfo, SHAPES, DOTS } from '../lib/world.js';
 
 const ti = t => `${TYPE_ICO[t] || ''}${t}`;
 
@@ -72,13 +72,57 @@ function worldList(w, withBar) {
 }
 
 // 同一份世界畫三份（左、中、右）接在一起，拖到邊緣也看不出接縫
+// 去過的國家畫成浮出海面的島：底下一圈浪花、往下錯開一點的深色當厚度，最上面才是洲別顏色
 function mapShapes(w) {
-  const lit = id => { const c = w.visited.has(id) && countryInfo(id); return c ? ` class="on k-${c.cont}" data-wid="${id}"` : ''; };
-  const title = id => (w.visited.has(id) ? `<title>${esc(countryInfo(id).name)}・${w.visited.get(id)} 趟</title>` : '');
-  const one = SHAPES.map(([id, d]) => `<path d="${d}"${lit(id)}>${title(id)}</path>`).join('')
-    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => `<circle cx="${x}" cy="${y}" r="7"${lit(id)}>${title(id)}</circle>`).join('');
-  return [-1, 0, 1].map(k => `<g transform="translate(${k * MW} 0)">${one}</g>`).join('');
+  const island = (id, shape) => {
+    const c = countryInfo(id);
+    return `<g class="isl k-${c.cont}${hidden?.has(id) ? ' down' : ''}" data-wid="${id}"><title>${esc(c.name)}・${w.visited.get(id)} 趟</title>${shape('foam')}${shape('side')}${shape('on')}</g>`;
+  };
+  const sea = SHAPES.filter(([id]) => !(w.visited.has(id) && countryInfo(id))).map(([, d]) => `<path d="${d}"/>`).join('');
+  const isles = SHAPES.filter(([id]) => w.visited.has(id) && countryInfo(id)).map(([id, d]) => island(id, k => `<path class="${k}" d="${d}"/>`)).join('')
+    + DOTS.filter(([id]) => w.visited.has(id)).map(([id, x, y]) => island(id, k => `<circle class="${k}" cx="${x}" cy="${y}" r="7"/>`)).join('');
+  return [-1, 0, 1].map(k => `<g transform="translate(${k * MW} 0)">${sea}${isles}</g>`).join('');
 }
+
+// 足跡播放：照出發日期，一趟一趟讓第一次去的國家浮出來
+// 每次打開網站自動播一次（同一個分頁內回首頁不再播），系統設定「減少動態效果」就不自動播；點地圖直接跳到結果
+let hidden = null, playTimer = 0, playSteps = [], playTotal = 0, lastPlay = [[], []];
+const reduceMotion = () => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+function playedOnce() {
+  try { if (sessionStorage.getItem('fpPlayed')) return true; sessionStorage.setItem('fpPlayed', '1'); } catch { /* 無痕模式等讀不到時照樣播一次 */ }
+  return false;
+}
+const playInfo = () => document.querySelector('.worldmap .winfo');
+function showIsles(ids) {
+  ids.forEach(id => { hidden?.delete(id); document.querySelectorAll(`.worldmap [data-wid="${id}"]`).forEach(g => g.classList.remove('down')); });
+}
+function endPlay(skip) {
+  clearInterval(playTimer); playTimer = 0;
+  if (!hidden) return;
+  hidden = null; document.querySelectorAll('.worldmap .isl.down').forEach(g => g.classList.remove('down'));
+  const info = playInfo(); if (!info) return;
+  info.hidden = false; info.textContent = `一共去過 ${playTotal} 個國家`;
+  setTimeout(() => { if (!hidden && info.textContent.startsWith('一共')) info.hidden = true; }, skip ? 1200 : 2500);
+}
+// 只藏時間軸上的國家；沒填出發日期的旅程排不進時間軸，那些國家一直顯示
+function startPlay(steps, ids, total) {
+  endPlay(true);
+  playSteps = steps; playTotal = total; hidden = new Set(ids);
+  ids.forEach(id => document.querySelectorAll(`.worldmap [data-wid="${id}"]`).forEach(g => g.classList.add('down')));
+  let i = 0;
+  const gap = Math.max(250, Math.min(700, 4500 / steps.length)); // 全部大約 4～5 秒播完
+  playTimer = setInterval(() => {
+    const st = playSteps[i++], info = playInfo();
+    if (!st || !info) return endPlay();
+    showIsles(st.fresh);
+    info.hidden = false;
+    info.textContent = `${st.start.slice(0, 7).replace('-', '.')} ${st.name}・${st.fresh.map(id => countryInfo(id).name).join('、')}`;
+  }, gap);
+}
+const playSet = S => {
+  const steps = footprintTimeline(S.trips).filter(st => st.fresh.length);
+  return [steps, steps.flatMap(st => st.fresh)];
+};
 
 function worldStrip(S, w, hero) {
   const has = w.visited.size || w.unmatched.length;
@@ -86,16 +130,20 @@ function worldStrip(S, w, hero) {
   const conts = w.continents.filter(c => c.got).length;
   const open = !!S.stats.country;
   const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
+  const [steps, ids] = lastPlay = [...playSet(S), w.visited.size + w.unmatched.length];
+  const auto = steps.length > 1 && !hidden && !playTimer && !reduceMotion() && !playedOnce();
+  if (auto) hidden = new Set(ids); // 先藏起來再畫，避免島先出現又消失
   const card = `<section class="wcard" aria-label="足跡地圖">
     <div class="wp-head">${title}
       <button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
     <div class="worldmap"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
-      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button></div>
+      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button>${steps.length > 1 ? '<button type="button" data-wplay aria-label="照時間播放去過的國家" title="照時間播放">▶</button>' : ''}</div>
       <span class="winfo" role="status" hidden></span>
     </div>
     ${open && !S.wide ? `<div class="wdetail">${worldList(w, true)}</div>` : ''}
   </section>`;
   if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
+  if (auto) setTimeout(() => startPlay(...lastPlay), 600);
   if (!S.wide) return hero + card;
   return `<div class="toprow">${hero}${card}</div>${open ? `<section class="worldpanel wide" aria-label="去過的國家">
     <div class="wp-head">${title}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
@@ -118,6 +166,7 @@ function applyCam(svg) {
   svg.setAttribute('preserveAspectRatio', 'none');
   const r = (7 / cam.z).toFixed(2);
   svg.querySelectorAll('circle').forEach(c => c.setAttribute('r', r));
+  svg.style.setProperty('--lift', (2.5 * h / b.height).toFixed(2) + 'px'); // 島的厚度固定約 2.5 個像素，放大縮小都一樣
   svg.parentNode.classList.toggle('zoomed', cam.z > z0 * 1.01); // 放大時手機上下拖動給地圖用，沒放大時讓頁面捲動
 }
 const unit = svg => MH / cam.z / svg.getBoundingClientRect().height; // 一個像素等於地圖幾單位
@@ -205,6 +254,7 @@ if (typeof document !== 'undefined') {
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
+    if (e.target.closest?.('[data-wplay]')) { const [steps, ids, total] = lastPlay; if (steps.length) startPlay(steps, ids, total); return; }
     const btn = e.target.closest?.('[data-wz]');
     const map = e.target.closest?.('.worldmap'); if (!map) return;
     const svg = map.querySelector('svg'), info = map.querySelector('.winfo');
@@ -215,6 +265,7 @@ if (typeof document !== 'undefined') {
       return;
     }
     if (moved) return; // 拖曳結束不算點擊
+    if (hidden) return endPlay(true); // 播放中點地圖：直接看結果
     const t = e.target.closest('[data-wid]');
     info.hidden = !t;
     if (t) info.textContent = t.querySelector('title')?.textContent || '';
