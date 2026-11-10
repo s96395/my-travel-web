@@ -841,6 +841,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishtop .btn{white-space:nowrap;flex:none}
 .wghead b{font-size:15px}
 .wghead .btn{white-space:nowrap}
+.wgact{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
 .arealine{display:flex;align-items:baseline;gap:10px;margin:6px 2px 0;font-size:13px;color:var(--muted)}
 .arealine b{color:var(--fg)}
 .arealine .linkbtn{margin-left:auto;font-size:13px;color:var(--accent)}
