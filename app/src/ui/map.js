@@ -4,7 +4,7 @@ import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
 import { distanceKm } from '../lib/places.js';
 
-let ready, map, box, info, lastKey = '', lastFit = '', lastFocus = '';
+let ready, map, box, info, line, lastKey = '', lastFit = '', lastFocus = '';
 const markers = new Map();
 
 function loadApi() {
@@ -34,7 +34,7 @@ function popup(p, onAct) {
   return el;
 }
 
-// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, focus }
+// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連想去清單一起框）, focus }
 export async function syncMap(data, onAct) {
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
@@ -51,11 +51,15 @@ export async function syncMap(data, onAct) {
   if (key !== lastKey) {
     lastKey = key;
     markers.forEach(m => m.setMap(null)); markers.clear();
+    // 當天行程照 1、2、3 的順序用虛線連起來，看得出怎麼走
+    const route = data.points.filter(p => p.kind === 'day').sort((a, b) => a.n - b.n).map(p => ({ lat: p.lat, lng: p.lng }));
+    line?.setMap(null);
+    line = route.length > 1 ? new g.Polyline({ map, path: route, strokeOpacity: 0, zIndex: 0, icons: [{ icon: { path: 'M 0,-1 0,1', strokeColor: DAY, strokeOpacity: 0.9, strokeWeight: 3, scale: 3 }, offset: '0', repeat: '14px' }] }) : null;
     for (const p of data.points) {
       const day = p.kind === 'day';
       const m = new g.Marker({
-        map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: day ? 2 : 1,
-        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 12 : 8, fillColor: day ? DAY : p.color || WISH, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2.5 },
+        map, position: { lat: p.lat, lng: p.lng }, title: day ? `${p.n}. ${p.title}` : p.title, zIndex: day ? 1000 - p.n : 1,
+        icon: { path: g.SymbolPath.CIRCLE, scale: day ? 13 : 7, fillColor: day ? DAY : p.color || WISH, fillOpacity: day ? 1 : 0.85, strokeColor: '#fff', strokeWeight: day ? 3 : 2 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
       m.addListener('click', () => {
@@ -70,11 +74,13 @@ export async function syncMap(data, onAct) {
     }
   }
   // 換天或地點數量變了，把所有針放進畫面
-  if (data.fit !== lastFit && data.points.length) {
+  // 當天有行程針時只框住行程針，想去清單的點在附近才會看到，不會把畫面拉到整座城市
+  const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
+  if (data.fit !== lastFit && fitPts.length) {
     lastFit = data.fit;
-    if (data.points.length === 1) { map.setCenter({ lat: data.points[0].lat, lng: data.points[0].lng }); map.setZoom(15); } else {
+    if (fitPts.length === 1) { map.setCenter({ lat: fitPts[0].lat, lng: fitPts[0].lng }); map.setZoom(15); } else {
       const b = new g.LatLngBounds();
-      data.points.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+      fitPts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
       map.fitBounds(b, 40);
     }
   }
@@ -90,13 +96,14 @@ export async function syncMap(data, onAct) {
 export async function locate(p) {
   await loadApi();
   const { Place } = await window.google.maps.importLibrary('places');
-  const near = { lat: p.lat, lng: p.lng };
+  // 沒有大約位置（整趟旅程都還沒有座標）時只靠名稱加城市查
+  const near = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng } : null;
   try {
-    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], locationBias: { center: near, radius: 20000 }, maxResultCount: 1, language: 'zh-TW' });
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location'], ...(near ? { locationBias: { center: near, radius: 20000 } } : {}), maxResultCount: 1, language: 'zh-TW' });
     const loc = places?.[0]?.location;
     if (!loc) return null;
     const xy = { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6) };
-    return distanceKm(near, xy) < 30 ? xy : null; // 查到太遠的同名地點就不用
+    return !near || distanceKm(near, xy) < 30 ? xy : null; // 查到太遠的同名地點就不用
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;

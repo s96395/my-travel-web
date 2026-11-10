@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -112,4 +112,19 @@ test('停留時間：讀 stay 分鐘數，顯示成幾小時幾分', () => {
   assert.equal(stayText(60), '1 小時');
   assert.equal(stayText(45), '45 分');
   assert.equal(stayText(0), '');
+});
+
+test('自動查到的座標：名稱或地址改了就不算數', () => {
+  const raw = { id: 'a', day: 1, title: '🌊 海雲台市場', lat: 35.16, lng: 129.16, exact: true, geoq: '海雲台市場' };
+  assert.equal(normalizeItem(raw).lat, 35.16);
+  assert.equal(normalizeItem({ ...raw, title: '海雲台傳統市場' }).lat, null);
+  assert.equal(normalizeItem({ ...raw, title: '海雲台傳統市場' }).exact, false);
+  assert.equal(normalizeItem({ ...raw, address: '부산 해운대구' }).lat, null);
+  assert.equal(geoKey({ title: '🍜 午餐｜海雲台市場' }), '午餐 海雲台市場');
+});
+
+test('行程和想去清單同名就當同一個地方', () => {
+  assert.equal(sameName('🐰 Miffy 海雲台商店｜買水手服米菲', 'Miffy 海雲台商店'), true);
+  assert.equal(sameName('午餐｜海雲台傳統市場', '海雲台傳統市場'), false);
+  assert.equal(sameName('', ''), false);
 });
