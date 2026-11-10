@@ -53,7 +53,11 @@ export function buildDay(items, events, legs = new Map()) {
   rows.push(...events.filter(e => e.pos === 'end').map(e => ({ ...e, t: null })));
   let clock = null, prev = null;
   for (const r of rows) {
-    if (r.kind === 'item') {
+    if (r.kind === 'item' && r.it.kind === 'area') {
+      // 區域卡片不是實際的一站：顯示到這裡的推算時間，但不打斷前後兩站的交通與推算
+      r.at = r.fixed ?? clock;
+      r.est = r.fixed === null && r.at !== null;
+    } else if (r.kind === 'item') {
       const leg = prev && legOf(prev, r.it);
       if (leg) r.leg = { ...leg, min: legs.get(leg.key) ?? null, from: prev };
       if (clock !== null && r.leg?.min != null) clock += r.leg.min;

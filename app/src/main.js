@@ -154,7 +154,7 @@ let legsBusy = false, legsOff = false;
 S.legs = (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
 async function fetchLegs() {
   if (legsBusy || legsOff || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
-  const its = itemsOfDay(S.items, S.pday);
+  const its = itemsOfDay(S.items, S.pday).filter(it => it.kind !== 'area'); // 區域卡片不是實際的一站，交通算前後兩站
   const todo = its.slice(1).map((b, i) => ({ a: its[i], b, leg: legOf(its[i], b) })).filter(x => x.leg && !S.legs.has(x.leg.key) && !legTried.has(x.leg.key));
   if (!todo.length) return;
   legsBusy = true;
