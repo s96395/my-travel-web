@@ -12,7 +12,7 @@ import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishLeft, areaSheet, areaMoveSheet } from './views/plan.js';
-import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear } from './lib/places.js';
+import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear, distanceKm } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
@@ -345,7 +345,10 @@ async function placeAct(kind, p, day) {
   if (kind === 'placeWish') {
     if (p.url && S.wishDocs.some(w => w.url === p.url)) { toast(`「${p.title}」已經在想去清單了`); return false; }
     S.busy = true;
-    try { await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area: '', ...xy }, S.user, S.nickname); toast('已放進想去清單'); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+    // 1 公里內有已分區域的收藏，就放進同一區（和「依距離分組」的範圍一樣）
+    const near = S.wishDocs.filter(w => w.area && Number.isFinite(w.lat)).map(w => ({ w, km: distanceKm(w, p) })).filter(x => x.km <= 1).sort((a, b) => a.km - b.km)[0];
+    const area = near ? near.w.area : '';
+    try { await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); toast(area ? `已放進想去清單「${area}」` : '已放進想去清單'); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   if (!day) return false;
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
