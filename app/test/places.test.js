@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { parseCsv, parseSavedList, findCoords, clusterNear, farOff, openAt } from '../src/lib/places.js';
+import { parseCsv, parseSavedList, findCoords, clusterNear, farOff, openAt, nearArea, pickAreaName } from '../src/lib/places.js';
 
 const { coordsFrom } = createRequire(import.meta.url)('../../api/place.js');
 
@@ -83,4 +83,17 @@ test('openAt 照營業時段和當地時差判斷現在有沒有營業', () => {
   assert.equal(openAt(late, 540, new Date('2026-11-21T16:30:00Z')), true); // 週日 01:30
   assert.equal(openAt([{ open: { day: 0, hour: 0, minute: 0 } }], 540), true); // 24 小時
   assert.equal(openAt([], 540), null);
+});
+
+test('nearArea 照座標找 1 公里內最近的區域', () => {
+  const wish = [{ area: '青沙浦', lat: 35.1606, lng: 129.1932 }, { area: '海雲台', lat: 35.1587, lng: 129.1604 }, { area: '', lat: 35.196, lng: 129.214 }];
+  assert.equal(nearArea({ lat: 35.161, lng: 129.168 }, wish), '海雲台');
+  assert.equal(nearArea({ lat: 35.196, lng: 129.214 }, wish), ''); // 附近只有沒分區域的
+  assert.equal(nearArea({ lat: null, lng: null }, wish), '');
+});
+
+test('pickAreaName 挑全中文、最短的地名', () => {
+  assert.equal(pickAreaName(['Haeundae Blueline Park - Cheongsapo Station', '靑沙浦', 'Haeundae Cheongsapo Photo Spot', '海雲台藍線公園']), '靑沙浦');
+  assert.equal(pickAreaName(['廣安站', '廣安里 M 無人機燈光秀', '廣安海邊公園']), '廣安');
+  assert.equal(pickAreaName(['Jungdong', '장산역13번출구']), '');
 });

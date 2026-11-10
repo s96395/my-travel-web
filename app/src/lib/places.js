@@ -151,3 +151,19 @@ export function openAt(periods, offsetMin, now = new Date()) {
     return (t >= a && t < b) || (t + WEEK >= a && t + WEEK < b);
   });
 }
+
+// 這個行程點屬於哪個區域：1 公里內最近、已分區域的想去清單地點的區域；沒有就是空字串
+export function nearArea(p, wish, km = 1) {
+  if (!hasXY(p)) return '';
+  let best = null;
+  for (const w of wish) if (w.area && hasXY(w)) { const d = distanceKm(p, w); if (d <= km && (!best || d < best.d)) best = { d, area: w.area }; }
+  return best ? best.area : '';
+}
+
+// 從 Google 附近地名挑一個當區域名稱：只用全中文（不含韓文、英文、空白）的 2～6 個字，挑最短的；結尾的「站」拿掉
+export function pickAreaName(names) {
+  const ok = names.map(n => String(n || '').trim()).filter(n => /^[\p{Script=Han}・]{2,6}$/u.test(n));
+  if (!ok.length) return '';
+  const n = ok.reduce((a, b) => (b.length < a.length ? b : a));
+  return n.length > 2 ? n.replace(/站$/, '') : n;
+}

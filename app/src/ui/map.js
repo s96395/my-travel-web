@@ -2,7 +2,7 @@
 // 畫面每次重畫都會換掉 HTML，所以地圖放在一個固定的區塊，重畫後搬回 #mapslot，縮放位置不會跑掉
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
-import { distanceKm, openAt } from '../lib/places.js';
+import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
@@ -272,5 +272,18 @@ export async function openNow(p) {
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
+  }
+}
+
+// 區域名稱：查這區中心 800 公尺內熱門的景點、車站、市場，挑一個中文地名（例如「青沙浦」「廣安」）；查不到回傳空字串
+export async function areaName(center) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    const { places } = await Place.searchNearby({ locationRestriction: { center, radius: 800 }, includedPrimaryTypes: ['tourist_attraction', 'beach', 'park', 'subway_station', 'train_station', 'shopping_mall', 'market'], fields: ['displayName'], maxResultCount: 10, rankPreference: 'POPULARITY', language: 'zh-TW' });
+    return pickAreaName((places || []).map(p => p.displayName));
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : '';
   }
 }
