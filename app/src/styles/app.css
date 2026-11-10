@@ -997,3 +997,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .aplace small .tag{padding:2px 6px;font-size:11px;vertical-align:1px}
 .seenbox{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:var(--surface);color:#fff;font-size:13px;line-height:1;display:grid;place-items:center;cursor:pointer}
 .seenbox[aria-pressed="true"]{background:var(--good);border-color:var(--good)}
+
+/* 行程欄窄的時候（電腦版旁邊有地圖）不撐出水平捲軸，右邊的 ⋯ 一定看得到 */
+.day,.items{grid-template-columns:minmax(0,1fr)}
+.item h4,.item p{overflow-wrap:anywhere}
+.device.wide .withmap .dayhead{flex-wrap:wrap}
+.device.wide .withmap .dayhead>.grow{min-width:220px!important}

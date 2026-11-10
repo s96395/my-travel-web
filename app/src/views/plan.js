@@ -195,7 +195,7 @@ function areaLine(S, its, i) {
   // 前一段有區域、這站沒有：標出來，免得看起來像是前一區的
   if (!a && its[i - 1]?.area && !['transport', 'stay'].includes(its[i].type) && new Set(its.map(x => x.area).filter(Boolean)).size >= 2) return '<div class="arealine"><b class="muted">還沒分區域</b></div>';
   if (!a || its[i].kind === 'area' || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
-  return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移到別天</button>`}</div>`;
+  return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移動或移除</button>`}</div>`;
 }
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
@@ -334,13 +334,17 @@ function areaChips(S, days, it) {
   const n = it.area ? S.items.filter(x => x.day === it.day && x.area === it.area).length : 0;
   if (n < 2) return '';
   return `<p class="label">整個「${esc(it.area)}」${n} 個一起移</p>
-    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(it.area)}" data-from="${it.day}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>`;
+    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(it.area)}" data-from="${it.day}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
+    <button type="button" class="linkbtn" style="justify-self:start" data-act="areaMove" data-area="${esc(it.area)}" data-d="${it.day}">整個「${esc(it.area)}」從這天移除…</button>`;
 }
 export function areaMoveSheet(S, trip, area, from) {
   const days = dayList(S, trip).filter(Boolean), n = S.items.filter(x => x.day === from && x.area === area).length;
   openSheet(`${head(`「${esc(area)}」移到第幾天`)}
     <p class="small muted" style="margin:0">這天「${esc(area)}」的 ${n} 個行程會照原本順序，一起排到那一天的最後。</p>
-    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(area)}" data-from="${from}" data-d="${d}" aria-pressed="${from === d}">第 ${d} 天</button>`).join('')}</div>`);
+    <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(area)}" data-from="${from}" data-d="${d}" aria-pressed="${from === d}">第 ${d} 天</button>`).join('')}</div>
+    <p class="label">或從這天拿掉</p>
+    <button type="button" class="btn danger" data-act="areaDrop" data-area="${esc(area)}" data-d="${from}">從第 ${from} 天移除這 ${n} 個行程</button>
+    <p class="small muted" style="margin:0">地點還留在想去清單，移除後也可以按「復原」。</p>`);
 }
 
 // 新增或編輯區域：取名字，再勾哪些想去清單的地點放在這區；已在這區的排最前面，其次是還沒分區域的
