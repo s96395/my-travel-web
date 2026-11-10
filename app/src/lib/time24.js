@@ -2,7 +2,11 @@
 
 // 打字時順手整理：只留數字，第一碼 3～9 自動補 0（9 → 09），打到第三碼插入冒號
 export function maskTime(raw) {
-  let d = String(raw || '').replace(/\D/g, '');
+  const s = String(raw || '');
+  // 自己打了冒號（0:15、1:30），照冒號切開，小時補 0，不要把數字黏在一起重排
+  const sep = s.match(/^\D*(\d{1,2})\s*[:：.]\s*(\d*)/);
+  if (sep) return `${sep[1].padStart(2, '0')}:${sep[2].slice(0, 2)}`;
+  let d = s.replace(/\D/g, '');
   if (/^[3-9]/.test(d)) d = '0' + d;
   d = d.slice(0, 4);
   return d.length > 2 ? `${d.slice(0, 2)}:${d.slice(2)}` : d;

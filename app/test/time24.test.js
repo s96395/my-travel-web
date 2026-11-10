@@ -11,6 +11,18 @@ test('打字時整理成 HH:MM', () => {
   assert.equal(maskTime('930'), '09:30');
   assert.equal(maskTime('12345'), '12:34');
   assert.equal(maskTime('下午2點'), '2');
+  assert.equal(maskTime('1:'), '01:');
+});
+
+test('有冒號時照冒號切開，打字整理後再補齊結果不變', () => {
+  for (const [typed, want] of [['0:15', '00:15'], ['1:30', '01:30'], ['2:30', '02:30'], ['9:5', '09:05'], ['14:30', '14:30'], ['1430', '14:30'], ['930', '09:30'], ['0015', '00:15']]) {
+    assert.equal(normTime(maskTime(typed)), want, typed);
+  }
+  // 一個字一個字打進去，每次都經過整理
+  const typeIn = str => [...str].reduce((v, c) => maskTime(v + c), '');
+  assert.equal(normTime(typeIn('0:15')), '00:15');
+  assert.equal(normTime(typeIn('1:30')), '01:30');
+  assert.equal(normTime(typeIn('2:30')), '02:30');
 });
 
 test('離開欄位時補齊或判斷錯誤', () => {
