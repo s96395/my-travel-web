@@ -13,7 +13,7 @@ import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/
 import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
-import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
+import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
@@ -349,7 +349,7 @@ function startTripWatch(tripId) {
   let got = 0;
   const moveLoaded = () => { if (++got >= 3) S.loadingMove = false; };
   itin.stops = [
-    watchItinerary(tripId, ok(list => { S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
+    watchItinerary(tripId, ok(list => { raw = new Map(list.map(d => [d.id, d])); S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
@@ -360,6 +360,18 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'diveLogs', ok(list => { S.diveDocs = list; S.loadingDive = false; syncTanks(); }), fail),
   ];
 }
+
+/* ---------- 復原上一步：加入、刪除、移動行程後，提示列有「復原」可以按 ---------- */
+let raw = new Map(); // 行程 id → 讀進來時的原始資料，復原刪除時寫回去
+let undoFn = null;
+function undoable(msg, fn) {
+  const tid = S.tripId;
+  undoFn = async () => { if (S.tripId === tid) await fn(tid); };
+  toast(msg, ['復原', 'undo']);
+}
+// 移動前的天數與順序，復原時寫回去
+const posOf = ids => S.items.filter(x => ids.includes(x.id)).map(x => ({ id: x.id, day: x.day, order: x.order }));
+const undoMoves = before => tid => saveMoves(tid, before, S.user, S.nickname);
 
 // 想去清單的地點排進某一天（放最後，或拖曳時放在 beforeId 前面）
 async function wishToDay(wid, day, beforeId, extra = {}) {
@@ -372,8 +384,8 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
   try {
     const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, ...extra, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
-    if (beforeId) await moveItem(ref.id, { day, beforeId });
-    toast(`已加到第 ${day} 天`);
+    if (beforeId) await moveItem(ref.id, { day, beforeId }, true);
+    undoable(`已加到第 ${day} 天`, tid => deleteItem(tid, ref.id));
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
@@ -395,14 +407,14 @@ async function placeAct(kind, p, day) {
     // 1 公里內有已分區域的收藏，就放進同一區（和「依距離分組」的範圍一樣）
     const near = S.wishDocs.filter(w => w.area && Number.isFinite(w.lat)).map(w => ({ w, km: distanceKm(w, p) })).filter(x => x.km <= 1).sort((a, b) => a.km - b.km)[0];
     const area = near ? near.w.area : '';
-    try { await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); toast(area ? `已放進想去清單「${area}」` : '已放進想去清單'); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+    try { const ref = await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(area ? `已放進想去清單「${area}」` : '已放進想去清單', tid => deleteRecord(tid, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   if (!day) return false;
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
   try {
-    await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
-    toast(`已加到第 ${day} 天`);
+    const ref = await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    undoable(`已加到第 ${day} 天`, tid => deleteItem(tid, ref.id));
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
 }
@@ -424,7 +436,7 @@ async function areaToDay(area, day) {
   try {
     const ref = await addItem(S.tripId, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.areaOpen = { ...S.areaOpen, [ref.id]: true };
-    toast(`「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`);
+    undoable(`「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`, tid => deleteItem(tid, ref.id));
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); }
   S.busy = false;
 }
@@ -485,25 +497,26 @@ const renameWrites = (old, name) => [
 async function moveArea(area, from, to) {
   const updates = planAreaMove(S.items, from, area, to);
   if (!updates.length || S.offline) return;
+  const before = posOf(updates.map(u => u.id));
   const byId = new Map(updates.map(u => [u.id, u]));
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.pday = to; render();
-  toast(`「${area}」已從第 ${from} 天移到第 ${to} 天`);
+  undoable(`「${area}」已從第 ${from} 天移到第 ${to} 天`, undoMoves(before));
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
 // 移動行程：先更新畫面，再寫回資料庫
-async function moveItem(id, target) {
+async function moveItem(id, target, quiet = false) {
   const it = findItem(id);
   if (!it || S.offline) return;
   const updates = planMove(S.items, id, target);
   if (!updates.length) return;
-  const from = it.day;
+  const from = it.day, before = posOf(updates.map(u => u.id));
   const byId = new Map(updates.map(u => [u.id, u]));
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
   render();
-  toast(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`);
+  if (!quiet) undoable(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`);
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
@@ -929,6 +942,27 @@ const actions = {
     el.disabled = true;
     try { await updateRecord(S.tripId, 'wishlist', p.id, { visited: !p.visited }, S.user, S.nickname); } catch (err) { console.error(err); el.disabled = false; toast('沒有儲存成功，請稍後再試'); }
   },
+  async undo() {
+    const fn = undoFn;
+    undoFn = null;
+    $('#toastSlot').innerHTML = '';
+    if (!fn || S.offline) return;
+    try { await fn(); toast('已復原'); } catch (err) { console.error(err); toast('沒有復原成功，請稍後再試'); }
+  },
+  // 把這天某個區域的行程一次拿掉（例如不小心整區加到同一天）；地點還在想去清單，可以復原
+  async areaDrop(el) {
+    if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定移除'; return; }
+    if (S.busy || S.offline) return;
+    const area = el.dataset.area, d = +el.dataset.d;
+    const list = S.items.filter(x => x.day === d && x.area === area).map(x => [x.id, raw.get(x.id)]).filter(([, v]) => v);
+    S.busy = true;
+    try {
+      await Promise.all(list.map(([id]) => deleteItem(S.tripId, id)));
+      closeSheet();
+      undoable(`已從第 ${d} 天移除「${area}」的 ${list.length} 個行程`, tid => Promise.all(list.map(([id, v]) => restoreItem(tid, id, v))));
+    } catch (err) { console.error(err); toast('沒有移除完，請稍後再試'); }
+    S.busy = false;
+  },
   areaOpen(el) { S.areaOpen = { ...S.areaOpen, [el.dataset.id]: !S.areaOpen?.[el.dataset.id] }; render(); },
   // 區域卡片的「地圖看這區」：電腦切到右邊地圖，手機換到有地圖的想去清單
   areaMap(el) {
@@ -1033,10 +1067,10 @@ const actions = {
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
       if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null && !('lat' in form) ? { ...form, lat: null, lng: null, exact: false } : form, S.user, S.nickname);
-      else await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+      const ref = id ? null : await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
       S.days[day] = true; S.pday = day;
       closeSheet();
-      toast(id ? '已儲存' : '已加入行程');
+      if (ref) undoable('已加入行程', tid => deleteItem(tid, ref.id)); else toast('已儲存');
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
@@ -1045,7 +1079,8 @@ const actions = {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
     if (S.busy) return;
     S.busy = true;
-    try { await deleteItem(S.tripId, el.dataset.id); closeSheet(); toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    const id = el.dataset.id, data = raw.get(id);
+    try { await deleteItem(S.tripId, id); closeSheet(); if (data) undoable('已刪除', tid => restoreItem(tid, id, data)); else toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
     S.busy = false;
   },
   reveal(el) { S.reveal[el.dataset.k] = !S.reveal[el.dataset.k]; render(); },
