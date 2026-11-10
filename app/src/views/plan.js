@@ -59,6 +59,7 @@ const GRIP = '<span class="grip" title="長按拖曳" aria-hidden="true"><svg wi
 const inDayOf = (S, d, p) => S.items.some(it => it.day === d && it.kind !== 'area' && ((p.url && it.address === p.url) || sameName(it.title, p.title)));
 // 步行時間用直線距離粗估：路會繞，乘 1.3；每小時走 4.5 公里
 const walkMin = km => Math.max(1, Math.round(km * 1.3 / 4.5 * 60));
+const NEAR_KM = 20;
 const OPEN_TAG = { true: '<span class="tag good">營業中</span>', false: '<span class="tag">已打烊</span>', gone: '<span class="tag bad">已歇業</span>' };
 function areaCard(it, S, trip, r) {
   const d = it.day, here = S.here;
@@ -66,7 +67,9 @@ function areaCard(it, S, trip, r) {
   const must = places.filter(p => inDayOf(S, d, p)).length;
   const open = !!S.areaOpen?.[it.id], off = S.offline ? 'disabled' : '';
   // 附近模式：照離我多遠排，逛過的放最後
-  const km = p => (here && hasXY(p) ? distanceKm(here, p) : null);
+  // 人不在當地（離這個點超過 20 公里）時，距離和步行時間沒有意義，不顯示也不拿來排
+  const km = p => { const k = here && hasXY(p) ? distanceKm(here, p) : null; return k !== null && k <= NEAR_KM ? k : null; };
+  const away = here && places.some(hasXY) && !places.some(p => km(p) !== null);
   if (here) places = [...places].sort((a, b) => !!a.visited - !!b.visited || (km(a) ?? Infinity) - (km(b) ?? Infinity));
   const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : '';
   const seen = places.filter(p => p.visited).length;
@@ -76,12 +79,12 @@ function areaCard(it, S, trip, r) {
     const info = [k !== null ? `${kmText(k)}・步行約 ${walkMin(k)} 分` : '', noteOf(p)].filter(Boolean).map(esc).join('・');
     return `<li class="aplace${done ? ' done' : ''}${p.visited ? ' seen' : ''}">
       <button type="button" class="seenbox" data-act="wishSeen" data-id="${esc(p.id)}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button>
-      <span class="grow">${esc(p.title)}${info || OPEN_TAG[h] ? `<small class="muted">${info}${OPEN_TAG[h] ? ' ' + OPEN_TAG[h] : ''}</small>` : ''}</span>
-      ${sideMap(S) && hasXY(p) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>` : !S.wide && hasXY(p) && here ? `<a class="tag" href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}
+      <span class="grow">${sideMap(S) && hasXY(p) ? `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>` : esc(p.title)}${info || OPEN_TAG[h] ? `<small class="muted">${info}${OPEN_TAG[h] ? ' ' + OPEN_TAG[h] : ''}</small>` : ''}</span>
+      ${!S.wide && k !== null ? `<a class="tag" href="https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}
       ${done ? '<span class="tag accent">已加入</span>' : `<button type="button" class="tag" data-act="areaMust" data-id="${esc(it.id)}" data-wid="${esc(p.id)}" ${off}>${ICON.plus}加入</button>`}</li>`;
   };
   const nearBtn = S.offline || !places.some(hasXY) ? '' : `<button type="button" class="tag${here ? ' accent' : ''}" data-act="nearMe" aria-pressed="${!!here}">${ICON.pin}${here ? '附近模式（按一下關閉）' : '我在附近'}</button>`;
-  const nearNote = here ? `<p class="small muted" style="margin:6px 0 0">依直線距離排，逛過的排最後。<button type="button" class="linkbtn" data-act="nearMe" data-again="1">重新定位</button></p>` : '';
+  const nearNote = here ? `<p class="small muted" style="margin:6px 0 0">${away ? '你現在不在這一帶。' : '依直線距離排，逛過的排最後。'}<button type="button" class="linkbtn" data-act="nearMe" data-again="1">重新定位</button></p>` : '';
   return `<div class="item areacard" data-iid="${esc(it.id)}" data-type="area">
     <span class="ico" role="img" aria-label="區域">${ICON.pin}</span>
     <div class="grow" style="flex:1">
