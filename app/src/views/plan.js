@@ -36,6 +36,7 @@ const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d)
 
 // 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
 function itemHtml(it, S, trip, r = {}) {
+  if (it.kind === 'area') return areaCard(it, S, trip, r);
   const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '';
   const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', it.note].filter(Boolean).map(esc).join('・');
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
@@ -47,6 +48,34 @@ function itemHtml(it, S, trip, r = {}) {
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
+  </div>`;
+}
+
+// 區域卡片：一個區域在時間軸上只佔一張卡，展開看這區想去清單的地點，按「加入」才排進時間軸
+const GRIP = '<span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>';
+const inDayOf = (S, d, p) => S.items.some(it => it.day === d && it.kind !== 'area' && ((p.url && it.address === p.url) || sameName(it.title, p.title)));
+function areaCard(it, S, trip, r) {
+  const places = it.area ? S.wishDocs.filter(p => p.area === it.area) : [], d = it.day;
+  const must = places.filter(p => inDayOf(S, d, p)).length;
+  const open = !!S.areaOpen?.[it.id], off = S.offline ? 'disabled' : '';
+  const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : '';
+  const sub = [places.length ? `${places.length} 個點` : '這區還沒有地點', must ? `${must} 個排進時間軸` : '', it.note].filter(Boolean).map(esc).join('・');
+  const row = p => {
+    const done = inDayOf(S, d, p);
+    return `<li class="aplace${done ? ' done' : ''}"><span class="grow">${esc(p.title)}${p.note ? `<small class="muted">${esc(p.note)}</small>` : ''}</span>
+      ${sideMap(S) && hasXY(p) ? `<button type="button" class="tag" data-act="mapFocus" data-id="w:${esc(p.id)}">${ICON.pin}地圖</button>` : ''}
+      ${done ? '<span class="tag accent">已加入</span>' : `<button type="button" class="tag" data-act="areaMust" data-id="${esc(it.id)}" data-wid="${esc(p.id)}" ${off}>${ICON.plus}加入</button>`}</li>`;
+  };
+  return `<div class="item areacard" data-iid="${esc(it.id)}" data-type="area">
+    <span class="ico" role="img" aria-label="區域">${ICON.pin}</span>
+    <div class="grow" style="flex:1">
+      <h4>${when}${esc(it.title)}</h4>
+      <p>${sub}</p>
+      <div class="tags">${places.length ? `<button type="button" class="tag accent" data-act="areaOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${open ? '收起清單' : '展開清單'}</button>` : ''}${places.some(hasXY) && !S.offline ? `<button type="button" class="tag" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}">${ICON.map}地圖看這區</button>` : ''}</div>
+    </div>
+    ${GRIP}
+    <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${off} aria-label="移動或編輯">⋯</button>
+    ${open && places.length ? `<div class="aplacebox"><ul class="aplaces">${places.map(row).join('')}</ul><p class="small muted" style="margin:6px 0 0">按「加入」會排進時間軸，放在這張卡片後面，其他的到當地再挑。</p></div>` : ''}
   </div>`;
 }
 
@@ -147,7 +176,7 @@ function dayMeta(S, trip, d, n) {
 // 一天跑好幾個區域時，在每段區域前面標出區域名稱，可以整區移到別天
 function areaLine(S, its, i) {
   const a = its[i].area;
-  if (!a || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
+  if (!a || its[i].kind === 'area' || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
   return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移到別天</button>`}</div>`;
 }
 
@@ -174,13 +203,16 @@ function wishPanel(S, trip, d) {
   return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
     const a = esc(g.area);
     return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
-      <div class="grow"><i class="dot" style="background:${colors.get(g.area) || NO_AREA_COLOR}" aria-hidden="true"></i><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點</span></div>
+      <div class="grow"><i class="dot" style="background:${colors.get(g.area) || NO_AREA_COLOR}" aria-hidden="true"></i><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點${cardDays(S, g.area)}</span></div>
       ${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="tag" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}">${ICON.pin}地圖看這區</button>` : ''}
       ${g.area ? `<span class="addto">${daySel(S, trip, d, off)}<button type="button" class="btn sm primary" data-act="areaAdd" data-area="${a}" ${off}>${ICON.plus}整區加入</button></span>` : ''}
       ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}
     </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
   }).join('')}`;
 }
+
+// 這個區域的卡片排在哪幾天
+const cardDays = (S, area) => { const ds = [...new Set(S.items.filter(it => it.kind === 'area' && it.area === area && it.day).map(it => it.day))].sort((a, b) => a - b); return area && ds.length ? `・已排第 ${ds.join('、')} 天` : ''; };
 
 // 先前匯入時放在「還沒排天數」的收藏地點，可以一次搬到想去清單
 function moveToWish(S) {
@@ -275,7 +307,7 @@ export function itemMenuSheet(S, trip, it, canDel) {
     <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     ${areaChips(S, days, it)}
-    <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button></div>`);
+    <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}${it.kind === 'area' ? `<button type="button" class="btn grow" data-act="areaSheet" data-area="${esc(it.area)}">編輯區域</button>` : `<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button>`}</div>`);
 }
 
 // 同一天有其他同區域的行程時，可以整個區域一起移

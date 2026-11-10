@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -127,4 +127,17 @@ test('行程和想去清單同名就當同一個地方', () => {
   assert.equal(sameName('🐰 Miffy 海雲台商店｜買水手服米菲', 'Miffy 海雲台商店'), true);
   assert.equal(sameName('午餐｜海雲台傳統市場', '海雲台傳統市場'), false);
   assert.equal(sameName('', ''), false);
+});
+
+test('區域卡片：kind 只認 area，必去接在同區域那段後面', () => {
+  assert.equal(normalizeItem({ id: 'a', kind: 'area', title: '青沙浦一帶', area: '青沙浦一帶' }).kind, 'area');
+  assert.equal(normalizeItem({ id: 'b', kind: 'x' }).kind, '');
+  const its = [
+    { id: 'f', day: 2, order: 1, area: '' },
+    { id: 'c', day: 2, order: 2, area: '青沙浦一帶', kind: 'area' },
+    { id: 'm', day: 2, order: 3, area: '青沙浦一帶' },
+    { id: 's', day: 2, order: 4, area: '' },
+  ].map(normalizeItem);
+  assert.equal(afterArea(its, 'c'), 's');
+  assert.equal(afterArea(its.filter(x => x.id !== 's'), 'c'), '');
 });

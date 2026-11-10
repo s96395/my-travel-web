@@ -62,3 +62,13 @@ test('站與站的交通：近的走路、遠的搭車，推算時間加上路�
   assert.equal(rows[1].leg.min, 10);
   assert.equal(rows[2].leg.min, null);
 });
+
+test('區域卡片不打斷前後兩站的交通與推算時間', () => {
+  const a = { id: 'a', time: '09:00', stay: 60, lat: 35.15, lng: 129.16 };
+  const card = { id: 'c', kind: 'area', time: '', stay: 0 };
+  const b = { id: 'b', time: '', stay: 0, lat: 35.16, lng: 129.19 };
+  const rows = buildDay([a, card, b], []);
+  assert.equal(rows[1].at, 600);
+  assert.equal(rows[2].at, 600);
+  assert.ok(rows[2].leg && rows[2].leg.from === a);
+});
