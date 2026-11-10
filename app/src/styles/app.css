@@ -459,6 +459,13 @@ textarea.input{resize:vertical;font-family:inherit}
 .input,.select{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font-size:15px}
 .input.err{border-color:var(--bad)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+/* 日期＋24 小時制時間：日期寬、時間窄；航段再接一格時區 */
+.dt-row{display:grid;grid-template-columns:minmax(0,1fr) 5.2em;gap:6px}
+.dt-row .input{padding-left:10px;padding-right:8px;min-width:0}
+.input.t24{font-variant-numeric:tabular-nums}
+.dt-row .t24{text-align:center}
+.dt:has(>input.err) .dt-row .input{border-color:var(--bad)}
+.dtz{display:grid;grid-template-columns:minmax(0,1fr) 6.6em;gap:10px;align-items:start}
 .split-who{display:grid;gap:0}
 .split-who .r{display:flex;align-items:center;gap:10px;padding:9px 0}
 .split-who .r .grow{flex:1;min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}

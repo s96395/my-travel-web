@@ -16,6 +16,7 @@ import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear, distan
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
+import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
@@ -1292,8 +1293,27 @@ function onDraftInput(t) {
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }
   if (t.dataset.paid) { d.paid[t.dataset.paid] = cleanAmt(t.value); d.dirty = true; expSheet(); }
 }
-document.addEventListener('input', ev => {
+// 24 小時制時間欄：打字時補冒號；日期＋時間兩格合成到同名隱藏欄位，下面照舊用隱藏欄位的 id 判斷
+function onTimeInput(ev) {
   const t = ev.target;
+  if (t.classList?.contains('t24') && !String(ev.inputType || '').startsWith('delete')) {
+    const v = maskTime(t.value);
+    if (v !== t.value) t.value = v;
+  }
+  if (!t.dataset?.dt) return t;
+  const id = t.dataset.dt, hidden = $(`#${id}`);
+  hidden.value = joinDateTime($(`#${id}-d`).value, $(`#${id}-t`).value);
+  return hidden;
+}
+document.addEventListener('focusout', ev => {
+  const t = ev.target;
+  if (!t.classList?.contains('t24')) return;
+  const v = normTime(t.value);
+  t.classList.toggle('err', v === null);
+  if (v && v !== t.value) { t.value = v; t.dispatchEvent(new Event('change', { bubbles: true })); }
+});
+document.addEventListener('input', ev => {
+  const t = onTimeInput(ev);
   if (!ev.isComposing) onDraftInput(t);
   if (t.id === 'joinName' && S.join) S.join.newName = t.value;
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
@@ -1306,7 +1326,7 @@ document.addEventListener('input', ev => {
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
 });
 document.addEventListener('change', ev => {
-  const t = ev.target;
+  const t = ev.target, key = t.dataset?.dt || t.id;
   if (t.dataset?.todo) toggleTodo(t);
   if (t.dataset?.pack) togglePack(t);
   if (t.id === 'imp-file' && t.files?.length) {
@@ -1328,7 +1348,8 @@ document.addEventListener('change', ev => {
     const name = t.selectedOptions[0]?.textContent || '';
     updateTrip(S.tripId, { 'fund.keeper': t.value }).then(() => toast(`保管人改為 ${name}`), err => { console.error(err); toast('沒有更新成功，請稍後再試'); });
   }
-  if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(ev.target.id)) updateDuration();
+  if (t.dataset?.dt) onTimeInput(ev);
+  if (['ff-fromTz', 'ff-toTz', 'ff-dep', 'ff-arr'].includes(key)) updateDuration();
   if (['sf-in', 'sf-out'].includes(ev.target.id)) updateNights();
 });
 document.addEventListener('compositionend', ev => {
