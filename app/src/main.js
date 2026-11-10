@@ -376,7 +376,7 @@ function tripNear() {
 // 想去清單、地圖彈出框：旁邊的下拉選單選了第幾天
 const pickDay = el => +(el.closest('.addto')?.querySelector('.daysel')?.value || el.dataset.d || 0);
 
-// 整個區域排進某一天：當天只多一張區域卡片，地點留在想去清單，到當地再展開挑；要一定去的按「必去」才排進時間軸
+// 整個區域排進某一天：當天只多一張區域卡片，地點留在想去清單，到當地再展開挑；要去的按「加入」才排進時間軸
 async function areaToDay(area, day) {
   if (!area || !day || S.busy || S.offline) return;
   if (S.items.some(it => it.kind === 'area' && it.day === day && it.area === area)) { toast(`「${area}」已經在第 ${day} 天了`); return; }
@@ -384,7 +384,7 @@ async function areaToDay(area, day) {
   try {
     const ref = await addItem(S.tripId, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.areaOpen = { ...S.areaOpen, [ref.id]: true };
-    toast(`「${area}」已加到第 ${day} 天，展開卡片可以挑必去的點`);
+    toast(`「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`);
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); }
   S.busy = false;
 }
@@ -836,12 +836,12 @@ const actions = {
     if (S.mapArea) { S.side = 'map'; if (!S.wide) { S.mside = 'wish'; window.scrollTo(0, 0); } }
     render();
   },
-  // 區域卡片裡按「必去」：排進時間軸，接在這張卡片（和先前挑的必去）後面
+  // 區域卡片裡按「加入」：排進時間軸，接在這張卡片（和先前加入的）後面
   areaMust(el) {
     const card = findItem(el.dataset.id);
     if (!card) return;
     el.disabled = true;
-    wishToDay(el.dataset.wid, card.day, afterArea(S.items, card.id), { priority: 'must' }).then(ok => { if (!ok) el.disabled = false; });
+    wishToDay(el.dataset.wid, card.day, afterArea(S.items, card.id)).then(ok => { if (!ok) el.disabled = false; });
   },
   areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
   moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },

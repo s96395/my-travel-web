@@ -162,7 +162,7 @@ export function planAreaMove(items, fromDay, area, toDay) {
   return list.filter(x => old.get(x.id).day !== x.day || old.get(x.id).order !== x.order).map(x => ({ id: x.id, day: x.day, order: x.order }));
 }
 
-// 區域卡片後面接的那段（同區域、從卡片排出來的必去）結束在哪：回傳下一個不同區域的行程 id，沒有就是空字串
+// 區域卡片後面接的那段（同區域、從卡片加入的地點）結束在哪：回傳下一個不同區域的行程 id，沒有就是空字串
 export function afterArea(items, cardId) {
   const card = items.find(x => x.id === cardId);
   if (!card) return '';
