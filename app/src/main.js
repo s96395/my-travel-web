@@ -12,7 +12,7 @@ import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet } from './views/plan.js';
-import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff } from './lib/places.js';
+import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
@@ -62,7 +62,8 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
-  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域
+  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
+  here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
@@ -103,6 +104,8 @@ function render() {
   // 地圖只在用到時才載入
   tourCheck();
   fetchLegs();
+  fetchHours();
+  fillAreas();
   if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el), placeAct); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
@@ -149,6 +152,43 @@ async function exactCoords(m) {
 }
 
 // 站與站的交通時間：看行程時查這天還沒查過的，記在這台裝置（同樣兩點、同樣方式只查一次）
+// 行程裡沒有區域、但有座標的點（例如從地圖直接加的），照座標歸到 1 公里內最近的區域；每個點只補一次
+const areaTried = new Set();
+function fillAreas() {
+  if (S.offline || !S.tripId || S.view !== 'trip') return;
+  for (const it of S.items) {
+    if (it.area || !it.day || it.kind === 'area' || ['transport', 'stay'].includes(it.type) || !Number.isFinite(it.lat) || areaTried.has(it.id)) continue;
+    const area = nearArea(it, S.wishDocs); // 想去清單還沒讀到時找不到，下次畫面更新再試
+    if (!area) continue;
+    areaTried.add(it.id);
+    updateItem(S.tripId, it.id, { area }, S.user, S.nickname).catch(console.error);
+  }
+}
+
+// 附近模式：展開的區域卡片裡、有座標的地點，查現在有沒有營業（每個地點每 10 分鐘最多查一次）
+let hoursBusy = false, hoursOff = false;
+const hoursAt = new Map();
+// 附近模式開著時，每 10 分鐘、以及切回這個畫面時，重查過期的營業狀態
+setInterval(() => fetchHours(), 600000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchHours(); });
+async function fetchHours() {
+  if (hoursBusy || hoursOff || !S.here || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
+  const areas = new Set(S.items.filter(it => it.kind === 'area' && it.day === S.pday && S.areaOpen[it.id]).map(it => it.area));
+  const todo = S.wishDocs.filter(p => areas.has(p.area) && !p.visited && Number.isFinite(p.lat) && !(Date.now() - (hoursAt.get(p.id) || 0) < 600000));
+  if (!todo.length) return;
+  hoursBusy = true;
+  try {
+    const m = await import('./ui/map.js');
+    for (const p of todo) {
+      hoursAt.set(p.id, Date.now());
+      const v = await m.openNow(p);
+      if (v === 'off') { hoursOff = true; break; }
+      S.hours.set(p.id, v);
+    }
+  } catch (err) { console.error(err); } finally { hoursBusy = false; }
+  render();
+}
+
 const legTried = new Set();
 let legsBusy = false, legsOff = false;
 S.legs = (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
@@ -361,7 +401,7 @@ async function placeAct(kind, p, day) {
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
   try {
-    await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: '', address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     toast(`已加到第 ${day} 天`);
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
@@ -413,7 +453,8 @@ async function groupNear(xy = new Map()) {
   const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean));
   const writes = [];
   for (const g of groups) {
-    const base = `${g[0].title.slice(0, 15)}一帶`;
+    const geo = await geoName(g);
+    const base = geo || `${g[0].title.slice(0, 15)}一帶`;
     let name = base;
     for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
     names.add(name);
@@ -421,6 +462,24 @@ async function groupNear(xy = new Map()) {
   }
   try { await Promise.all(writes); toast(`分成 ${groups.length} 個區域，按區域旁的 ⋯ 可以改名`); } catch (err) { console.error(err); toast('沒有分組完成，請稍後再試'); }
 }
+
+// 一群地點的中文地名（Google 查中心附近的景點、車站）；沒有地圖金鑰或查不到時是空字串
+let geoOff = false;
+async function geoName(list) {
+  const xy = list.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (!mapsKey || geoOff || !xy.length) return '';
+  const center = { lat: xy.reduce((a, p) => a + p.lat, 0) / xy.length, lng: xy.reduce((a, p) => a + p.lng, 0) / xy.length };
+  const m = await import('./ui/map.js');
+  const n = await m.areaName(center).catch(() => '');
+  if (n === 'off') { geoOff = true; return ''; }
+  return n;
+}
+
+// 改區域名稱：想去清單、行程、區域卡片一起改
+const renameWrites = (old, name) => [
+  ...S.wishDocs.filter(p => p.area === old).map(p => updateRecord(S.tripId, 'wishlist', p.id, { area: name }, S.user, S.nickname)),
+  ...S.items.filter(it => it.area === old).map(it => updateItem(S.tripId, it.id, it.kind === 'area' ? { area: name, title: name } : { area: name }, S.user, S.nickname)),
+];
 
 // 整個區域移到別天
 async function moveArea(area, from, to) {
@@ -827,7 +886,49 @@ const actions = {
     S.busy = true; el.disabled = true;
     try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
   },
+  // 自動分組時用店名取的區域（「○○一帶」），改成附近的中文地名
+  async areaGeo(el) {
+    if (S.busy || S.offline) return;
+    S.busy = true; el.disabled = true;
+    const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && a.endsWith('一帶')))];
+    const names = new Set(S.wishDocs.map(p => p.area).filter(a => a && !olds.includes(a)));
+    let n = 0;
+    try {
+      for (const old of olds) {
+        const base = await geoName(S.wishDocs.filter(p => p.area === old));
+        if (!base) continue;
+        let name = base;
+        for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
+        names.add(name);
+        await Promise.all(renameWrites(old, name));
+        if (S.mapArea === old) S.mapArea = name;
+        n++;
+      }
+      toast(n ? `${n} 個區域改用地名，不滿意可以按區域旁的 ⋯ 自己改` : '附近查不到合適的中文地名，可以按區域旁的 ⋯ 自己改');
+    } catch (err) { console.error(err); toast('沒有改完，請稍後再試'); }
+    S.busy = false; el.disabled = false;
+  },
   areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, pickDay(el)); },
+  // 我在附近：用手機定位，區域卡片裡的地點照離我多遠排；再按一次關閉
+  nearMe(el) {
+    if (S.here && !el.dataset.again) { S.here = null; render(); return; }
+    if (!navigator.geolocation) { toast('這台裝置沒辦法定位'); return; }
+    el.disabled = true;
+    navigator.geolocation.getCurrentPosition(pos => {
+      S.here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      hoursAt.clear(); render();
+    }, err => {
+      el.disabled = false;
+      toast(err.code === 1 ? '要允許網站使用位置，才能照距離排（可到瀏覽器的網站設定打開）' : '暫時定位不到，請稍後再試');
+    }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  },
+  // 逛過打勾：存在想去清單，回來寫遊記也看得到
+  async wishSeen(el) {
+    const p = S.wishDocs.find(x => x.id === el.dataset.id);
+    if (!p || S.offline) return;
+    el.disabled = true;
+    try { await updateRecord(S.tripId, 'wishlist', p.id, { visited: !p.visited }, S.user, S.nickname); } catch (err) { console.error(err); el.disabled = false; toast('沒有儲存成功，請稍後再試'); }
+  },
   areaOpen(el) { S.areaOpen = { ...S.areaOpen, [el.dataset.id]: !S.areaOpen?.[el.dataset.id] }; render(); },
   // 區域卡片的「地圖看這區」：電腦切到右邊地圖，手機換到有地圖的想去清單
   areaMap(el) {

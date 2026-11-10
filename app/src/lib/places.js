@@ -136,3 +136,34 @@ export function clusterNear(places, km = 1) {
     left = left.filter(p => !g.includes(p));
   }
 }
+
+// 照 Google 的營業時間（periods：{ open: { day, hour, minute }, close }，day 0＝週日）和當地時差（分鐘），算現在有沒有營業
+// 沒有時段資料回傳 null；只有開始、沒有結束的時段表示 24 小時營業
+export function openAt(periods, offsetMin, now = new Date()) {
+  if (!Array.isArray(periods) || !periods.length || !Number.isFinite(offsetMin)) return null;
+  const local = new Date(now.getTime() + offsetMin * 60000);
+  const WEEK = 7 * 1440, t = local.getUTCDay() * 1440 + local.getUTCHours() * 60 + local.getUTCMinutes();
+  const at = x => x.day * 1440 + (x.hour || 0) * 60 + (x.minute || 0);
+  return periods.some(p => {
+    if (!p.open) return false;
+    if (!p.close) return true;
+    const a = at(p.open), b = at(p.close) <= a ? at(p.close) + WEEK : at(p.close);
+    return (t >= a && t < b) || (t + WEEK >= a && t + WEEK < b);
+  });
+}
+
+// 這個行程點屬於哪個區域：1 公里內最近、已分區域的想去清單地點的區域；沒有就是空字串
+export function nearArea(p, wish, km = 1) {
+  if (!hasXY(p)) return '';
+  let best = null;
+  for (const w of wish) if (w.area && hasXY(w)) { const d = distanceKm(p, w); if (d <= km && (!best || d < best.d)) best = { d, area: w.area }; }
+  return best ? best.area : '';
+}
+
+// 從 Google 附近地名挑一個當區域名稱：只用全中文（不含韓文、英文、空白）的 2～6 個字，挑最短的；結尾的「站」拿掉
+export function pickAreaName(names) {
+  const ok = names.map(n => String(n || '').trim()).filter(n => /^[\p{Script=Han}・]{2,6}$/u.test(n));
+  if (!ok.length) return '';
+  const n = ok.reduce((a, b) => (b.length < a.length ? b : a));
+  return n.length > 2 ? n.replace(/站$/, '') : n;
+}

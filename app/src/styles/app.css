@@ -993,3 +993,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .aplace .grow{flex:1;min-width:0;display:grid}
 .aplace small{font-size:12px}
 .aplace.done .grow{color:var(--muted)}
+.aplace.seen .grow{color:var(--muted);text-decoration:line-through}
+.aplace small .tag{padding:2px 6px;font-size:11px;vertical-align:1px}
+.seenbox{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:var(--surface);color:#fff;font-size:13px;line-height:1;display:grid;place-items:center;cursor:pointer}
+.seenbox[aria-pressed="true"]{background:var(--good);border-color:var(--good)}
