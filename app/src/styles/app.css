@@ -664,6 +664,19 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .toprow .hero{height:100%}
 .toprow .wcard{grid-template-rows:auto 1fr}
 .toprow .worldmap{height:auto;min-height:240px}
+/* 足跡地圖：平面／地球切換，地球是 MapLibre 衛星影像（src/ui/globe.js） */
+.wp-head{flex-wrap:wrap;row-gap:6px}
+.wp-head .wview{margin-left:auto;align-self:center}
+.wp-head .wview+.linkbtn{margin-left:0}
+.wview button{padding:3px 10px;font-size:12px}
+.worldglobe{position:relative;height:250px;background:#0b2a45;border-radius:var(--r-sm);overflow:hidden}
+.toprow .worldglobe{height:auto;min-height:240px}
+.worldglobe .gmap{position:absolute;inset:0}
+.worldglobe .wz{z-index:2}
+.gnote{position:absolute;left:8px;top:8px;right:8px;z-index:2;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:6px 10px;color:var(--fg)}
+.worldglobe .maplibregl-ctrl-attrib{font-size:10px}
+.gpop .maplibregl-popup-content{background:var(--surface);color:var(--fg);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:700;box-shadow:var(--sh-1)}
+.gpop .maplibregl-popup-tip{display:none}
 .wdetail{display:grid;gap:2px}
 .conts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 16px}
 .cont{display:grid;grid-template-columns:3.6em 1fr auto;gap:8px;align-items:center;font-size:13px}
