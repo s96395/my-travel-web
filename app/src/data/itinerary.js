@@ -1,5 +1,5 @@
 // 讀寫 trips/{tripId}/itinerary
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
 const col = tripId => collection(db, `trips/${tripId}/itinerary`);
@@ -16,6 +16,9 @@ export const addItem = (tripId, fields, user, nickname) => addDoc(col(tripId), {
 export const updateItem = (tripId, id, fields, user, nickname) => updateDoc(doc(col(tripId), id), { ...fields, ...who(user, nickname, 'updated') });
 
 export const deleteItem = (tripId, id) => deleteDoc(doc(col(tripId), id));
+
+// 復原刪除：用原本的 id 和內容寫回去（raw 是讀進來時的原始欄位）
+export const restoreItem = (tripId, id, raw) => { const { id: _, ...data } = raw; return setDoc(doc(col(tripId), id), data); };
 
 // 拖曳或「移到第幾天」後，一次寫回所有改變的天數與順序
 export async function saveMoves(tripId, updates, user, nickname) {

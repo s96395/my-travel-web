@@ -827,6 +827,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishes .item.wrow{align-items:center;gap:8px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;box-shadow:none}
 .wrow .grow{flex:1;min-width:0;display:grid;gap:2px}
 .wrow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .wname{all:unset;cursor:pointer;font-weight:700;font-size:15px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .wname:hover{text-decoration:underline}
+.wrow .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
 .wgroup{display:grid;gap:6px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
@@ -838,6 +841,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishtop .btn{white-space:nowrap;flex:none}
 .wghead b{font-size:15px}
 .wghead .btn{white-space:nowrap}
+.wgact{display:flex;align-items:center;gap:8px;margin-left:auto;flex:none}
 .arealine{display:flex;align-items:baseline;gap:10px;margin:6px 2px 0;font-size:13px;color:var(--muted)}
 .arealine b{color:var(--fg)}
 .arealine .linkbtn{margin-left:auto;font-size:13px;color:var(--accent)}
@@ -920,7 +924,7 @@ button.mate:active .avatar{transform:scale(.92)}
 /* 手機：地點名稱自己一行完整顯示，按鈕排到下一行 */
 .device:not(.wide) .wishes .item.wrow{flex-wrap:wrap;row-gap:6px}
 .device:not(.wide) .wrow .grow{flex-basis:100%}
-.device:not(.wide) .wrow b{white-space:normal}
+.device:not(.wide) .wrow b,.device:not(.wide) .wrow .wname{white-space:normal}
 .device:not(.wide) .wrow .more{margin-left:auto}
 .device:not(.wide) .wishtop{flex-wrap:wrap}
 .wghead .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);flex:none;align-self:center}
@@ -997,3 +1001,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .aplace small .tag{padding:2px 6px;font-size:11px;vertical-align:1px}
 .seenbox{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:var(--surface);color:#fff;font-size:13px;line-height:1;display:grid;place-items:center;cursor:pointer}
 .seenbox[aria-pressed="true"]{background:var(--good);border-color:var(--good)}
+
+/* 行程欄窄的時候（電腦版旁邊有地圖）不撐出水平捲軸，右邊的 ⋯ 一定看得到 */
+.day,.items{grid-template-columns:minmax(0,1fr)}
+.item h4,.item p{overflow-wrap:anywhere}
+.device.wide .withmap .dayhead{flex-wrap:wrap}
+.device.wide .withmap .dayhead>.grow{min-width:220px!important}
