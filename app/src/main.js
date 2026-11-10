@@ -117,8 +117,8 @@ async function exactCoords(m) {
   const near = d => mid(itemsOfDay(S.items, d)) || mid([...S.items, ...S.wishDocs]) || {};
   const city = curTrip()?.city || '';
   const bare = S.items.filter(it => it.day && !Number.isFinite(it.lat) && geoKey(it) && !tried.has(it.id + '|' + geoKey(it))).sort((a, b) => (b.day === S.pday) - (a.day === S.pday));
-  // 想去清單裡有同名地點的，直接用它的座標（不必再查）；其餘才請 Google 查，類型是交通、其他又沒填地址的不查
-  const same = it => S.wishDocs.find(p => p.exact && sameName(p.title, it.title));
+  // 沒填地址、想去清單裡有同名地點的，直接用它的座標（不必再查）；其餘才請 Google 查，類型是交通、其他又沒填地址的不查
+  const same = it => !it.address && S.wishDocs.find(p => p.exact && sameName(p.title, it.title)); // 自己填了地址的照地址查，不拿同名地點的座標
   for (const it of bare.filter(same)) {
     tried.add(it.id + '|' + geoKey(it));
     const p = same(it);
