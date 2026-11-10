@@ -813,7 +813,8 @@ const actions = {
     try {
       await Promise.all([
         ...wish.map(([id, area]) => updateRecord(S.tripId, 'wishlist', id, { area }, S.user, S.nickname)),
-        ...its.map(it => updateItem(S.tripId, it.id, it.kind === 'area' ? { area: name, title: name } : { area: name }, S.user, S.nickname)),
+        // 取消區域時，排在各天的區域卡片一起拿掉；已排進時間軸的地點留著
+        ...its.map(it => (it.kind === 'area' ? (drop ? deleteItem(S.tripId, it.id) : updateItem(S.tripId, it.id, { area: name, title: name }, S.user, S.nickname)) : updateItem(S.tripId, it.id, { area: name }, S.user, S.nickname))),
       ]);
       if (S.mapArea === old) S.mapArea = '';
       closeSheet();

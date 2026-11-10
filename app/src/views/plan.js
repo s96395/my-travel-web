@@ -55,7 +55,7 @@ function itemHtml(it, S, trip, r = {}) {
 const GRIP = '<span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>';
 const inDayOf = (S, d, p) => S.items.some(it => it.day === d && it.kind !== 'area' && ((p.url && it.address === p.url) || sameName(it.title, p.title)));
 function areaCard(it, S, trip, r) {
-  const places = S.wishDocs.filter(p => p.area === it.area), d = it.day;
+  const places = it.area ? S.wishDocs.filter(p => p.area === it.area) : [], d = it.day;
   const must = places.filter(p => inDayOf(S, d, p)).length;
   const open = !!S.areaOpen?.[it.id], off = S.offline ? 'disabled' : '';
   const when = it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : '';
