@@ -2,7 +2,7 @@
 // 畫面每次重畫都會換掉 HTML，所以地圖放在一個固定的區塊，重畫後搬回 #mapslot，縮放位置不會跑掉
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
-import { distanceKm } from '../lib/places.js';
+import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
@@ -253,5 +253,37 @@ export async function travelMin(a, b, mode) {
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
+  }
+}
+
+// 現在有沒有營業：用名稱在地點附近找到 Google 的店家，看營業時間。回傳 true／false；
+// 查不到或沒有營業時間是 null；永久歇業回傳 'gone'；沒啟用 Places API 回傳 'off'
+export async function openNow(p) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location', 'regularOpeningHours', 'currentOpeningHours', 'utcOffsetMinutes', 'businessStatus'], locationBias: { center: { lat: p.lat, lng: p.lng }, radius: 300 }, maxResultCount: 1, language: 'zh-TW' });
+    const pl = places?.[0], loc = pl?.location;
+    if (!pl || !loc || distanceKm(p, { lat: loc.lat(), lng: loc.lng() }) > 0.5) return null; // 找到的是別處的同名店家就不算
+    if (pl.businessStatus === 'CLOSED_PERMANENTLY') return 'gone';
+    // 國定假日、臨時公休等特殊時段在 currentOpeningHours，有的話優先用；Place.isOpen() 只有測試版地圖才有，自己照營業時段算
+    const hours = pl.currentOpeningHours?.periods?.length ? pl.currentOpeningHours : pl.regularOpeningHours;
+    return hours ? openAt(hours.periods, pl.utcOffsetMinutes) : null;
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
+  }
+}
+
+// 區域名稱：查這區中心 800 公尺內熱門的景點、車站、市場，挑一個中文地名（例如「青沙浦」「廣安」）；查不到回傳空字串
+export async function areaName(center) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    const { places } = await Place.searchNearby({ locationRestriction: { center, radius: 800 }, includedPrimaryTypes: ['tourist_attraction', 'beach', 'park', 'subway_station', 'train_station', 'shopping_mall', 'market'], fields: ['displayName'], maxResultCount: 10, rankPreference: 'POPULARITY', language: 'zh-TW' });
+    return pickAreaName((places || []).map(p => p.displayName));
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : '';
   }
 }
