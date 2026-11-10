@@ -15,6 +15,8 @@ export function normalizeItem(raw) {
   const stale = !!raw.geoq && raw.geoq !== geoKey({ title: raw.title || raw.activity, address: raw.address });
   return {
     id: raw.id,
+    // kind 'area'：整個區域排進這天，只佔一張卡片，底下的地點留在想去清單，到當地再挑
+    kind: raw.kind === 'area' ? 'area' : '',
     day: day && day >= 1 && Number.isInteger(day) ? day : 0,
     order: num(raw.order),
     title: raw.title || raw.activity || '未命名行程',
@@ -158,6 +160,15 @@ export function planAreaMove(items, fromDay, area, toDay) {
   }
   const old = new Map(items.map(x => [x.id, x]));
   return list.filter(x => old.get(x.id).day !== x.day || old.get(x.id).order !== x.order).map(x => ({ id: x.id, day: x.day, order: x.order }));
+}
+
+// 區域卡片後面接的那段（同區域、從卡片排出來的必去）結束在哪：回傳下一個不同區域的行程 id，沒有就是空字串
+export function afterArea(items, cardId) {
+  const card = items.find(x => x.id === cardId);
+  if (!card) return '';
+  const list = itemsOfDay(items, card.day), i = list.findIndex(x => x.id === cardId);
+  const next = list.slice(i + 1).find(x => x.area !== card.area);
+  return next ? next.id : '';
 }
 
 // 地圖上每個區域一種顏色（照名稱排序後輪流用，換天也不會變色）；沒分區域的維持紅色。避開行程針的橘色

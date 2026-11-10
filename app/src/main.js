@@ -11,10 +11,10 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, wishLeft, areaSheet, areaMoveSheet } from './views/plan.js';
-import { parseSavedList, findCoords, coordsFromUrl, nearDay, clusterNear, distanceKm } from './lib/places.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet } from './views/plan.js';
+import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName } from './lib/itinerary.js';
+import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
@@ -61,7 +61,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
-  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域
+  side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
@@ -315,7 +315,7 @@ function startTripWatch(tripId) {
 }
 
 // 想去清單的地點排進某一天（放最後，或拖曳時放在 beforeId 前面）
-async function wishToDay(wid, day, beforeId) {
+async function wishToDay(wid, day, beforeId, extra = {}) {
   const p = S.wishDocs.find(x => x.id === wid);
   if (!p || !day || S.busy || S.offline) return false;
   // 可以下拉選別天，選到的那天已經有這個地點就不重複加
@@ -323,7 +323,7 @@ async function wishToDay(wid, day, beforeId) {
   S.busy = true;
   const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
   try {
-    const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, ...extra, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
     if (beforeId) await moveItem(ref.id, { day, beforeId });
     toast(`已加到第 ${day} 天`);
@@ -369,19 +369,16 @@ function tripNear() {
 // 想去清單、地圖彈出框：旁邊的下拉選單選了第幾天
 const pickDay = el => +(el.closest('.addto')?.querySelector('.daysel')?.value || el.dataset.d || 0);
 
-// 整個區域排進某一天：這區還沒排進這天的地點，照離這天行程的遠近接在最後
+// 整個區域排進某一天：當天只多一張區域卡片，地點留在想去清單，到當地再展開挑；要一定去的按「必去」才排進時間軸
 async function areaToDay(area, day) {
-  const ps = nearDay(wishLeft(S, day).filter(p => p.area === area), itemsOfDay(S.items, day));
-  if (!ps.length || !day || S.busy || S.offline) return;
+  if (!area || !day || S.busy || S.offline) return;
+  if (S.items.some(it => it.kind === 'area' && it.day === day && it.area === area)) { toast(`「${area}」已經在第 ${day} 天了`); return; }
   S.busy = true;
-  const tid = S.tripId, base = nextOrder(S.items, day); // 加的途中換到別趟旅程，也要寫回原本這趟
   try {
-    for (const [i, p] of ps.entries()) {
-      const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
-      await addItem(tid, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area, address: p.url, note: p.note || '', ...xy, day, order: base + i }, S.user, S.nickname);
-    }
-    toast(`「${area}」${ps.length} 個地點已加到第 ${day} 天`);
-  } catch (err) { console.error(err); toast('沒有加完，請稍後再試'); }
+    const ref = await addItem(S.tripId, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    S.areaOpen = { ...S.areaOpen, [ref.id]: true };
+    toast(`「${area}」已加到第 ${day} 天，展開卡片可以挑必去的點`);
+  } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); }
   S.busy = false;
 }
 
@@ -809,7 +806,7 @@ const actions = {
     try {
       await Promise.all([
         ...wish.map(([id, area]) => updateRecord(S.tripId, 'wishlist', id, { area }, S.user, S.nickname)),
-        ...its.map(it => updateItem(S.tripId, it.id, { area: name }, S.user, S.nickname)),
+        ...its.map(it => updateItem(S.tripId, it.id, it.kind === 'area' ? { area: name, title: name } : { area: name }, S.user, S.nickname)),
       ]);
       if (S.mapArea === old) S.mapArea = '';
       closeSheet();
@@ -823,6 +820,21 @@ const actions = {
     try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
   },
   areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, pickDay(el)); },
+  areaOpen(el) { S.areaOpen = { ...S.areaOpen, [el.dataset.id]: !S.areaOpen?.[el.dataset.id] }; render(); },
+  // 區域卡片的「地圖看這區」：電腦切到右邊地圖，手機換到有地圖的想去清單
+  areaMap(el) {
+    const a = el.dataset.area || '';
+    S.mapArea = S.mapArea === a ? '' : a; S.mapFocus = '';
+    if (S.mapArea) { S.side = 'map'; if (!S.wide) { S.mside = 'wish'; window.scrollTo(0, 0); } }
+    render();
+  },
+  // 區域卡片裡按「必去」：排進時間軸，接在這張卡片（和先前挑的必去）後面
+  areaMust(el) {
+    const card = findItem(el.dataset.id);
+    if (!card) return;
+    el.disabled = true;
+    wishToDay(el.dataset.wid, card.day, afterArea(S.items, card.id), { priority: 'must' }).then(ok => { if (!ok) el.disabled = false; });
+  },
   areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
   moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },

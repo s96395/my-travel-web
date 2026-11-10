@@ -975,3 +975,12 @@ button.mate:active .avatar{transform:scale(.92)}
 .mapfull .gm-fullscreen-control{display:none}
 .mapfull .msearch{margin-top:calc(10px + env(safe-area-inset-top,0px));width:calc(100vw - 72px)}
 .mapclose{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));right:10px;width:40px;height:40px;border-radius:50%;border:0;background:#fff;color:#1f2937;font-size:22px;line-height:1;box-shadow:var(--sh-pop);z-index:2;cursor:pointer}
+
+/* 區域卡片：一個區域只佔一張卡，展開看這區的地點 */
+.item.areacard{flex-wrap:wrap;border-style:dashed;border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.aplacebox{flex-basis:100%}
+.aplaces{list-style:none;margin:2px 0 0;padding:0;display:grid;gap:4px}
+.aplace{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface2);font-size:14px}
+.aplace .grow{flex:1;min-width:0;display:grid}
+.aplace small{font-size:12px}
+.aplace.done .grow{color:var(--muted)}
