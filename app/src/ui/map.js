@@ -262,13 +262,13 @@ export async function openNow(p) {
   await loadApi();
   const { Place } = await window.google.maps.importLibrary('places');
   try {
-    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location', 'regularOpeningHours', 'utcOffsetMinutes', 'businessStatus'], locationBias: { center: { lat: p.lat, lng: p.lng }, radius: 300 }, maxResultCount: 1, language: 'zh-TW' });
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['location', 'regularOpeningHours', 'currentOpeningHours', 'utcOffsetMinutes', 'businessStatus'], locationBias: { center: { lat: p.lat, lng: p.lng }, radius: 300 }, maxResultCount: 1, language: 'zh-TW' });
     const pl = places?.[0], loc = pl?.location;
     if (!pl || !loc || distanceKm(p, { lat: loc.lat(), lng: loc.lng() }) > 0.5) return null; // 找到的是別處的同名店家就不算
     if (pl.businessStatus === 'CLOSED_PERMANENTLY') return 'gone';
-    if (!pl.regularOpeningHours) return null;
-    // Place.isOpen() 只有測試版地圖才有，自己照營業時段算
-    return openAt(pl.regularOpeningHours.periods, pl.utcOffsetMinutes);
+    // 國定假日、臨時公休等特殊時段在 currentOpeningHours，有的話優先用；Place.isOpen() 只有測試版地圖才有，自己照營業時段算
+    const hours = pl.currentOpeningHours?.periods?.length ? pl.currentOpeningHours : pl.regularOpeningHours;
+    return hours ? openAt(hours.periods, pl.utcOffsetMinutes) : null;
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;

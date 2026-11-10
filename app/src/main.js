@@ -154,6 +154,9 @@ async function exactCoords(m) {
 // 附近模式：展開的區域卡片裡、有座標的地點，查現在有沒有營業（每個地點每 10 分鐘最多查一次）
 let hoursBusy = false, hoursOff = false;
 const hoursAt = new Map();
+// 附近模式開著時，每 10 分鐘、以及切回這個畫面時，重查過期的營業狀態
+setInterval(() => fetchHours(), 600000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchHours(); });
 async function fetchHours() {
   if (hoursBusy || hoursOff || !S.here || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
   const areas = new Set(S.items.filter(it => it.kind === 'area' && it.day === S.pday && S.areaOpen[it.id]).map(it => it.area));
