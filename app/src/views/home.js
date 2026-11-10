@@ -57,6 +57,37 @@ const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.t
 
 const openConts = new Set(); // 手機版展開中的洲，重畫畫面時保留
 
+// 平面／地球切換：預設地球，記在這台裝置上
+let globe = true;
+try { globe = localStorage.getItem('worldView') !== '2d'; } catch { /* 無痕模式讀不到就用預設 */ }
+let lastW = null; // 切換時不重畫整頁，用上一次的足跡資料換掉地圖區塊
+
+const viewSeg = () => `<span class="seg wview" role="group" aria-label="地圖樣式"><button type="button" data-wv="2d" aria-pressed="${!globe}">平面</button><button type="button" data-wv="3d" aria-pressed="${globe}">地球</button></span>`;
+
+function mapBox(w) {
+  if (globe) return `<div class="worldglobe" id="globeslot" role="img" aria-label="去過的國家地球，可拖曳旋轉">
+      <div class="wz"><button type="button" data-gz="reset" aria-label="回到台灣">⟲</button></div>
+      <span class="gnote small" role="status" hidden></span></div>`;
+  return `<div class="worldmap"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
+      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button></div>
+      <span class="winfo" role="status" hidden></span>
+    </div>`;
+}
+
+// 畫完之後：平面地圖套用目前的視角，地球則載入 MapLibre（第一次會等一下）
+function afterMap(w) {
+  if (typeof requestAnimationFrame === 'undefined') return;
+  requestAnimationFrame(() => {
+    if (!globe) { const svg = mapSvg(); if (svg) applyCam(svg); return; }
+    if (!document.getElementById('globeslot')) return;
+    import('../ui/globe.js').then(g => g.syncGlobe({ visited: w.visited, nameOf: id => countryInfo(id).name })).catch(err => {
+      console.error(err);
+      const note = document.querySelector('#globeslot .gnote');
+      if (note) { note.hidden = false; note.textContent = '地球載入失敗，請切回平面地圖或稍後再試'; }
+    });
+  });
+}
+
 // withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次；標籤預設收起，點洲名才展開
 function worldList(w, withBar) {
   const chips = list => `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>`;
@@ -88,14 +119,11 @@ function worldStrip(S, w, hero) {
   const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
   const card = `<section class="wcard" aria-label="足跡地圖">
     <div class="wp-head">${title}
-      <button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
-    <div class="worldmap"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
-      <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button></div>
-      <span class="winfo" role="status" hidden></span>
-    </div>
+      ${viewSeg()}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
+    ${mapBox(w)}
     ${open && !S.wide ? `<div class="wdetail">${worldList(w, true)}</div>` : ''}
   </section>`;
-  if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
+  lastW = w; afterMap(w);
   if (!S.wide) return hero + card;
   return `<div class="toprow">${hero}${card}</div>${open ? `<section class="worldpanel wide" aria-label="去過的國家">
     <div class="wp-head">${title}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
@@ -204,6 +232,22 @@ if (typeof document !== 'undefined') {
     e.preventDefault(); stopAnim();
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
+  // 平面／地球切換、地球的「回到台灣」
+  document.addEventListener('click', e => {
+    const v = e.target.closest?.('[data-wv]');
+    if (v && lastW) {
+      const want = v.dataset.wv === '3d';
+      if (want === globe) return;
+      globe = want;
+      try { localStorage.setItem('worldView', globe ? '3d' : '2d'); } catch { /* 存不了就只記到關掉網頁 */ }
+      const cur = document.querySelector('.wcard .worldmap, .wcard .worldglobe');
+      if (cur) cur.outerHTML = mapBox(lastW);
+      document.querySelectorAll('.wview [data-wv]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.wv === '3d') === globe)));
+      afterMap(lastW);
+      return;
+    }
+    if (e.target.closest?.('[data-gz]')) import('../ui/globe.js').then(g => g.resetGlobe());
+  });
   document.addEventListener('click', e => {
     const btn = e.target.closest?.('[data-wz]');
     const map = e.target.closest?.('.worldmap'); if (!map) return;
