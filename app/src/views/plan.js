@@ -117,14 +117,6 @@ const mapBox = (S, d) => {
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   return legend + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
 };
-function sidePane(S, trip, d) {
-  const tab = S.side === 'list' ? 'list' : 'map';
-  const tabs = `<div class="seg" role="tablist">${[['map', '地圖'], ['list', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="side" data-v="${v}" aria-pressed="${tab === v}">${t.trim()}</button>`).join('')}</div>`;
-  return `<aside class="mappane" aria-label="${tab === 'map' ? '地圖' : '想去清單'}"><div class="mapstick${tab === 'list' ? ' liststick' : ''}">
-    <div class="maptop">${tabs}<span style="flex:1"></span><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>
-    ${tab === 'map' ? mapBox(S, d) : `<div class="wishpane">${wishPanel(S, trip, d)}</div>`}
-  </div></aside>`;
-}
 
 // 當天有座標的行程照順序編 1、2、3…，左邊時間軸和地圖上的針用同一個號碼
 const pinsOf = its => its.filter(hasXY);
@@ -322,14 +314,21 @@ function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const n = S.items.filter(it => it.day === sel).length;
-  const side = sideMap(S) ? sidePane(S, trip, sel) : '';
-  return `${dayPills(S, trip, days, sel)}
-  <div class="planwide${side ? ' withmap' : ''}">
-    <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+  const day = `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+      ${sideMap(S) ? dayPills(S, trip, days, sel) : ''}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
       ${dayItems(S, trip, sel)}
-    </section>
-    ${side}
+    </section>`;
+  // 沒有地圖（離線、沒金鑰）時維持一欄
+  if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
+  // 電腦版三欄（參考去趣）：左邊當天行程、中間地圖、右邊想去清單，不用再切換
+  return `<div class="planwide three">
+    ${day}
+    <section class="mapcol" aria-label="地圖">${mapBox(S, sel)}</section>
+    <aside class="wishcol" aria-label="想去清單">
+      <div class="wishcolhead"><b>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></b><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>
+      <div class="wishpane">${wishPanel(S, trip, sel)}</div>
+    </aside>
   </div>
   ${addFab(S, sel)}`;
 }

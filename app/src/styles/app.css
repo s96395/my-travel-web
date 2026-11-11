@@ -1020,3 +1020,24 @@ button.mate:active .avatar{transform:scale(.92)}
 .dayopt .tag.best{background:var(--accent);color:#fff;font-weight:700}
 .dayopt:disabled{opacity:.55;cursor:default}
 .dayopt:not(:disabled):hover{border-color:var(--accent)}
+
+/* 電腦版行程三欄（參考去趣）：左當天行程、中地圖、右想去清單，三欄一個畫面高、各自捲動 */
+@media (min-width:1000px){
+  .device.wide .wrap:has(.planwide.three){max-width:none;padding-inline:24px}
+  .device.wide .wrap:has(.planwide.three) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  .device.wide .planwide.three{grid-template-columns:minmax(340px,400px) minmax(0,1fr) minmax(300px,360px);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  .device.wide .three > *{min-height:0}
+  .device.wide .wishcol{display:flex;flex-direction:column;gap:8px;min-height:0}
+  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .device.wide .wishcolhead b{font-size:17px}
+  .device.wide .wishcol .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:6px;scrollbar-width:thin}
+  .device.wide .wishcol .wishpane:has(.lifted){overflow:visible}
+  .device.wide .wishcol .wishtop{flex-wrap:wrap}
+  .device.wide .wishcol .wrow .addto{flex:none}
+  .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
+  .device.wide .mapcol .mapwrap{flex:1;min-height:0}
+  .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
+  .device.wide .three > .day{overflow-y:auto;padding-right:6px;scrollbar-width:thin;align-content:start;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
+  .device.wide .three > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 4px;padding:12px 12px 8px;flex-shrink:0;min-height:max-content}
+  .device.wide .three > .day .dpill{flex:0 0 64px;padding:6px 4px}
+}
