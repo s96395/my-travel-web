@@ -325,13 +325,20 @@ function planWide(S, trip) {
   // 沒有地圖（離線、沒金鑰）時維持一欄
   if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
   // 電腦版三欄（參考去趣）：左邊當天行程、中間地圖、右邊想去清單，不用再切換
-  return `<div class="planwide three">
-    ${day}
-    <section class="mapcol" aria-label="地圖">${mapBox(S, sel)}</section>
-    <aside class="wishcol" aria-label="想去清單">
+  // 左右兩欄可以收起，收起後只留一條窄邊，按一下再打開
+  const hideL = S.colHide.includes('l'), hideR = S.colHide.includes('r');
+  const strip = (k, label) => `<button type="button" class="colstrip" data-act="colToggle" data-side="${k}" aria-label="打開${label}"><b aria-hidden="true">${k === 'l' ? '›' : '‹'}</b><span>${label}</span></button>`;
+  const bar = `<div class="colbar">
+      <button type="button" class="linkbtn" data-act="colToggle" data-side="l">${hideL ? '› 打開行程' : '‹ 收起行程'}</button>
+      <button type="button" class="linkbtn" data-act="colToggle" data-side="r">${hideR ? '打開想去清單 ‹' : '收起想去清單 ›'}</button>
+    </div>`;
+  return `<div class="planwide three${hideL ? ' nol' : ''}${hideR ? ' nor' : ''}">
+    ${hideL ? strip('l', '行程') : day}
+    <section class="mapcol" aria-label="地圖">${bar}${mapBox(S, sel)}</section>
+    ${hideR ? strip('r', '想去清單') : `<aside class="wishcol" aria-label="想去清單">
       <div class="wishcolhead"><b>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></b><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>
       <div class="wishpane">${wishPanel(S, trip, sel)}</div>
-    </aside>
+    </aside>`}
   </div>
   ${addFab(S, sel)}`;
 }

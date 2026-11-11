@@ -62,6 +62,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
+  colHide: (store.get('colHide') || '').replace(/[^lr]/g, ''), // 電腦版三欄收起的欄：l＝行程、r＝想去清單
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
@@ -884,6 +885,12 @@ const actions = {
   },
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
+  // 電腦版三欄：收起或打開左邊行程、右邊想去清單，地圖跟著變寬
+  colToggle(el) {
+    const k = el.dataset.side;
+    S.colHide = S.colHide.includes(k) ? S.colHide.replace(k, '') : S.colHide + k;
+    store.set('colHide', S.colHide); render();
+  },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
