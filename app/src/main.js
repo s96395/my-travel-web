@@ -482,7 +482,7 @@ async function exactNow(ids) {
   return xy;
 }
 
-// 還沒分區域的地點依距離自動分組，區域名稱先用中心那個地點，例如「海港城一帶」，之後可以改
+// 還沒分區域的地點依距離自動分組，區域名稱用附近的中文地名（例如「海雲台」），查不到先叫「新區域」，之後可以改
 async function groupNear(xy = new Map()) {
   const tid = S.tripId, free = S.wishDocs.filter(p => !p.area).map(p => ({ ...p, ...(xy.get(p.id) || {}) }));
   const groups = clusterNear(free);
@@ -491,8 +491,7 @@ async function groupNear(xy = new Map()) {
   const writes = [];
   for (const g of groups) {
     const geo = await geoName(g);
-    const head = g[0].title.slice(0, 15), zh = !geo && FOREIGN.test(head) ? await zhHead(head, g) : '';
-    const base = geo || (zh ? `${zh}一帶` : FOREIGN.test(head) && zhInArea(g)) || `${head}一帶`;
+    const base = geo || '新區域';
     let name = base;
     for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
     names.add(name);
@@ -513,22 +512,8 @@ async function geoName(list) {
   return n;
 }
 
-// 用外文店名取的區域（例如「부엌간 해운대점一帶」）：「一帶」前面換成中文。
-// 不用翻譯 API：先請 Google 地點給這家店的中文名稱，沒有的話用同一區裡已經是中文名稱的地點
-const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af]/; // 日文假名、韓文
-const isZh = t => /\p{Script=Han}/u.test(t) && !FOREIGN.test(t);
-async function zhHead(head, list) {
-  if (!mapsKey || placesOff || S.offline) return '';
-  const shop = list.find(p => p.title.slice(0, 15) === head) || list.find(p => p.title.startsWith(head));
-  if (shop) {
-    const m = await import('./ui/map.js');
-    const n = await m.zhTitle(shop).catch(() => '');
-    if (isZh(n)) return n.slice(0, 15);
-  }
-  return '';
-}
-// 都查不到時，用同一區裡已經是中文名稱的地點（例如「海雲臺 傳統市場」）
-const zhInArea = list => { const t = list.map(p => p.title.trim()).find(isZh); return t ? `${t.slice(0, 15)}一帶` : ''; };
+// 自動取的暫時名稱：舊版用店名加「一帶」，現在查不到地名時叫「新區域」；按「區域改用地名」會換成真正的地名
+const AUTO_AREA = /一帶$|^新區域( \d+)?$/;
 
 // 改區域名稱：想去清單、行程、區域卡片一起改
 const renameWrites = (old, name) => [
@@ -942,20 +927,16 @@ const actions = {
     S.busy = true; el.disabled = true;
     try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
   },
-  // 自動分組時用店名取的區域（「○○一帶」），改成附近的中文地名
+  // 自動取的區域名稱（「○○一帶」「新區域」），改成附近的中文地名，例如「海雲台」
   async areaGeo(el) {
     if (S.busy || S.offline) return;
     S.busy = true; el.disabled = true;
-    const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && a.endsWith('一帶')))];
+    const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && AUTO_AREA.test(a)))];
     const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean)); // 沒改到的舊名稱也要算，免得新名稱撞名把兩區併在一起
     let n = 0;
     try {
       for (const old of olds) {
-        const head = old.slice(0, -2).trim(), list = S.wishDocs.filter(p => p.area === old);
-        // 韓文、日文店名：「一帶」前面換成中文；其他的照舊找附近的中文地名
-        const zh = FOREIGN.test(head) ? await zhHead(head, list) : '';
-        const geo = zh ? '' : await geoName(list);
-        const base = zh ? `${zh}一帶` : geo ? `${geo}一帶` : FOREIGN.test(head) ? zhInArea(list) : '';
+        const base = await geoName(S.wishDocs.filter(p => p.area === old));
         if (!base || base === old) continue;
         names.delete(old);
         let name = base;
