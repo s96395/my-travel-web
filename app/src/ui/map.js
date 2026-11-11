@@ -276,6 +276,17 @@ export async function openNow(p) {
   }
 }
 
+// 地點的中文名稱：用 Google 地點查（zh-TW），Google 有中文名稱就回傳，沒有回傳空字串（不另外用翻譯 API）
+export async function zhTitle(p) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    const near = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { locationBias: { center: { lat: p.lat, lng: p.lng }, radius: 300 } } : {};
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: ['displayName'], ...near, maxResultCount: 1, language: 'zh-TW' });
+    return String(places?.[0]?.displayName || '').trim();
+  } catch (err) { console.error(err); return ''; }
+}
+
 // 區域名稱：查這區中心 800 公尺內熱門的景點、車站、市場，挑一個中文地名（例如「青沙浦」「廣安」）；查不到回傳空字串
 export async function areaName(center) {
   await loadApi();

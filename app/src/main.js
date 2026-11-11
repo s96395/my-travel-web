@@ -195,8 +195,10 @@ async function fetchHours() {
 const legTried = new Set();
 let legsBusy = false, legsOff = false;
 S.legs = (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
+// 站與站的交通時間：使用者目前不需要（2026-11-11），先關掉，也不再跳 Routes API 提示
+const LEGS_ON = false;
 async function fetchLegs() {
-  if (legsBusy || legsOff || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
+  if (!LEGS_ON || legsBusy || legsOff || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
   const its = itemsOfDay(S.items, S.pday).filter(it => it.kind !== 'area'); // 區域卡片不是實際的一站，交通算前後兩站
   const todo = its.slice(1).map((b, i) => ({ a: its[i], b, leg: legOf(its[i], b) })).filter(x => x.leg && !S.legs.has(x.leg.key) && !legTried.has(x.leg.key));
   if (!todo.length) return;
@@ -489,8 +491,8 @@ async function groupNear(xy = new Map()) {
   const writes = [];
   for (const g of groups) {
     const geo = await geoName(g);
-    const head = g[0].title.slice(0, 15), zh = !geo && FOREIGN.test(head) ? await toZh(head) : '';
-    const base = geo || `${(zh && !FOREIGN.test(zh) ? zh : head).slice(0, 15)}一帶`;
+    const head = g[0].title.slice(0, 15), zh = !geo && FOREIGN.test(head) ? await zhHead(head, g) : '';
+    const base = geo || (zh ? `${zh}一帶` : FOREIGN.test(head) && zhInArea(g)) || `${head}一帶`;
     let name = base;
     for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
     names.add(name);
@@ -511,23 +513,22 @@ async function geoName(list) {
   return n;
 }
 
-// 用外文店名取的區域（例如「부엌간 해운대점一帶」）：只把「一帶」前面翻成中文。
-// 用同一把地圖金鑰呼叫 Cloud Translation API，Google Cloud 沒啟用時就跳過
-let transOff = false;
+// 用外文店名取的區域（例如「부엌간 해운대점一帶」）：「一帶」前面換成中文。
+// 不用翻譯 API：先請 Google 地點給這家店的中文名稱，沒有的話用同一區裡已經是中文名稱的地點
 const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af]/; // 日文假名、韓文
-async function toZh(text) {
-  if (!mapsKey || transOff || S.offline) return '';
-  try {
-    const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(mapsKey)}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: [text], target: 'zh-TW', format: 'text' }),
-    });
-    if (r.status === 403) { transOff = true; return ''; }
-    if (!r.ok) return '';
-    const j = await r.json();
-    return (j.data?.translations?.[0]?.translatedText || '').trim();
-  } catch (err) { console.error(err); return ''; }
+const isZh = t => /\p{Script=Han}/u.test(t) && !FOREIGN.test(t);
+async function zhHead(head, list) {
+  if (!mapsKey || placesOff || S.offline) return '';
+  const shop = list.find(p => p.title.slice(0, 15) === head) || list.find(p => p.title.startsWith(head));
+  if (shop) {
+    const m = await import('./ui/map.js');
+    const n = await m.zhTitle(shop).catch(() => '');
+    if (isZh(n)) return n.slice(0, 15);
+  }
+  return '';
 }
+// 都查不到時，用同一區裡已經是中文名稱的地點（例如「海雲臺 傳統市場」）
+const zhInArea = list => { const t = list.map(p => p.title.trim()).find(isZh); return t ? `${t.slice(0, 15)}一帶` : ''; };
 
 // 改區域名稱：想去清單、行程、區域卡片一起改
 const renameWrites = (old, name) => [
@@ -950,10 +951,11 @@ const actions = {
     let n = 0;
     try {
       for (const old of olds) {
-        const head = old.slice(0, -2).trim();
-        // 韓文、日文店名：「一帶」前面翻成中文；其他的照舊找附近的中文地名
-        const zh = FOREIGN.test(head) ? await toZh(head) : '';
-        const base = zh && !FOREIGN.test(zh) ? `${zh.slice(0, 15)}一帶` : await geoName(S.wishDocs.filter(p => p.area === old));
+        const head = old.slice(0, -2).trim(), list = S.wishDocs.filter(p => p.area === old);
+        // 韓文、日文店名：「一帶」前面換成中文；其他的照舊找附近的中文地名
+        const zh = FOREIGN.test(head) ? await zhHead(head, list) : '';
+        const geo = zh ? '' : await geoName(list);
+        const base = zh ? `${zh}一帶` : geo ? `${geo}一帶` : FOREIGN.test(head) ? zhInArea(list) : '';
         if (!base || base === old) continue;
         names.delete(old);
         let name = base;
@@ -963,8 +965,7 @@ const actions = {
         if (S.mapArea === old) S.mapArea = name;
         n++;
       }
-      const left = transOff && olds.some(a => FOREIGN.test(a)) ? '。韓文、日文翻譯還沒開通，可以按區域旁的 ⋯ 自己改' : '，不滿意可以按區域旁的 ⋯ 自己改';
-      toast(n ? `${n} 個區域改好了${left}` : `附近查不到合適的中文地名${left}`);
+      toast(n ? `${n} 個區域改好了，不滿意可以按區域旁的 ⋯ 自己改` : '查不到合適的中文名稱，可以按區域旁的 ⋯ 自己改');
     } catch (err) { console.error(err); toast('沒有改完，請稍後再試'); }
     S.busy = false; el.disabled = false;
   },
