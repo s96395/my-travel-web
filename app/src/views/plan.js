@@ -211,7 +211,7 @@ function wishPanel(S, trip, d) {
       ${addTo(S, trip, d, off, `class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}"`, '加入')}
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
-  const geo = mapsKey && S.wishDocs.some(p => p.area && p.area.endsWith('一帶')) ? `<button type="button" class="btn sm" data-act="areaGeo" ${off}>區域改用地名</button>` : '';
+  const geo = mapsKey && S.wishDocs.some(p => p.area && /一帶$|^新區域( \d+)?$/.test(p.area)) ? `<button type="button" class="btn sm" data-act="areaGeo" ${off}>區域改用地名</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
   if (!named) return `${count}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
   return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
