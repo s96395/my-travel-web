@@ -200,7 +200,7 @@ a.btn:not(.primary){color:var(--fg)}
 .stub b{font-size:17px;letter-spacing:.06em;color:var(--accent);line-height:1.2}
 .stub small{font-size:11px;color:var(--muted)}
 :root:is([data-style="e"],[data-style="i"]) .flight .top{background:var(--accent);color:var(--accent-fg)}
-:root:is([data-style="e"],[data-style="i"]) .flight .top .muted{color:inherit;opacity:.8}
+:root:is([data-style="e"],[data-style="i"]) .flight .top .muted,:root:is([data-style="e"],[data-style="i"]) .flight .top .more{color:inherit;opacity:.8}
 :root:is([data-style="e"],[data-style="i"]) .flight .port b{color:var(--accent);font-size:30px}
 :root:is([data-style="e"],[data-style="i"]) .flight .mid .line{border-top-color:var(--warm)}
 :root:is([data-style="e"],[data-style="i"]) .tag{border-radius:4px}
@@ -801,7 +801,8 @@ button.mate:active .avatar{transform:scale(.92)}
 .menulist>button:not(:first-child),.menulist>details:not(:first-child){border-top:1px solid var(--line)}
 .menulist .grow{flex:1;display:grid;min-width:0}
 .menulist svg{color:var(--muted);flex:none;transition:transform .2s}
-.menulist details[open] summary svg{transform:rotate(90deg)}
+.menulist details[open] summary>svg{transform:rotate(90deg)} /* 只轉右邊的箭頭，左邊圖示不轉 */
+.menulist .danger .ic{color:inherit}
 .menulist details .tips{padding:0 0 12px 30px}
 .menulist .danger{color:var(--bad)}
 #invite{font-size:12px;padding:6px 10px;color:var(--muted)}
