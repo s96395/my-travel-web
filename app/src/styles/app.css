@@ -824,7 +824,22 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishhead .linkbtn,.maptop .linkbtn[data-act="importSheet"]{margin-left:auto;font-weight:700;color:var(--accent)}
 .wishpane{display:grid;gap:8px;align-content:start}
 .wishes{display:grid;gap:6px}
-.wishes .item.wrow{align-items:center;gap:8px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;box-shadow:none}
+.wishes{gap:0}
+.wishes .item.wrow{align-items:center;gap:8px;background:none;border:0;border-radius:0;padding:9px 2px;box-shadow:none}
+.wishes .item.wrow + .item.wrow{border-top:1px solid var(--line)}
+.wrow .wadd{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:grid;place-items:center;padding:0;cursor:pointer}
+.wrow .wadd:hover{border-color:var(--accent)}
+.wrow .wadd .ic,.wrow .wadd svg{width:16px;height:16px;margin:0}
+.wrow .wadd:disabled{opacity:.4;cursor:default}
+/* 有滑鼠時 × 只在指到那一列才出現 */
+@media (hover:hover){.wrow .more:not(.sure){opacity:0}.wrow:hover .more,.wrow:focus-within .more{opacity:1}}
+.wgname{all:unset;cursor:pointer;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wgname:hover{text-decoration:underline}
+.wgname[aria-pressed="true"]{color:var(--accent)}
+.wgname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.item h4 .wname{all:unset;cursor:pointer}
+.item h4 .wname:hover,.item h4 .wname[aria-pressed="true"]{text-decoration:underline}
+.item h4 .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .grow{flex:1;min-width:0;display:grid;gap:2px}
 .wrow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wrow .wname,.aplace .wname{all:unset;cursor:pointer;font-weight:700;font-size:15px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -832,8 +847,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .wrow .wname:focus-visible,.aplace .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
-.wgroup{display:grid;gap:6px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
-.wgroup.none{border-style:dashed}
+/* 想去清單：不再框裡有框，區域之間用留白分開，地點之間用細線 */
+.wgroup{display:grid;gap:0;padding:4px 0 6px}
+.wgroup + .wgroup{border-top:1px solid var(--line);padding-top:12px}
 .wghead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .wghead .grow{flex:1 0 auto;display:flex;align-items:baseline;gap:8px}
 .wghead .grow b,.wghead .grow span{white-space:nowrap}
@@ -922,10 +938,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .driver-popover.tour .driver-popover-arrow-side-top{border-top-color:var(--surface)}
 .driver-popover.tour .driver-popover-arrow-side-bottom{border-bottom-color:var(--surface)}
 /* 手機：地點名稱自己一行完整顯示，按鈕排到下一行 */
-.device:not(.wide) .wishes .item.wrow{flex-wrap:wrap;row-gap:6px}
-.device:not(.wide) .wrow .grow{flex-basis:100%}
+/* 手機：按鈕只剩小小的＋和 ×，名稱可以換行，不必再把按鈕擠到第二行 */
 .device:not(.wide) .wrow b,.device:not(.wide) .wrow .wname,.aplace .wname{white-space:normal}
-.device:not(.wide) .wrow .more{margin-left:auto}
+.device:not(.wide) .wrow .more{color:var(--muted)}
 .device:not(.wide) .wishtop{flex-wrap:wrap}
 .wghead .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);flex:none;align-self:center}
 .addto{display:inline-flex;align-items:center;gap:4px;flex:none}
@@ -981,6 +996,16 @@ button.mate:active .avatar{transform:scale(.92)}
 
 .sugg .suggself span{font-size:14px;color:var(--accent)}
 .msearch .sugg .suggself span{color:#c2410c}
+/* 地圖分類（景點、美食…）與「搜尋此區域」 */
+.mcats{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+.mcats button{flex:none;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.mcats button::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid var(--c)}
+.mcats button[aria-pressed="true"]{background:var(--c);color:#fff}
+.mcats button[aria-pressed="true"]::before{border-color:#fff}
+.mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}
+.mnear[hidden]{display:none}
+.mnearlab{text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
+.mnear:disabled{color:#6b7280;cursor:default}
 /* 手機按「＋」打開的全螢幕地圖：只留搜尋框和關閉鈕 */
 .mapfull{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column}
 .mapfull .mapwrap{flex:1}
@@ -1021,31 +1046,46 @@ button.mate:active .avatar{transform:scale(.92)}
 .dayopt:disabled{opacity:.55;cursor:default}
 .dayopt:not(:disabled):hover{border-color:var(--accent)}
 
-/* 電腦版行程三欄（參考去趣）：左當天行程、中地圖、右想去清單，三欄一個畫面高、各自捲動 */
+/* 電腦版行程兩欄：左邊當天行程 1/3、右邊地圖 2/3，一個畫面高、各自捲動 */
 @media (min-width:1000px){
-  .device.wide .wrap:has(.planwide.three){max-width:none;padding-inline:24px}
-  .device.wide .wrap:has(.planwide.three) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
-  .device.wide .planwide.three{grid-template-columns:minmax(340px,400px) minmax(0,1fr) minmax(300px,360px);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
-  .device.wide .three > *{min-height:0}
-  .device.wide .wishcol{display:flex;flex-direction:column;gap:8px;min-height:0}
-  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
-  .device.wide .wishcolhead b{font-size:17px}
-  .device.wide .wishcol .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:6px;scrollbar-width:thin}
-  .device.wide .wishcol .wishpane:has(.lifted){overflow:visible}
-  .device.wide .wishcol .wishtop{flex-wrap:wrap}
-  .device.wide .wishcol .wrow .addto{flex:none}
+  .device.wide .wrap:has(.planwide.two){max-width:none;padding-inline:24px}
+  .device.wide .wrap:has(.planwide.two) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  .device.wide .planwide.two{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  .device.wide .two > *{min-height:0}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
   .device.wide .mapcol .mapwrap{flex:1;min-height:0}
   .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
+  /* 想去清單蓋在地圖右邊，地圖不用縮 */
+  .device.wide .wishover{position:absolute;top:10px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
+  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-right:8px}
+  .device.wide .wishcolhead b{font-size:17px}
+  .device.wide .wishover .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:8px;scrollbar-width:thin}
+  .device.wide .wishover .wishpane:has(.lifted){overflow:visible}
+  .device.wide .wishover .wishtop{flex-wrap:wrap}
   /* 固定高度又要捲動，用 flex 並且子項不縮，日期列才不會被下面的天數標題蓋住 */
-  .device.wide .three > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
-  .device.wide .three > .day > *{flex-shrink:0}
-  .device.wide .three > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
-  .device.wide .three > .day .dpill{flex:0 0 auto;min-width:76px;padding:6px 10px;box-shadow:none;border:1px solid var(--line);gap:1px}
-  .device.wide .three > .day .dpill b{font-size:15px;white-space:nowrap}
-  .device.wide .three > .day .dpill span{font-size:12px;white-space:nowrap}
-  .device.wide .three > .day .dpill[aria-current="true"]{border-color:var(--warm)}
+  .device.wide .two > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
+  .device.wide .two > .day > *{flex-shrink:0}
+  .device.wide .two > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
+  .device.wide .two > .day .dpill{flex:0 0 auto;min-width:76px;padding:6px 10px;box-shadow:none;border:1px solid var(--line);gap:1px}
+  .device.wide .two > .day .dpill b{font-size:15px;white-space:nowrap}
+  .device.wide .two > .day .dpill span{font-size:12px;white-space:nowrap}
+  .device.wide .two > .day .dpill[aria-current="true"]{border-color:var(--warm)}
 }
+/* 地圖上方：區域篩選標籤（一行，太多時左右滑）＋想去清單按鈕 */
+.mbar{display:flex;align-items:center;gap:8px;min-width:0}
+.mchips{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.mchip{flex:none;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.mchip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.mwishbtn{flex:none;margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.mwishbtn .num{color:var(--muted);font-weight:600}
+.mwishbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+/* 手機：地圖固定在上方，約半個畫面，下面的行程往上捲 */
+.mtop{position:sticky;top:calc(58px + env(safe-area-inset-top,0px));z-index:4;background:var(--bg);display:grid;gap:8px;margin-inline:-16px;padding:4px 16px 8px}
+.mtop .mapslot{height:34vh;min-height:200px;border-radius:14px}
+.mtop .mcats{display:none} /* 小地圖上不放附近分類，按「＋」開全螢幕地圖才有 */
+/* 點地圖號碼針時，左邊那一站閃一下 */
+@keyframes flash{from{box-shadow:0 0 0 3px var(--warm)}to{box-shadow:0 0 0 3px transparent}}
+.item.flash{animation:flash 1.6s ease-out}
 
 /* 參考釜山網站：一句提示、文字時段、備案、區域標題、現場模式 */
 .item .itip{color:var(--fg);font-weight:600}
@@ -1078,6 +1118,6 @@ button.mate:active .avatar{transform:scale(.92)}
 .livebar .tag[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .day.live .grip{display:none}
 @media (min-width:1000px){
-  .device.wide .planwide.three.live{grid-template-columns:minmax(0,760px);justify-content:center}
-  .device.wide .planwide.three.live.pane{grid-template-columns:minmax(360px,460px) minmax(0,1fr);justify-content:stretch}
+  .device.wide .planwide.two.live{grid-template-columns:minmax(0,760px);justify-content:center}
+  .device.wide .planwide.two.live.pane{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);justify-content:stretch}
 }
