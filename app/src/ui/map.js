@@ -6,6 +6,8 @@ import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
+let nearCat = '', nearAt = null, nearBtn, nearBar, nearSeq = 0;
+const nearMarks = [];
 
 function loadApi() {
   ready ??= new Promise((ok, fail) => {
@@ -52,12 +54,11 @@ function placePopup(p) {
   }));
   return el;
 }
-function showPlace(p) {
+function showPlace(p, stay) {
   const g = window.google.maps;
   temp ??= new g.Marker({ zIndex: 3 });
   temp.setOptions({ map, position: { lat: p.lat, lng: p.lng }, title: p.title });
-  map.panTo(temp.getPosition());
-  if (map.getZoom() < 15) map.setZoom(15);
+  if (!stay) { map.panTo(temp.getPosition()); if (map.getZoom() < 15) map.setZoom(15); }
   const head = document.createElement('b');
   head.className = 'mpophead';
   head.textContent = p.title;
@@ -79,14 +80,89 @@ const TYPE_OF = [[/restaurant|food|meal|bakery|bar\b/, 'restaurant'], [/cafe|cof
 const typeOf = types => (TYPE_OF.find(([re]) => (types || []).some(t => re.test(t))) || [0, 'attraction'])[1];
 
 // 地點代碼查名稱、座標、Google 地圖連結；回傳 { title, lat, lng, url, addr, type }
+const INFO_FIELDS = ['displayName', 'location', 'googleMapsURI', 'formattedAddress', 'types'];
 async function placeInfo(place) {
-  await place.fetchFields({ fields: ['displayName', 'location', 'googleMapsURI', 'formattedAddress', 'types'] });
+  await place.fetchFields({ fields: INFO_FIELDS });
+  return toInfo(place);
+}
+function toInfo(place) {
   const loc = place.location;
   if (!loc) return null;
   // Google 給的連結後面帶一長串追蹤參數，只留地點代碼 cid
   const cid = (place.googleMapsURI || '').match(/[?&]cid=(\d+)/)?.[1];
   const url = cid ? `https://maps.google.com/?cid=${cid}` : place.googleMapsURI || '';
   return { title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
+}
+
+// 地圖上方的分類（景點、美食…）：點了就把目前畫面附近的地點標出來；移動地圖後按「搜尋此區域」重找
+const NEAR_CATS = [
+  ['sight', '景點', '#2f6fdb', ['tourist_attraction', 'museum', 'park', 'amusement_park', 'art_gallery', 'zoo', 'aquarium', 'historical_landmark']],
+  ['food', '美食', '#c2255c', ['restaurant']],
+  ['cafe', '咖啡甜點', '#9c6b3f', ['cafe', 'bakery']],
+  ['shop', '購物', '#8e44ad', ['shopping_mall', 'department_store', 'market', 'store']],
+];
+function clearNear() { nearMarks.forEach(m => m.setMap(null)); nearMarks.length = 0; }
+function nearView() {
+  const b = map.getBounds(), c = map.getCenter();
+  if (!b || !c) return null;
+  const ne = b.getNorthEast();
+  // 畫面中心到角落的距離當半徑，Google 最多只收 50 公里
+  const r = Math.min(50000, Math.max(300, distanceKm({ lat: c.lat(), lng: c.lng() }, { lat: ne.lat(), lng: ne.lng() }) * 1000));
+  return { lat: c.lat(), lng: c.lng(), r, z: map.getZoom() };
+}
+function syncNearUi() {
+  nearBar?.querySelectorAll('[data-cat]').forEach(b => b.setAttribute('aria-pressed', b.dataset.cat === nearCat));
+  if (!nearBtn) return;
+  const v = nearCat && nearView();
+  // 移動超過畫面寬度的三分之一，或縮放過，才出現「搜尋此區域」
+  const moved = v && nearAt && (v.z !== nearAt.z || distanceKm(v, nearAt) * 1000 > nearAt.r / 3);
+  nearBtn.hidden = !moved;
+}
+async function runNear() {
+  const cat = NEAR_CATS.find(c => c[0] === nearCat), v = nearView();
+  if (!cat || !v) return;
+  const g = window.google.maps, my = ++nearSeq;
+  nearAt = v; syncNearUi();
+  nearBtn.hidden = false; nearBtn.disabled = true; nearBtn.textContent = '搜尋中…';
+  try {
+    const { Place } = await g.importLibrary('places');
+    const { places } = await Place.searchNearby({ locationRestriction: { center: { lat: v.lat, lng: v.lng }, radius: v.r }, includedTypes: cat[3], fields: INFO_FIELDS, maxResultCount: 20, rankPreference: 'POPULARITY', language: 'zh-TW' });
+    if (my !== nearSeq) return;
+    clearNear();
+    for (const pl of places || []) {
+      const p = toInfo(pl);
+      if (!p) continue;
+      const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 2, icon: { path: g.SymbolPath.CIRCLE, scale: 7, fillColor: '#fff', fillOpacity: 1, strokeColor: cat[2], strokeWeight: 4, labelOrigin: new g.Point(0, 2.9) }, label: { text: p.title.length > 10 ? p.title.slice(0, 10) + '…' : p.title, color: cat[2], fontSize: '12px', fontWeight: '700', className: 'mnearlab' } });
+      m.addListener('click', () => showPlace(p, true));
+      nearMarks.push(m);
+    }
+    nearBtn.textContent = places?.length ? '搜尋此區域' : '這附近沒找到，換個地方再搜尋';
+  } catch (err) { console.error(err); if (my === nearSeq) nearBtn.textContent = '搜尋失敗，再試一次'; }
+  if (my !== nearSeq) return;
+  nearBtn.disabled = false;
+  nearBtn.hidden = nearBtn.textContent === '搜尋此區域';
+}
+function nearControls(g, bar) {
+  nearBar = document.createElement('div');
+  nearBar.className = 'mcats';
+  nearBar.innerHTML = NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}">${label}</button>`).join('');
+  nearBar.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-cat]');
+    if (!b) return;
+    ev.stopPropagation();
+    nearCat = nearCat === b.dataset.cat ? '' : b.dataset.cat;
+    nearSeq++; clearNear(); nearAt = null;
+    if (nearCat) runNear(); else syncNearUi();
+  });
+  bar.appendChild(nearBar);
+  nearBtn = document.createElement('button');
+  nearBtn.type = 'button';
+  nearBtn.className = 'mnear';
+  nearBtn.hidden = true;
+  nearBtn.textContent = '搜尋此區域';
+  nearBtn.addEventListener('click', ev => { ev.stopPropagation(); runNear(); });
+  map.controls[g.ControlPosition.BOTTOM_CENTER].push(nearBtn);
+  map.addListener('idle', syncNearUi);
 }
 
 // 輸入框打字時跳出 Google 候選地點（Places API (New) 自動完成）
@@ -159,9 +235,10 @@ export async function syncMap(data, onAct, onPlace) {
     // 左上角搜尋框：打字跳出候選地點，選了就插針
     const bar = document.createElement('div');
     bar.className = 'msearch';
-    bar.innerHTML = `<input type="search" class="input" placeholder="搜尋地點，加進行程" aria-label="搜尋地點">`;
+    bar.innerHTML = `<div class="suggwrap"><input type="search" class="input" placeholder="搜尋地點，加進行程" aria-label="搜尋地點"></div>`;
     search = bar.querySelector('input');
     map.controls[g.ControlPosition.TOP_LEFT].push(bar);
+    nearControls(g, bar);
     attachSuggest(search, () => map.getBounds() || null, showPlace, title => act?.('placeSelf', { title }, 0)).catch(console.error);
     // 點地圖上的店家、景點圖示：不開 Google 原本的小視窗，改開可以加入行程的彈出框
     const { Place } = await g.importLibrary('places');

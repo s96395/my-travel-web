@@ -996,6 +996,16 @@ button.mate:active .avatar{transform:scale(.92)}
 
 .sugg .suggself span{font-size:14px;color:var(--accent)}
 .msearch .sugg .suggself span{color:#c2410c}
+/* 地圖分類（景點、美食…）與「搜尋此區域」 */
+.mcats{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
+.mcats button{flex:none;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.mcats button::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid var(--c)}
+.mcats button[aria-pressed="true"]{background:var(--c);color:#fff}
+.mcats button[aria-pressed="true"]::before{border-color:#fff}
+.mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}
+.mnear[hidden]{display:none}
+.mnearlab{text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
+.mnear:disabled{color:#6b7280;cursor:default}
 /* 手機按「＋」打開的全螢幕地圖：只留搜尋框和關閉鈕 */
 .mapfull{position:fixed;inset:0;z-index:15;background:var(--bg);display:flex;flex-direction:column}
 .mapfull .mapwrap{flex:1}
