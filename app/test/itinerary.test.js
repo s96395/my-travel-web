@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -171,4 +171,18 @@ test('要加在哪一天：最近的那天標最順路，同區域其次，已�
   const r2 = rankDays(items, [1, 2, 3], { area: '祇園', title: '新地點' });
   assert.equal(r2.find(x => x.best).day, 2);
   assert.deepEqual(centerOf([{ lat: 1, lng: 2 }, { lat: 3, lng: 4 }, {}]), { lat: 2, lng: 3 });
+});
+
+test('備案掛在主要那站下面，不算當天的站；主要那站不在了就回到時間軸', () => {
+  const a = normalizeItem({ id: 'a', day: 1, order: 1, title: '正式晚餐' });
+  const b = normalizeItem({ id: 'b', day: 1, order: 2, title: '豚笑', backupOf: 'a', backupWhen: '排隊超過 30 分鐘就改去' });
+  assert.deepEqual(itemsOfDay([a, b], 1).map(x => x.id), ['a']);
+  assert.deepEqual(backupsOf([a, b], 'a').map(x => x.backupWhen), ['排隊超過 30 分鐘就改去']);
+  assert.deepEqual(itemsOfDay([b], 1).map(x => x.id), ['b']);
+});
+
+test('時間可以寫文字；有幾點時以幾點為準', () => {
+  assert.equal(normalizeItem({ id: 'a', timeText: '看完夕陽後' }).timeText, '看完夕陽後');
+  assert.equal(normalizeItem({ id: 'a', reservationTime: '18:00', timeText: '晚餐' }).timeText, '');
+  assert.equal(normalizeItem({ id: 'a', tip: '先抽號碼牌' }).tip, '先抽號碼牌');
 });
