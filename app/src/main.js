@@ -364,8 +364,8 @@ function startTripWatch(tripId) {
 /* ---------- 復原上一步：加入、刪除、移動行程後，提示列有「復原」可以按 ---------- */
 let raw = new Map(); // 行程 id → 讀進來時的原始資料，復原刪除時寫回去
 let undoFn = null;
-function undoable(msg, fn) {
-  const tid = S.tripId;
+// tid：開始寫入前記下的旅程 id（寫入途中換到別趟旅程，復原也只寫回原本那趟）
+function undoable(tid, msg, fn) {
   undoFn = async () => { if (S.tripId === tid) await fn(tid); };
   toast(msg, ['復原', 'undo']);
 }
@@ -381,11 +381,12 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
   const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
+  const tid = S.tripId;
   try {
-    const ref = await addItem(S.tripId, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, ...extra, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    const ref = await addItem(tid, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, ...extra, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
     if (beforeId) await moveItem(ref.id, { day, beforeId }, true);
-    undoable(`已加到第 ${day} 天`, tid => deleteItem(tid, ref.id));
+    undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
@@ -407,14 +408,16 @@ async function placeAct(kind, p, day) {
     // 1 公里內有已分區域的收藏，就放進同一區（和「依距離分組」的範圍一樣）
     const near = S.wishDocs.filter(w => w.area && Number.isFinite(w.lat)).map(w => ({ w, km: distanceKm(w, p) })).filter(x => x.km <= 1).sort((a, b) => a.km - b.km)[0];
     const area = near ? near.w.area : '';
-    try { const ref = await addRecord(S.tripId, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(area ? `已放進想去清單「${area}」` : '已放進想去清單', tid => deleteRecord(tid, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+    const tid = S.tripId;
+    try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已放進想去清單「${area}」` : '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   if (!day) return false;
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
+  const tid = S.tripId;
   try {
-    const ref = await addItem(S.tripId, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
-    undoable(`已加到第 ${day} 天`, tid => deleteItem(tid, ref.id));
+    const ref = await addItem(tid, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
 }
@@ -433,10 +436,11 @@ async function areaToDay(area, day) {
   if (!area || !day || S.busy || S.offline) return;
   if (S.items.some(it => it.kind === 'area' && it.day === day && it.area === area)) { toast(`「${area}」已經在第 ${day} 天了`); return; }
   S.busy = true;
+  const tid = S.tripId;
   try {
-    const ref = await addItem(S.tripId, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+    const ref = await addItem(tid, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.areaOpen = { ...S.areaOpen, [ref.id]: true };
-    undoable(`「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`, tid => deleteItem(tid, ref.id));
+    undoable(tid, `「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`, t => deleteItem(t, ref.id));
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); }
   S.busy = false;
 }
@@ -501,7 +505,7 @@ async function moveArea(area, from, to) {
   const byId = new Map(updates.map(u => [u.id, u]));
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.pday = to; render();
-  undoable(`「${area}」已從第 ${from} 天移到第 ${to} 天`, undoMoves(before));
+  undoable(S.tripId, `「${area}」已從第 ${from} 天移到第 ${to} 天`, undoMoves(before));
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
@@ -516,7 +520,7 @@ async function moveItem(id, target, quiet = false) {
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
   render();
-  if (!quiet) undoable(from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`, undoMoves(before));
+  if (!quiet) undoable(S.tripId, from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`, undoMoves(before));
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
@@ -955,11 +959,12 @@ const actions = {
     if (S.busy || S.offline) return;
     const area = el.dataset.area, d = +el.dataset.d;
     const list = S.items.filter(x => x.day === d && x.area === area).map(x => [x.id, raw.get(x.id)]).filter(([, v]) => v);
+    const tid = S.tripId;
     S.busy = true;
     try {
-      await Promise.all(list.map(([id]) => deleteItem(S.tripId, id)));
+      await Promise.all(list.map(([id]) => deleteItem(tid, id)));
       closeSheet();
-      undoable(`已從第 ${d} 天移除「${area}」的 ${list.length} 個行程`, tid => Promise.all(list.map(([id, v]) => restoreItem(tid, id, v))));
+      undoable(tid, `已從第 ${d} 天移除「${area}」的 ${list.length} 個行程`, t => Promise.all(list.map(([id, v]) => restoreItem(t, id, v))));
     } catch (err) { console.error(err); toast('沒有移除完，請稍後再試'); }
     S.busy = false;
   },
@@ -1061,16 +1066,16 @@ const actions = {
   async saveItem(el) {
     const form = readItemForm();
     if (!form || S.busy) return;
-    const day = +el.dataset.d, id = el.dataset.id;
+    const day = +el.dataset.d, id = el.dataset.id, tid = S.tripId;
     S.busy = true; el.disabled = true;
     try {
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
       if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null && !('lat' in form) ? { ...form, lat: null, lng: null, exact: false } : form, S.user, S.nickname);
-      const ref = id ? null : await addItem(S.tripId, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
+      const ref = id ? null : await addItem(tid, { ...form, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
       S.days[day] = true; S.pday = day;
       closeSheet();
-      if (ref) undoable('已加入行程', tid => deleteItem(tid, ref.id)); else toast('已儲存');
+      if (ref) undoable(tid, '已加入行程', t => deleteItem(t, ref.id)); else toast('已儲存');
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
@@ -1079,8 +1084,8 @@ const actions = {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
     if (S.busy) return;
     S.busy = true;
-    const id = el.dataset.id, data = raw.get(id);
-    try { await deleteItem(S.tripId, id); closeSheet(); if (data) undoable('已刪除', tid => restoreItem(tid, id, data)); else toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    const id = el.dataset.id, data = raw.get(id), tid = S.tripId;
+    try { await deleteItem(tid, id); closeSheet(); if (data) undoable(tid, '已刪除', t => restoreItem(t, id, data)); else toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
     S.busy = false;
   },
   reveal(el) { S.reveal[el.dataset.k] = !S.reveal[el.dataset.k]; render(); },
