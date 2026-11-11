@@ -219,7 +219,7 @@ function areaLine(S, its, i) {
   if (!a || its[i].kind === 'area' || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
   // 這天已有這區的區域卡片，卡片就是這區的標題，不再多標一次
   if (its.some(x => x.kind === 'area' && x.area === a)) return '';
-  return `<div class="arealine"><b>${esc(a)}</b>${S.offline || S.live ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移動或移除</button>`}</div>`;
+  return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移動或移除</button>`}</div>`;
 }
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
@@ -318,19 +318,6 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
 }).join('')}</div>`;
 
-// 現場模式：只看當天時間軸，地圖和想去清單要用時再打開（設定記在這台裝置）
-function liveBar(S) {
-  if (!S.live) return `<button type="button" class="btn sm livebtn" data-act="live" aria-pressed="false">現場模式</button>`;
-  // 電腦版：地圖在右邊打開、想去清單蓋在地圖上；手機版：地圖全螢幕、想去清單換掉時間軸
-  const pane = v => (S.wide ? (v === 'map' ? `data-act="livePane" data-v="map" aria-pressed="${S.livePane === 'map'}"` : `data-act="wishOpen" aria-pressed="${!!S.wishOpen}"`)
-    : v === 'map' ? 'data-act="mapSearch"' : `data-act="mside" data-v="${S.mside === 'wish' ? 'plan' : 'wish'}" aria-pressed="${S.mside === 'wish'}"`);
-  return `<div class="livebar" role="group" aria-label="現場模式">
-    <b class="livetag">現場模式</b>
-    ${S.offline ? '' : `<button type="button" class="tag" ${pane('map')}>${ICON.pin}地圖</button><button type="button" class="tag" ${pane('wish')}>想去清單</button>`}
-    <button type="button" class="linkbtn" data-act="live" aria-pressed="true">關閉</button>
-  </div>`;
-}
-
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
 
@@ -342,19 +329,17 @@ function planNarrow(S, trip) {
   const full = S.mapFull && mapsKey && !S.offline;
   const top = !S.offline && !full ? `<div class="mtop">${mapBox(S, sel, trip)}</div>` : '';
   const wish = S.mside === 'wish' && !S.offline && !full;
-  const live = S.live && !wish;
-  if (wish) return `${dayPills(S, trip, days, sel)}${S.live ? `<div class="planbar">${liveBar(S)}</div>` : ''}${top}
+  if (wish) return `${dayPills(S, trip, days, sel)}${top}
   <section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
   return `
   ${dayPills(S, trip, days, sel)}
-  <div class="planbar">${liveBar(S)}</div>
-  ${live ? '' : top}
-  <section class="day${live ? ' live' : ''}" id="day${sel}" data-open="true" data-dropd="${sel}">
+  ${top}
+  <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
     <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
   </section>
-  ${full ? fullMap(S, sel) : S.live ? '' : addFab(S, sel)}`;
+  ${full ? fullMap(S, sel) : addFab(S, sel)}`;
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
@@ -362,19 +347,13 @@ function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const n = stopCount(S, sel);
-  const day = `<section class="day${S.live ? ' live' : ''}" id="day${sel}" data-open="true" data-dropd="${sel}">
+  const day = `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${sideMap(S) ? dayPills(S, trip, days, sel, true) : ''}
-      ${sideMap(S) ? `<div class="planbar">${liveBar(S)}</div>` : ''}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
       ${dayItems(S, trip, sel)}
     </section>`;
   // 沒有地圖（離線、沒金鑰）時維持一欄
   if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
-  // 現場模式：只留當天時間軸，按「地圖」或「想去清單」才在右邊打開地圖
-  if (S.live) {
-    const pane = S.livePane === 'map' || S.wishOpen;
-    return `<div class="planwide two live${pane ? ' pane' : ''}">${day}${pane ? `<section class="mapcol" aria-label="地圖">${mapBox(S, sel, trip)}</section>` : ''}</div>`;
-  }
   // 電腦版兩欄：左邊當天行程占 1/3、右邊地圖占 2/3；想去清單是地圖上的淡色空心點，要看清單再打開
   return `<div class="planwide two">
     ${day}

@@ -64,7 +64,6 @@ const S = {
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
   wishOpen: false, // 電腦版想去清單蓋在地圖上，平常收著
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
-  live: store.get('live') === '1', livePane: '', // 現場模式：只看當天時間軸；電腦版右邊臨時打開的是地圖或想去清單
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
@@ -889,15 +888,6 @@ const actions = {
   // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
   wishOpen() { S.wishOpen = !S.wishOpen; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
-  // 現場模式：打開時直接跳到今天
-  live() {
-    S.live = !S.live; S.livePane = ''; S.mside = 'plan'; S.mapFull = false;
-    store.set('live', S.live ? '1' : '0');
-    const t = curTrip(), c = S.live && t?.start && t.end ? countdown(t) : null;
-    if (c?.ongoing) S.pday = c.day;
-    render();
-  },
-  livePane(el) { S.livePane = S.livePane === el.dataset.v ? '' : el.dataset.v; if (!S.livePane) S.wishOpen = false; render(); },
   timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
   // 設成某一站的備案，或修改什麼時候改去
   async backupSet(el) {
@@ -931,7 +921,7 @@ const actions = {
     S.mapFocus = el.dataset.id || '';
     // 只看某區時點了別區的地點，改回看全部，地圖上才有那根針
     if (S.mapArea && S.wishDocs.find(p => 'w:' + p.id === S.mapFocus && p.area !== S.mapArea)) S.mapArea = '';
-    if (S.mapFocus) { S.side = 'map'; if (S.live && S.wide) S.livePane = 'map'; else if (S.live) S.mapFull = true; } render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
   // 地圖只看某個區域的想去清單地點；再按一次看全部
   mapArea(el) {
     const a = el.dataset.area || '';

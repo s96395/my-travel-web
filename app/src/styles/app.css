@@ -1087,7 +1087,7 @@ button.mate:active .avatar{transform:scale(.92)}
 @keyframes flash{from{box-shadow:0 0 0 3px var(--warm)}to{box-shadow:0 0 0 3px transparent}}
 .item.flash{animation:flash 1.6s ease-out}
 
-/* 參考釜山網站：一句提示、文字時段、備案、區域標題、現場模式 */
+/* 參考釜山網站：一句提示、文字時段、備案、區域標題 */
 .item .itip{color:var(--fg);font-weight:600}
 .whentxt{display:inline-block;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 8px;margin-right:4px;vertical-align:2px}
 .inote{margin-top:2px;font-size:13px;color:var(--muted)}
@@ -1110,14 +1110,3 @@ button.mate:active .avatar{transform:scale(.92)}
 :root .items .item.areacard{background:var(--accent-soft);border:0;border-radius:var(--r-sm);margin:8px 0 2px -22px;padding:8px 10px 8px 12px}
 :root .items .item.areacard h4{font-size:14px}
 .arealabel{font-size:11px;font-weight:700;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:2px}
-.planbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.livebtn{margin-left:auto}
-.livebar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
-.livetag{font-size:13px;color:var(--warm)}
-.livebar .tag{border:0;cursor:pointer}
-.livebar .tag[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
-.day.live .grip{display:none}
-@media (min-width:1000px){
-  .device.wide .planwide.two.live{grid-template-columns:minmax(0,760px);justify-content:center}
-  .device.wide .planwide.two.live.pane{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);justify-content:stretch}
-}
