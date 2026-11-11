@@ -1025,11 +1025,11 @@ button.mate:active .avatar{transform:scale(.92)}
 @media (min-width:1000px){
   .device.wide .wrap:has(.planwide.three){max-width:none;padding-inline:24px}
   .device.wide .wrap:has(.planwide.three) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
-  .device.wide .planwide.three{grid-template-columns:minmax(300px,1fr) minmax(420px,1.8fr) minmax(280px,.9fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  .device.wide .planwide.three{grid-template-columns:minmax(260px,1fr) minmax(360px,1.8fr) minmax(240px,.9fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
   .device.wide .three > *{min-height:0}
   /* 收起的欄只留 44px 窄邊；地圖永遠是最寬的一欄 */
-  .device.wide .planwide.three.nol{grid-template-columns:44px minmax(420px,1.8fr) minmax(280px,.9fr)}
-  .device.wide .planwide.three.nor{grid-template-columns:minmax(300px,1fr) minmax(420px,1.8fr) 44px}
+  .device.wide .planwide.three.nol{grid-template-columns:44px minmax(360px,1.8fr) minmax(240px,.9fr)}
+  .device.wide .planwide.three.nor{grid-template-columns:minmax(260px,1fr) minmax(360px,1.8fr) 44px}
   .device.wide .planwide.three.nol.nor{grid-template-columns:44px minmax(0,1fr) 44px}
   .device.wide .colstrip{border:0;border-radius:14px;background:var(--surface);box-shadow:var(--sh-card);color:var(--muted);cursor:pointer;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:8px}
   .device.wide .colstrip:hover{color:var(--fg)}
