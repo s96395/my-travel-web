@@ -66,7 +66,7 @@ export function quickSheet(S) {
           <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
           <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
           <p><b>離線查看</b>：按旅程標題右邊的下載鈕（離線行程），把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
-          <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
+          <p><b>換封面</b>：${S.wide ? '' : '在「更多」分頁，'}按封面右下角的相機鈕，選好照片可以拖曳調整位置。</p>
           ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
           <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
         </div>
