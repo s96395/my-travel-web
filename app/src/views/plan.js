@@ -6,7 +6,7 @@ import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR, sameName, STAY_MINS, stayText } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, groupByArea, areaColors, NO_AREA_COLOR, sameName, STAY_MINS, stayText, rankDays } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -31,7 +31,6 @@ function dayDate(trip, d) {
 }
 // 加到第幾天的下拉選單：預設選目前看的那天（看「還沒排天數」時預設第 1 天）
 export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n => `<option value="${n}" ${n === (sel || 1) ? 'selected' : ''}>第 ${n} 天${dayDate(trip, n) ? ' ' + dayDate(trip, n).replace(/（.*）/, '') : ''}</option>`).join('');
-const daySel = (S, trip, d, off) => `<select class="daysel" aria-label="加到第幾天" ${off}>${dayOpts(S, trip, d)}</select>`;
 const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 
 // 備註和名稱是同一個地方（匯入時把原本的店名存進備註）就不再顯示一次
@@ -234,10 +233,23 @@ function wishPanel(S, trip, d) {
   }).join('')}`;
 }
 
-// 「加入」一律加到目前看的那一天；看「還沒排天數」時才放天數選單
-const addTo = (S, trip, d, off, attrs, text) => (d
-  ? `<span class="addto"><button type="button" ${attrs} data-d="${d}" ${off} aria-label="${text}（第 ${d} 天）">${ICON.plus}${text}</button></span>`
-  : `<span class="addto">${daySel(S, trip, d, off)}<button type="button" ${attrs} ${off}>${ICON.plus}${text}</button></span>`);
+// 「加入」都先跳出「要加在哪一天」，選好天數自動放在最順路的位置
+const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button type="button" ${attrs} ${off}>${ICON.plus}${text}</button></span>`;
+
+// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改放想去清單
+export function daySheet(S, trip, p, kind) {
+  const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p);
+  const tag = r => (r.has ? '<span class="tag">已經排了</span>'
+    : r.best ? '<span class="tag best">最順路</span>'
+      : r.same ? `<span class="tag good">也有「${esc(p.area)}」的點</span>`
+        : r.km !== null ? `<span class="tag">離最近 ${kmText(r.km)}</span>` : '');
+  const sub = r => (r.n ? [dayAreas(S.items, r.day).join('・'), `${r.n} 個地方`].filter(Boolean).join('・') : '還沒安排');
+  openSheet(`${head(`${esc(p.title)}要加在哪一天？`)}
+    <p class="small muted" style="margin:0">${kind === 'area' ? '區域卡片會放在那天離它最近的站旁邊' : '會自動放在那天最順路的位置'}</p>
+    <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${r.best ? ' best' : ''}" data-act="dayPick" data-d="${r.day}" ${r.has ? 'disabled' : ''}>
+      <span class="grow"><b>第 ${r.day} 天${dayDate(trip, r.day) ? `　${dayDate(trip, r.day)}` : ''}</b><small class="muted">${esc(sub(r))}</small></span>${tag(r)}</button>`).join('')}</div>
+    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">先放想去清單</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
+}
 
 // 這個區域的卡片排在哪幾天
 const cardDays = (S, area) => { const ds = [...new Set(S.items.filter(it => it.kind === 'area' && it.area === area && it.day).map(it => it.day))].sort((a, b) => a - b); return area && ds.length ? `・已排第 ${ds.join('、')} 天` : ''; };

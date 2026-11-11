@@ -1008,3 +1008,15 @@ button.mate:active .avatar{transform:scale(.92)}
 .item h4,.item p{overflow-wrap:anywhere}
 .device.wide .withmap .dayhead{flex-wrap:wrap}
 .device.wide .withmap .dayhead>.grow{min-width:220px!important}
+
+/* 要加在哪一天 */
+.daypick{display:grid;gap:8px;max-height:55vh;overflow:auto}
+.dayopt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:var(--fg);background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;cursor:pointer}
+.dayopt .grow{flex:1;min-width:0;display:grid;gap:2px}
+.dayopt b{font-size:15px}
+.dayopt small{font-size:12px}
+.dayopt .tag{flex:none;white-space:nowrap}
+.dayopt.best{border:2px solid var(--accent);background:var(--surface)}
+.dayopt .tag.best{background:var(--accent);color:#fff;font-weight:700}
+.dayopt:disabled{opacity:.55;cursor:default}
+.dayopt:not(:disabled):hover{border-color:var(--accent)}
