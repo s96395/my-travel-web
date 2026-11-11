@@ -281,9 +281,12 @@ function dayPill(trip, d) {
   return { w: WD[dt.getDay()], n: dt.getDate() };
 }
 
-const dayPills = (S, trip, days, sel) => `<div class="dpills" role="group" aria-label="選擇天數">${days.map(d => {
+// short：電腦版三欄左邊窄，直接寫「第 N 天」和日期，不放區域名稱
+const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
   const p = dayPill(trip, d);
-  return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${d === sel ? 'aria-current="true"' : ''}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
+  const cur = d === sel ? 'aria-current="true"' : '';
+  if (short) return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><b>${d ? `第 ${d} 天` : '未排'}</b><span class="num">${d && p.w ? `${p.n} 日（${p.w}）` : ''}</span></button>`;
+  return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
 }).join('')}</div>`;
 
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
@@ -315,7 +318,7 @@ function planWide(S, trip) {
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const n = S.items.filter(it => it.day === sel).length;
   const day = `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-      ${sideMap(S) ? dayPills(S, trip, days, sel) : ''}
+      ${sideMap(S) ? dayPills(S, trip, days, sel, true) : ''}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
       ${dayItems(S, trip, sel)}
     </section>`;
