@@ -239,10 +239,10 @@ function showInList(id) {
   else { const top = document.querySelector('.mtop'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (top ? top.getBoundingClientRect().bottom : 80) - 12, behavior: 'smooth' }); }
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
-// 想去清單的點：藍綠色書籤圓點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
-// 想去清單照 Google 地圖收藏的樣子：藍綠色圓形、白邊、白色書籤，使用者一看就知道是自己收藏的
-const WISH_TEAL = '#3a9bb0', CELL = 44;
-const WISH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="${WISH_TEAL}" stroke="#fff" stroke-width="2.5"/><path d="M10 8.5h8v11l-4-2.8-4 2.8z" fill="#fff"/></svg>`;
+// 想去清單的點：粉紅色愛心圓點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
+// 想去清單照 Google 地圖收藏「最愛」的樣子：粉紅色圓形、白邊、白色愛心，使用者一看就知道是自己收藏的
+const WISH_PINK = '#e8577a', CELL = 44;
+const WISH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="${WISH_PINK}" stroke="#fff" stroke-width="2.5"/><path d="M14 20.2s-5.8-3.6-5.8-7.6a3.1 3.1 0 0 1 5.8-1.6 3.1 3.1 0 0 1 5.8 1.6c0 4-5.8 7.6-5.8 7.6z" fill="#fff"/></svg>`;
 const WISH_ICON = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(WISH_SVG);
 function drawWish() {
   const g = window.google?.maps, z = map?.getZoom(), proj = map?.getProjection();
@@ -267,7 +267,7 @@ function drawWish() {
     const b = new g.LatLngBounds();
     list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
     const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, title: `${list.length} 個想去的地點，點一下放大`,
-      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_TEAL, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_PINK, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
       label: { text: String(list.length), color: '#fff', fontSize: '12px', fontWeight: '700' } });
     m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
     wishMarks.push(m);
