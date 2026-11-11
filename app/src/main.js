@@ -1033,7 +1033,11 @@ const actions = {
   areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
   moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
-  mside(el) { S.mside = el.dataset.v; render(); window.scrollTo(0, 0); },
+  // 手機版地圖下面切換行程或想去清單：捲到地圖剛好貼在上方，下面就是清單
+  mside(el) {
+    S.mside = el.dataset.v; render();
+    const d = $('.dpills'); window.scrollTo(0, d ? d.getBoundingClientRect().bottom + scrollY - 58 : 0);
+  },
   jump(el) {
     const d = +el.dataset.d;
     S.days[d] = true; render();

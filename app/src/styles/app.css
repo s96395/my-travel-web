@@ -1079,6 +1079,10 @@ button.mate:active .avatar{transform:scale(.92)}
 .mwishbtn{flex:none;margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .mwishbtn .num{color:var(--muted);font-weight:600}
 .mwishbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+/* 手機：地圖固定在上方，約半個畫面，下面的行程往上捲 */
+.mtop{position:sticky;top:calc(58px + env(safe-area-inset-top,0px));z-index:4;background:var(--bg);display:grid;gap:8px;margin-inline:-16px;padding:4px 16px 8px}
+.mtop .mapslot{height:34vh;min-height:200px;border-radius:14px}
+.mtop .mcats{display:none} /* 小地圖上不放附近分類，按「＋」開全螢幕地圖才有 */
 /* 點地圖號碼針時，左邊那一站閃一下 */
 @keyframes flash{from{box-shadow:0 0 0 3px var(--warm)}to{box-shadow:0 0 0 3px transparent}}
 .item.flash{animation:flash 1.6s ease-out}

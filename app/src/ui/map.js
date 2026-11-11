@@ -231,11 +231,12 @@ function openPop(p, m) {
 }
 // 點地圖上的號碼針，左邊行程捲到那一站並閃一下
 function showInList(id) {
-  const el = document.querySelector(`.planwide [data-iid="${CSS.escape(id)}"]`);
+  const el = document.querySelector(`section.day [data-iid="${CSS.escape(id)}"]`);
   if (!el) return;
-  // 只捲左邊行程欄，不捲整頁
+  // 電腦版只捲左邊行程欄；手機版捲整頁，讓那一站出現在地圖下面
   const box = el.closest('.day');
-  if (box) box.scrollTo({ top: el.offsetTop - box.offsetTop - box.clientHeight / 3, behavior: 'smooth' });
+  if (box && box.scrollHeight > box.clientHeight + 4) box.scrollTo({ top: el.offsetTop - box.offsetTop - box.clientHeight / 3, behavior: 'smooth' });
+  else { const top = document.querySelector('.mtop'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (top ? top.getBoundingClientRect().bottom : 80) - 12, behavior: 'smooth' }); }
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
 // 想去清單的點：淡色空心小點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開

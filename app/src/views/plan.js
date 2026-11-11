@@ -46,7 +46,7 @@ function itemHtml(it, S, trip, r = {}) {
     <div class="grow" style="flex:1">
       <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${esc(it.title)}</button>` : esc(it.title)}</h4>
       ${sub ? `<p>${sub}</p>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -98,7 +98,8 @@ function areaCard(it, S, trip, r) {
 }
 
 // 電腦版右半邊：「地圖｜清單」兩個分頁。地圖上想去清單和當天行程（編號）都插針，點針可加到這天或開 Google 地圖
-const sideMap = S => S.wide && !S.offline;
+// 地圖和行程同時看得到（電腦版在右邊，手機版在上方）
+const sideMap = S => !S.offline && !!mapsKey;
 const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d, trip, bare) => {
   const pts = mapData(S, null).points;
@@ -111,7 +112,9 @@ const mapBox = (S, d, trip, bare) => {
   const far = farOf(S), lost = itemsOfDay(S.items, d).filter(it => onMap(it) && (!hasXY(it) || far.has(it.id))).length;
   const odd = S.wishDocs.filter(p => far.has(p.id)).length;
   const note = [lost ? `第 ${d} 天有 ${lost} 個地點還找不到位置` : '', odd ? `${odd} 個收藏位置有誤，正在重查` : ''].filter(Boolean).join('・');
-  const wishBtn = S.wide && trip ? `<button type="button" class="mwishbtn" data-act="wishOpen" aria-pressed="${!!S.wishOpen}">想去清單 <span class="num">${S.wishDocs.length}</span></button>` : '';
+  // 電腦版想去清單蓋在地圖上；手機版地圖下面的行程換成想去清單
+  const wishOn = S.wide ? !!S.wishOpen : S.mside === 'wish';
+  const wishBtn = trip ? `<button type="button" class="mwishbtn" ${S.wide ? 'data-act="wishOpen"' : `data-act="mside" data-v="${wishOn ? 'plan' : 'wish'}"`} aria-pressed="${wishOn}">想去清單 <span class="num">${S.wishDocs.length}</span></button>` : '';
   const bar = chips !== '<div class="grow"></div>' || wishBtn ? `<div class="mbar">${chips}${wishBtn}</div>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
@@ -295,18 +298,19 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
 
+// 手機：上面地圖（約半個畫面，固定在上方）、下面當天行程；想去清單從地圖上方的按鈕切換
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = S.items.filter(it => it.day === sel).length;
   const full = S.mapFull && mapsKey && !S.offline;
+  const top = !S.offline && !full ? `<div class="mtop">${mapBox(S, sel, trip)}</div>` : '';
   const wish = S.mside === 'wish' && !S.offline && !full;
-  const seg = S.offline ? '' : `<div class="seg" role="tablist" style="justify-self:start">${[['plan', '行程'], ['wish', `想去清單 ${S.wishDocs.length || ''}`]].map(([v, t]) => `<button type="button" role="tab" data-act="mside" data-v="${v}" aria-pressed="${(wish ? 'wish' : 'plan') === v}">${t.trim()}</button>`).join('')}</div>`;
-  if (wish) return `${dayPills(S, trip, days, sel)}${seg}
-  <section class="day wishview"><div class="wishhead"><h3>${sel ? `排進第 ${sel} 天` : '想去清單'}</h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${mapBox(S, sel, trip)}${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
+  if (wish) return `${dayPills(S, trip, days, sel)}${top}
+  <section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
   return `
   ${dayPills(S, trip, days, sel)}
-  ${seg}
+  ${top}
   <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
     <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
     ${dayItems(S, trip, sel)}
