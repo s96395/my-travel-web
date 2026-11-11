@@ -276,6 +276,37 @@ function drawWish() {
 
 // data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連想去清單一起框）, focus, opts }
 // onPlace(動作 'placeAdd'|'placeWish', 地點, 第幾天)：搜尋或點地圖上的地點後按加入，成功回傳 true
+// 深色模式的底圖：顏色接近頁面深藍底，路名、地名維持看得清楚
+const DARK = [
+  { elementType: 'geometry', stylers: [{ color: '#1b2638' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa9bd' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f1622' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#3a4a63' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#1f2b3e' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#223047' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#b7c4d6' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1d3a36' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#7fb3a6' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c3a52' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1b2638' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#a9b6c8' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3d4f6d' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1b2638' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2a374b' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#c3cfdf' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0c1a2b' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5f7899' }] }
+];
+const DARK_MQ = window.matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : DARK_MQ.matches; };
+// 切換深淺色（按鈕或跟著系統）時，地圖跟著換
+function followTheme() {
+  const set = () => map?.setOptions({ styles: isDark() ? DARK : null });
+  set();
+  DARK_MQ.addEventListener('change', set);
+  new MutationObserver(set).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+
 export async function syncMap(data, onAct, onPlace) {
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
@@ -285,6 +316,7 @@ export async function syncMap(data, onAct, onPlace) {
     box = document.createElement('div');
     box.className = 'lmap';
     map = new g.Map(box, { center: { lat: 23.7, lng: 121 }, zoom: 7, mapTypeControl: false, streetViewControl: false, clickableIcons: true, gestureHandling: 'greedy' });
+    followTheme();
     info = new g.InfoWindow();
     // 左上角搜尋框：打字跳出候選地點，選了就插針
     const bar = document.createElement('div');
