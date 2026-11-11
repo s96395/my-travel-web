@@ -43,12 +43,13 @@ function offBanner(S, t) {
 
 const avatar = (p, i) => `<span class="avatar${p.uid ? '' : ' unbound'}" data-c="${i % 3}" title="${esc(p.name)}">${esc((p.name || '?').slice(0, 1))}</span>`;
 
-function tripHead(S, t) {
+// noCover：手機行程分頁不放封面，第一個畫面留給行程；封面改放在更多分頁
+function tripHead(S, t, noCover = false) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
   const cover = S.covers[t.id];
   const btns = S.offline ? '' : `<button type="button" class="covbtn" data-act="coverMenu" aria-label="更換封面" title="更換封面、調整位置">${ICON.camera}</button>`;
-  return `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>
+  return `${noCover ? '' : `<div class="tripcover">${coverHtml(t, true, cover)}${btns}</div>`}
   <div class="triphead">
     <div class="when"><span class="num">${range}</span><span>${esc(t.place || '未填地點')}</span><span class="tag accent">${TYPE_ICO[t.type] || ''}${esc(t.type)}</span></div>
     ${people.length ? `<div class="people">${people.map(avatar).join('')}</div>` : ''}
@@ -103,7 +104,7 @@ export function renderTrip(S) {
   <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
-    ${tab === 'plan' || S.wide ? tripHead(S, t) : ''}
+    ${S.wide ? tripHead(S, t) : tab === 'plan' ? tripHead(S, t, true) : tab === 'more' ? tripHead(S, t) : ''}
     ${body}
   </div>`;
 }

@@ -84,6 +84,9 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .btn.block{width:100%}
 .btn.sm{padding:5px 12px;font-size:13px}
 .btn[disabled]{opacity:.45;cursor:not-allowed}
+/* 做成按鈕或標籤的連結：不要瀏覽器預設的藍字和底線 */
+a.btn,a.tag{text-decoration:none}
+a.btn:not(.primary){color:var(--fg)}
 .locked{opacity:.4;filter:grayscale(1)}
 .row{display:flex;align-items:center;gap:10px}
 .row>.grow{flex:1;min-width:0}
@@ -115,8 +118,8 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .stat-h .big{display:flex;align-items:center;gap:8px;min-height:30px}
 .stat-h .ico{font-size:17px;line-height:1}
 .stat-h .label{font-size:15px;font-weight:600;color:var(--fg);letter-spacing:0}
-.stat-h .label .chev{display:inline-block;vertical-align:-2px;transition:transform .2s}
-.stat[data-open="true"] .stat-h .label .chev{transform:rotate(90deg)}
+.stat-h .big .chev{display:inline-grid;color:var(--muted);transition:transform .2s}
+.stat[data-open="true"] .stat-h .big .chev{transform:rotate(90deg)}
 .stat-h b{font-family:var(--font-data);font-size:20px;font-weight:700;line-height:1.3}
 .stat-d{border-top:1px var(--divider) var(--line);padding-top:6px;display:grid}
 .sr{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:6px 0;font-size:15px;align-items:center}
@@ -167,11 +170,11 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .install .grow{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .install .linkbtn{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap}
 .install .x{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;width:28px;height:28px;border-radius:50%;flex:none}
-.fab{position:fixed;right:max(16px,calc(50% - var(--appw)/2 + 16px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);padding:13px 18px;font-weight:700;display:flex;gap:6px;align-items:center;box-shadow:var(--sh-pop)}
+.fab{position:fixed;right:max(16px,calc(50% - var(--appw)/2 + 16px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:999px;background:var(--warm);color:#fff;padding:13px 18px;font-weight:700;display:flex;gap:6px;align-items:center;box-shadow:var(--sh-pop)}
 @media (min-width:860px){.fab{right:16px}}
 
 /* 原版延續：白卡片加柔和陰影、數字置中、出發倒數用橘色 */
-:root:is([data-style="e"],[data-style="i"]) .btn.primary,:root:is([data-style="e"],[data-style="i"]) .fab{background:var(--accent);border-color:var(--accent)}
+:root:is([data-style="e"],[data-style="i"]) .btn.primary{background:var(--accent);border-color:var(--accent)}
 
 /* 原版＋登機證：原版配色，加上票根、虛線撕口、機場代碼 */
 .bp-top{display:flex;justify-content:space-between;background:var(--accent);color:var(--accent-fg);padding:8px 18px;font-size:12px;letter-spacing:.16em;font-weight:700}
@@ -197,7 +200,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .stub b{font-size:17px;letter-spacing:.06em;color:var(--accent);line-height:1.2}
 .stub small{font-size:11px;color:var(--muted)}
 :root:is([data-style="e"],[data-style="i"]) .flight .top{background:var(--accent);color:var(--accent-fg)}
-:root:is([data-style="e"],[data-style="i"]) .flight .top .muted{color:inherit;opacity:.8}
+:root:is([data-style="e"],[data-style="i"]) .flight .top .muted,:root:is([data-style="e"],[data-style="i"]) .flight .top .more{color:inherit;opacity:.8}
 :root:is([data-style="e"],[data-style="i"]) .flight .port b{color:var(--accent);font-size:30px}
 :root:is([data-style="e"],[data-style="i"]) .flight .mid .line{border-top-color:var(--warm)}
 :root:is([data-style="e"],[data-style="i"]) .tag{border-radius:4px}
@@ -320,7 +323,8 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .tour .info>div{display:grid;gap:2px;min-width:0}
 .tour .info .full{grid-column:1/-1}
 .tour .info .num{white-space:nowrap}
-@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:240px}}
+/* 電腦版封面只當頁首裝飾：矮一點，內容不用捲到畫面一半才出現 */
+@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:120px}}
 .divesum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .divesum .card{display:grid;gap:2px;padding:10px 12px}
 .divesum b{font-size:15px;white-space:nowrap}
@@ -769,8 +773,8 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .ring text{font-size:15px;font-weight:800;fill:var(--fg);font-family:var(--font-data)}
 .quickadd{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 5px 5px 16px}
 .quickadd input{flex:1;border:0;background:none;min-width:0;font-size:15px;padding:6px 0;outline:none}
-.quickadd:focus-within{border-color:var(--warm)}
-.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:24px;line-height:1;flex:none}
+.quickadd:focus-within{border-color:var(--accent)}
+.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
 .quickadd button[disabled]{opacity:.45}
 .todo input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
 .todo input::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg) scale(0);transition:transform .2s}
@@ -797,7 +801,8 @@ button.mate:active .avatar{transform:scale(.92)}
 .menulist>button:not(:first-child),.menulist>details:not(:first-child){border-top:1px solid var(--line)}
 .menulist .grow{flex:1;display:grid;min-width:0}
 .menulist svg{color:var(--muted);flex:none;transition:transform .2s}
-.menulist details[open] summary svg{transform:rotate(90deg)}
+.menulist details[open] summary>svg{transform:rotate(90deg)} /* 只轉右邊的箭頭，左邊圖示不轉 */
+.menulist .danger .ic{color:inherit}
 .menulist details .tips{padding:0 0 12px 30px}
 .menulist .danger{color:var(--bad)}
 #invite{font-size:12px;padding:6px 10px;color:var(--muted)}
@@ -1050,6 +1055,8 @@ button.mate:active .avatar{transform:scale(.92)}
 @media (min-width:1000px){
   .device.wide .wrap:has(.planwide.two){max-width:none;padding-inline:24px}
   .device.wide .wrap:has(.planwide.two) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  /* 行程分頁內容滿版，標題列和分頁也跟著滿版，左邊緣才對得齊 */
+  .device.wide:has(.planwide.two) .appbar,.device.wide:has(.planwide.two) .toptabs{padding-inline:24px}
   .device.wide .planwide.two{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
   .device.wide .two > *{min-height:0}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}

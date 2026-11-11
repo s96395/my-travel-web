@@ -1,6 +1,6 @@
 // 待辦分頁：新增、勾選、刪除，上方顯示完成進度；下方可套用旅程類型的範本（規格書 F40、F41）
 // 另一個分段是行李清單，每個人各自一份
-import { esc } from '../ui/dom.js';
+import { esc, ICON } from '../ui/dom.js';
 import { parseDate } from '../lib/dates.js';
 import { sortTodos, progress, missingTemplate, PACK_GROUPS, PACK_KINDS, packKindOf, missingPack } from '../lib/todos.js';
 import { isMember } from '../lib/people.js';
@@ -72,7 +72,7 @@ function renderPack(S, trip) {
   <form class="quickadd" data-form="pack">
     <select id="packGroup" aria-label="放在哪一區" style="border:0;background:none;font-size:14px" ${off}>${groups.map(g => `<option value="${g[0]}">${g[1]}</option>`).join('')}</select>
     <input class="grow" id="packNew" maxlength="100" placeholder="還要帶什麼？例如：雨傘" aria-label="新增行李" ${off}>
-    <button type="submit" ${off} aria-label="新增">＋</button>
+    <button type="submit" ${off} aria-label="新增">${ICON.plus}</button>
   </form>
   ${groups.map(([g, label]) => {
     // 已勾的排到這一區最下面；每一區可以收起來，全部勾完的預設收起
@@ -99,7 +99,7 @@ function renderTodoList(S, trip) {
   </div>
   <form class="quickadd" data-form="todo">
     <input class="grow" id="todoNew" maxlength="100" placeholder="還要準備什麼？例如：買轉接插頭" aria-label="新增待辦" ${off}>
-    <button type="submit" ${off} aria-label="新增">＋</button>
+    <button type="submit" ${off} aria-label="新增">${ICON.plus}</button>
   </form>
   <div class="divide">${todo.map(t => todoRow(S, trip, t, off)).join('') || (done.length ? '' : '<div class="empty">還沒有待辦，可以自己新增，或套用下方範本</div>')}</div>
   ${done.length ? `<div class="label donehead">已完成 ${done.length}</div><div class="divide">${done.map(t => todoRow(S, trip, t, off)).join('')}</div>` : ''}

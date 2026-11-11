@@ -16,7 +16,7 @@ const EYE = {
 // 訂位代碼、確認碼、PIN 碼預設遮蔽，點一下才顯示
 const secret = (S, k, v) => (!v ? '<span class="data">—</span>'
   : `<button type="button" class="secret" data-act="reveal" data-k="${esc(k)}" aria-label="${S.reveal[k] ? '再次遮蔽' : '點一下顯示'}">${S.reveal[k] ? `<span class="data">${esc(v)}</span>${EYE.off}` : `<span class="data">••••••</span>${EYE.on}`}</button>`);
-const editBtn = (S, act, id, label) => `<button type="button" class="more" data-act="${act}" data-id="${esc(id)}" ${S.offline ? 'disabled' : ''} aria-label="${label}">✏️</button>`;
+const editBtn = (S, act, id, label) => `<button type="button" class="more" data-act="${act}" data-id="${esc(id)}" ${S.offline ? 'disabled' : ''} aria-label="${label}">${ICON.edit}</button>`;
 const addBtn = (S, act, label) => `<button type="button" class="btn sm" data-act="${act}" ${S.offline ? 'disabled' : ''}>${ICON.plus}${label}</button>`;
 const hm = s => (s ? esc(s.slice(11)) : '—');
 const legacyTag = r => (r.legacy ? '<span class="tag">舊版資料</span>' : '');

@@ -36,8 +36,8 @@ export function renderMore(S, trip) {
     ${owner && !ownerHasP ? `<button type="button" class="btn sm" data-act="createOwnerP" ${off} style="margin-top:8px">建立我的同行者</button>` : ''}
   </section>
   ${owner ? `<section class="card menulist">
-    <button type="button" data-act="editTrip" ${off}><span>✏️</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
-    <button type="button" class="danger" data-act="delTrip" ${off}><span>🗑️</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>
+    <button type="button" data-act="editTrip" ${off}><span>${ICON.edit}</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
+    <button type="button" class="danger" data-act="delTrip" ${off}><span>${ICON.trash}</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>
   </section>` : ''}
   </div>
   <section class="card">
@@ -48,7 +48,7 @@ export function renderMore(S, trip) {
         ${!owner && u === uid ? `<button type="button" class="btn sm danger" data-act="leaveTrip" ${off}>退出</button>` : ''}
       </div>`).join('')}</div>
     ${owner ? `<div class="field" style="margin-top:10px">
-      <button type="button" class="btn primary" data-act="copyInvite">🔗 複製邀請連結</button>
+      <button type="button" class="btn primary" data-act="copyInvite">${ICON.link}複製邀請連結</button>
       <input class="input data small" id="invite" readonly value="${esc(inviteUrl(trip))}" aria-label="邀請連結"></div>` : ''}
   </section>
   </div>`;
@@ -59,16 +59,16 @@ export function quickSheet(S) {
   openSheet(`${head('快速選單')}
     <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
     <div class="menulist">
-      <button type="button" data-act="exportIcs"><span>📅</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
+      <button type="button" data-act="exportIcs"><span>${ICON.cal}</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
       <details>
-        <summary><span>💡</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
+        <summary><span>${ICON.bulb}</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
         <div class="tips">
           <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
           <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
           <p><b>離線查看</b>：按旅程標題右邊的下載鈕（離線行程），把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>
-          <p><b>換封面</b>：在行程分頁按封面左下角的「更換封面」，選好照片可以拖曳調整位置。</p>
+          <p><b>換封面</b>：${S.wide ? '' : '在「更多」分頁，'}按封面右下角的相機鈕，選好照片可以拖曳調整位置。</p>
           ${S.standalone ? '' : `<p><b>加到手機主畫面</b>：像 App 一樣從主畫面打開。</p>
-          <button type="button" class="btn sm" data-act="install" style="justify-self:start">📲 怎麼加到主畫面</button>`}
+          <button type="button" class="btn sm" data-act="install" style="justify-self:start">${ICON.phone}怎麼加到主畫面</button>`}
         </div>
       </details>
     </div>`);

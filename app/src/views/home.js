@@ -39,8 +39,8 @@ function statCard(S, k, ico, big, label, sub, detail) {
   const open = S.stats[k] ?? false; // 預設收合，按標題展開
   return `<div class="stat" data-open="${open}">
     <button type="button" class="stat-h" data-act="stat" data-k="${k}" aria-expanded="${open}">
-      <span class="label">${label} <span class="chev">${ICON.chev}</span></span>
-      <span class="big">${ico ? `<span class="ico" aria-hidden="true">${ico}</span>` : ''}<b class="num">${big}</b></span>
+      <span class="label">${label}</span>
+      <span class="big">${ico ? `<span class="ico" aria-hidden="true">${ico}</span>` : ''}<b class="num">${big}</b><span class="chev">${ICON.chev}</span></span>
       ${sub ? `<span class="small muted">${sub}</span>` : ''}
     </button>
     ${open ? `<div class="stat-d">${detail}</div>` : ''}
