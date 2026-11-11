@@ -11,10 +11,10 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea } from './lib/itinerary.js';
+import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
@@ -383,10 +383,13 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
   const xy = Number.isFinite(p.lat) && Number.isFinite(p.lng) ? { lat: p.lat, lng: p.lng, exact: !!p.exact } : {};
   const tid = S.tripId;
   try {
+    // 沒指定位置（不是拖曳、也不是區域卡片的加入）：放在那天最順路的位置
+    const spot = beforeId === undefined ? bestSpot(itemsOfDay(S.items, day), { ...p, ...xy }) : null;
     const ref = await addItem(tid, { title: p.title, type: 'attraction', priority: '', reservationTime: '', area: p.area || '', address: p.url, note: p.note || '', ...xy, ...extra, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
-    if (beforeId) await moveItem(ref.id, { day, beforeId }, true);
-    undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
+    const to = spot ? spot.beforeId : beforeId;
+    if (to) await moveItem(ref.id, { day, beforeId: to }, true);
+    undoable(tid, spot ? spotMsg(day, spot) : `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
@@ -411,13 +414,17 @@ async function placeAct(kind, p, day) {
     const tid = S.tripId;
     try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已放進想去清單「${area}」` : '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
-  if (!day) return false;
+  // 還沒選天數：先問要加在哪一天
+  if (!day) { const t = curTrip(); if (t) { S.pick = { kind: 'place', p }; daySheet(S, t, { ...p, area: nearArea(p, S.wishDocs) }, 'place'); } return false; }
   if (p.url && S.items.some(it => it.day === day && it.address === p.url)) { toast(`「${p.title}」已經在第 ${day} 天了`); return false; }
   S.busy = true;
   const tid = S.tripId;
   try {
+    const spot = bestSpot(itemsOfDay(S.items, day), p);
     const ref = await addItem(tid, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
-    undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
+    S.busy = false;
+    if (spot.beforeId) await moveItem(ref.id, { day, beforeId: spot.beforeId }, true);
+    undoable(tid, spotMsg(day, spot), t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
 }
@@ -429,7 +436,13 @@ function tripNear() {
 }
 
 // 想去清單、地圖彈出框：旁邊的下拉選單選了第幾天
-const pickDay = el => +(el.closest('.addto')?.querySelector('.daysel')?.value || el.dataset.d || 0);
+// 加入後的提示：排在哪兩站中間
+function spotMsg(day, spot) {
+  const prev = findItem(spot.prevId)?.title, next = spot.beforeId ? findItem(spot.beforeId)?.title : '';
+  if (prev && next) return `已加到第 ${day} 天，排在「${prev}」和「${next}」中間`;
+  if (prev) return `已加到第 ${day} 天，排在「${prev}」後面`;
+  return `已加到第 ${day} 天`;
+}
 
 // 整個區域排進某一天：當天只多一張區域卡片，地點留在想去清單，到當地再展開挑；要去的按「加入」才排進時間軸
 async function areaToDay(area, day) {
@@ -438,8 +451,11 @@ async function areaToDay(area, day) {
   S.busy = true;
   const tid = S.tripId;
   try {
+    const spot = bestSpot(itemsOfDay(S.items, day), centerOf(S.wishDocs.filter(p => p.area === area)));
     const ref = await addItem(tid, { kind: 'area', title: area, type: 'other', priority: '', reservationTime: '', area, address: '', note: '', day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.areaOpen = { ...S.areaOpen, [ref.id]: true };
+    S.busy = false;
+    if (spot.beforeId) await moveItem(ref.id, { day, beforeId: spot.beforeId }, true);
     undoable(tid, `「${area}」已加到第 ${day} 天，展開卡片可以挑要去的點`, t => deleteItem(t, ref.id));
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); }
   S.busy = false;
@@ -925,7 +941,26 @@ const actions = {
     } catch (err) { console.error(err); toast('沒有改完，請稍後再試'); }
     S.busy = false; el.disabled = false;
   },
-  areaAdd(el) { el.disabled = true; areaToDay(el.dataset.area, pickDay(el)); },
+  areaAdd(el) {
+    const t = curTrip(), area = el.dataset.area;
+    if (!t || !area || S.offline) return;
+    S.pick = { kind: 'area', area };
+    daySheet(S, t, { kind: 'area', area, title: `「${area}」`, ...centerOf(S.wishDocs.filter(p => p.area === area)) }, 'area');
+  },
+  // 「要加在哪一天」選好了：照剛才按的是想去清單、區域還是地圖上的點來加
+  async dayPick(el) {
+    const k = S.pick, day = +el.dataset.d;
+    if (!k || !day) return;
+    S.pick = null; closeSheet();
+    if (k.kind === 'wish') await wishToDay(k.id, day);
+    else if (k.kind === 'area') await areaToDay(k.area, day);
+    else if (k.kind === 'place' && await placeAct('placeAdd', k.p, day)) import('./ui/map.js').then(m => m.clearPlace()).catch(console.error);
+  },
+  async pickWish() {
+    const k = S.pick;
+    S.pick = null; closeSheet();
+    if (k?.kind === 'place' && await placeAct('placeWish', k.p)) import('./ui/map.js').then(m => m.clearPlace()).catch(console.error);
+  },
   // 我在附近：用手機定位，區域卡片裡的地點照離我多遠排；再按一次關閉
   nearMe(el) {
     if (S.here && !el.dataset.again) { S.here = null; render(); return; }
@@ -1035,7 +1070,12 @@ const actions = {
       toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },
-  wishAdd(el) { el.disabled = true; wishToDay(el.dataset.id, pickDay(el)).then(ok => { if (!ok) el.disabled = false; }); },
+  wishAdd(el) {
+    const t = curTrip(), p = S.wishDocs.find(x => x.id === el.dataset.id);
+    if (!t || !p || S.offline) return;
+    S.pick = { kind: 'wish', id: p.id };
+    daySheet(S, t, p, 'wish');
+  },
   async wishDel(el) {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.classList.add('sure'); el.textContent = '確定移除'; return; }
     if (S.busy) return;

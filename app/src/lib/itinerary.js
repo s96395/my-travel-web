@@ -1,5 +1,5 @@
 // 每日行程：沿用舊版 itinerary 子集合欄位（day、order、title、area、type、priority、reservationTime、note），新版加 stay（停留幾分鐘）
-import { coordsFromUrl } from './places.js';
+import { coordsFromUrl, distanceKm } from './places.js';
 export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'transport', 'stay', 'other'];
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
@@ -177,4 +177,52 @@ const AREA_COLORS = ['#1c7ed6', '#2f9e44', '#7048e8', '#0c8599', '#d6336c', '#8d
 export function areaColors(list) {
   const names = [...new Set(list.map(p => (p.area || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
   return new Map(names.map((a, i) => [a, AREA_COLORS[i % AREA_COLORS.length]]));
+}
+
+// ---------- 先分天，再自動排 ----------
+const hasXY = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
+
+// 地點 p 放進這一天時，插在讓走路距離增加最少的位置
+// 回傳 { beforeId（放在哪一項前面，'' 是最後）, prevId（排在哪一項後面，'' 是最前面） }
+// 只看有座標的站（區域卡片、沒位置的不算）；不會插到第一個有座標的站前面，免得排到出發的地方之前
+export function bestSpot(list, p) {
+  const tail = { beforeId: '', prevId: list.length ? list[list.length - 1].id : '' };
+  if (!hasXY(p)) return tail;
+  const pts = list.map((it, i) => ({ it, i })).filter(x => hasXY(x.it) && x.it.kind !== 'area');
+  if (!pts.length) return tail;
+  const d = (a, b) => distanceKm(a, b);
+  const last = pts[pts.length - 1];
+  let best = { cost: d(last.it, p), at: last.i };
+  for (let k = 0; k < pts.length - 1; k++) {
+    const a = pts[k].it, b = pts[k + 1].it;
+    const cost = d(a, p) + d(p, b) - d(a, b);
+    if (cost < best.cost - 1e-9) best = { cost, at: pts[k].i };
+  }
+  return { beforeId: list[best.at + 1]?.id || '', prevId: list[best.at].id };
+}
+
+// 「要加在哪一天」：每天離這個點最近的站有多遠、有沒有同區域的點、這天是不是已經有它
+// 回傳照推薦順序排好的清單；best 是最順路的那天（都沒有位置可比時，選有同區域的那天）
+export function rankDays(items, days, p) {
+  const rows = days.map(day => {
+    const its = itemsOfDay(items, day);
+    const xs = its.filter(it => hasXY(it) && it.kind !== 'area');
+    const km = hasXY(p) && xs.length ? Math.min(...xs.map(it => distanceKm(it, p))) : null;
+    const same = !!p.area && its.some(it => it.area === p.area);
+    const has = p.kind === 'area' ? its.some(it => it.kind === 'area' && it.area === p.area)
+      : its.some(it => it.kind !== 'area' && ((p.url && it.address === p.url) || (p.title && sameName(it.title, p.title))));
+    return { day, n: its.length, km, same, has, best: false };
+  });
+  const open = rows.filter(r => !r.has);
+  const near = open.filter(r => r.km !== null).sort((a, b) => a.km - b.km)[0] || open.find(r => r.same);
+  if (near) near.best = true;
+  const rank = r => (r.best ? 0 : r.has ? 4 : r.same ? 1 : r.km !== null ? 2 : 3);
+  return rows.sort((a, b) => rank(a) - rank(b) || (a.km ?? Infinity) - (b.km ?? Infinity) || a.day - b.day);
+}
+
+// 一群地點的中心（整區排進某天時拿來比距離）
+export function centerOf(list) {
+  const xs = list.filter(hasXY);
+  if (!xs.length) return {};
+  return { lat: xs.reduce((s, p) => s + p.lat, 0) / xs.length, lng: xs.reduce((s, p) => s + p.lng, 0) / xs.length };
 }

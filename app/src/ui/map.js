@@ -29,7 +29,7 @@ function popup(p, onAct) {
   el.className = 'mpop';
   // 一行放「第幾天＋加入」，其他動作放下面一行小字連結
   el.innerHTML = `${p.sub ? `<span class="mpopsub">${esc(p.sub)}</span>` : ''}
-    ${p.kind === 'wish' && p.opts ? `<div class="mpoprow addto"><select class="daysel" aria-label="加到第幾天">${p.opts}</select><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入</button></div>` : ''}
+    ${p.kind === 'wish' && p.opts ? `<div class="mpoprow"><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入行程</button></div>` : ''}
     ${p.url ? `<div class="mpoplinks"><a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a></div>` : ''}`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
@@ -40,14 +40,15 @@ function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
   el.innerHTML = `${p.addr ? `<span class="mpopsub">${esc(p.addr)}</span>` : ''}
-    ${dayOptsHtml ? `<div class="mpoprow"><select class="daysel" aria-label="加到第幾天">${dayOptsHtml}</select><button type="button" class="btn sm primary" data-pact="placeAdd">加入</button></div>` : ''}
+    ${dayOptsHtml ? '<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placeAdd">加入行程</button></div>' : ''}
     <div class="mpoplinks"><button type="button" data-pact="placeWish">放想去清單</button>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">Google 地圖</a>` : ''}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
   el.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', ev => {
     ev.stopPropagation();
     if (b.disabled) return;
     b.disabled = true;
-    Promise.resolve(act?.(b.dataset.pact, p, +(el.querySelector('.daysel')?.value || 0))).then(ok => { if (ok) clearPlace(); else b.disabled = false; });
+    // 「加入行程」會先跳出要加在哪一天，選好後再收掉這根針
+    Promise.resolve(act?.(b.dataset.pact, p, 0)).then(ok => { if (ok) clearPlace(); else b.disabled = false; });
   }));
   return el;
 }

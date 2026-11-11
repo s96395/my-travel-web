@@ -141,3 +141,34 @@ test('區域卡片：kind 只認 area，必去接在同區域那段後面', () =
   assert.equal(afterArea(its, 'c'), 's');
   assert.equal(afterArea(its.filter(x => x.id !== 's'), 'c'), '');
 });
+
+import { bestSpot, rankDays, centerOf } from '../src/lib/itinerary.js';
+const at = (id, day, order, lat, lng, extra = {}) => normalizeItem({ id, day, order, title: id, lat, lng, ...extra });
+
+test('自動插在走路距離增加最少的兩站中間', () => {
+  const list = [at('a', 1, 1, 35.00, 135.70), at('b', 1, 2, 35.00, 135.80), at('c', 1, 3, 35.00, 135.90)];
+  assert.deepEqual(bestSpot(list, { lat: 35.0, lng: 135.75 }), { beforeId: 'b', prevId: 'a' });
+  assert.deepEqual(bestSpot(list, { lat: 35.0, lng: 135.95 }), { beforeId: '', prevId: 'c' });
+  // 不會排到第一站前面
+  assert.deepEqual(bestSpot(list, { lat: 35.0, lng: 135.60 }), { beforeId: 'b', prevId: 'a' });
+});
+
+test('沒座標的站和區域卡片不影響位置，沒位置的點放最後', () => {
+  const list = [at('a', 1, 1, 35.00, 135.70), normalizeItem({ id: 'x', day: 1, order: 2, title: 'x' }), at('b', 1, 3, 35.00, 135.80), normalizeItem({ id: 'z', day: 1, order: 4, title: '飯店' })];
+  assert.deepEqual(bestSpot(list, { lat: 35.0, lng: 135.75 }), { beforeId: 'x', prevId: 'a' });
+  assert.deepEqual(bestSpot(list, { lat: 35.0, lng: 135.85 }), { beforeId: 'z', prevId: 'b' });
+  assert.deepEqual(bestSpot(list, { title: '自己打的' }), { beforeId: '', prevId: 'z' });
+  assert.deepEqual(bestSpot([], { lat: 1, lng: 1 }), { beforeId: '', prevId: '' });
+});
+
+test('要加在哪一天：最近的那天標最順路，同區域其次，已經有的放最後', () => {
+  const items = [at('a', 1, 1, 35.0, 135.70, { area: '四條' }), at('b', 2, 1, 35.0, 135.78, { area: '祇園' }), at('c', 3, 1, 35.0, 135.60, { area: '祇園' }), at('d', 4, 1, 35.0, 135.775, { address: 'u1' })];
+  const r = rankDays(items, [1, 2, 3, 4, 5], { lat: 35.0, lng: 135.775, area: '祇園', url: 'u1', title: '花見小路' });
+  assert.deepEqual(r.map(x => x.day), [2, 3, 1, 5, 4]);
+  assert.equal(r[0].best, true);
+  assert.equal(r.find(x => x.day === 4).has, true);
+  // 沒有位置可比時，推薦有同區域的那天
+  const r2 = rankDays(items, [1, 2, 3], { area: '祇園', title: '新地點' });
+  assert.equal(r2.find(x => x.best).day, 2);
+  assert.deepEqual(centerOf([{ lat: 1, lng: 2 }, { lat: 3, lng: 4 }, {}]), { lat: 2, lng: 3 });
+});
