@@ -92,7 +92,8 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 14px;font-size:13px;white-space:nowrap;flex:none}
-.chip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg);font-weight:700}
+/* 已選的篩選與選項：一律淺藍底＋深藍字＋細框（深藍實心只留給主要按鈕） */
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
 .empty{text-align:center;color:var(--muted);padding:28px 12px;font-size:15px;border:1px dashed var(--line);border-radius:var(--r)}
 .banner{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;font-size:13px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));color:var(--fg);border-bottom:1px solid color-mix(in srgb,var(--warn) 30%,var(--line))}
 .banner b{color:var(--warn)}
@@ -208,8 +209,6 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 :root:is([data-style="e"],[data-style="i"]) .avatar[data-c="2"]{background:color-mix(in srgb,var(--good) 16%,var(--surface));color:var(--good)}
 :root:is([data-style="e"],[data-style="i"]) .avatar.unbound{background:var(--surface2);color:var(--muted)}
 :root:is([data-style="e"],[data-style="i"]) .tag.accent{background:color-mix(in srgb,var(--warm) 16%,var(--surface));color:var(--warm);font-weight:700}
-:root:is([data-style="e"],[data-style="i"]) .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
-:root:is([data-style="e"],[data-style="i"]) .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 :root:is([data-style="e"],[data-style="i"]) .sec-h h2{display:flex;align-items:center;gap:8px}
 :root:is([data-style="e"],[data-style="i"]) .sec-h h2::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warm);flex:none}
 :root:is([data-style="e"],[data-style="i"]) .exp .cat{background:color-mix(in srgb,var(--warm) 16%,var(--surface));color:var(--warm)}
@@ -233,8 +232,8 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .jpick{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1.5px solid var(--line);border-radius:var(--r-sm);padding:12px}
 .jpick .grow{flex:1;min-width:0;display:grid}
 .jpick .radio{width:20px;height:20px;border-radius:50%;border:2px solid var(--line);flex:none}
-.jpick[aria-pressed="true"]{border-color:var(--warm);background:color-mix(in srgb,var(--warm) 8%,var(--surface))}
-.jpick[aria-pressed="true"] .radio{border:6px solid var(--warm)}
+.jpick[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.jpick[aria-pressed="true"] .radio{border:6px solid var(--accent)}
 .jpick[disabled]{opacity:.5;cursor:not-allowed}
 
 /* 舊版標語 */
@@ -698,15 +697,15 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .pick>.avatar.sym{color:var(--muted)}
 .pick:active>i,.pick:active>.avatar{transform:scale(.92)}
 .pick:has(input:checked){color:var(--fg);font-weight:700}
-.pick:has(input:checked)>i{background:color-mix(in srgb,var(--warm) 20%,var(--surface));box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--warm)}
-.picks.who .pick:has(input:checked)>.avatar{background:var(--warm);border:2px solid var(--warm);color:#fff}
-.picks.share .pick:has(input:checked)>.avatar{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+/* 圖示選中：深藍外圈；頭像選中：深藍實心（付款人和分攤對象同一種） */
+.pick:has(input:checked)>i{background:var(--accent-soft);box-shadow:0 0 0 2px var(--surface),0 0 0 4px var(--accent)}
+.picks.who .pick:has(input:checked)>.avatar,.picks.share .pick:has(input:checked)>.avatar{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .picks.share .pick b{font-weight:600;color:var(--muted)}
 .picks.share .pick:has(input:checked) b{color:var(--fg)}
 .pick:has(input:focus-visible)>i,.pick:has(input:focus-visible)>.avatar,.chips label.chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .pick:has(input:disabled){cursor:default}
 .chips label.chip{position:relative;cursor:pointer}
-.chips label.chip:has(input:checked){background:var(--fg);border-color:var(--fg);color:var(--bg);font-weight:700}
+.chips label.chip:has(input:checked){background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
 .sheet .field>.label{letter-spacing:0;font-size:13px}
 
 /* ---------- 行程時間軸：手機一次看一天，每項用類型顏色的圓形圖示 ---------- */
@@ -811,7 +810,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .sr .ic{color:var(--muted)}
 .exprow .cat .ic,.item .ico .ic{width:20px;height:20px;margin:0;color:color-mix(in srgb,var(--k) 78%,var(--fg))}
 .pick>i .ic{width:22px;height:22px;margin:0}
-.pick:has(input:checked)>i{color:var(--warm)}
+.pick:has(input:checked)>i{color:var(--accent)}
 .install>.ic{width:20px;height:20px;margin:0;color:var(--accent)}
 .eyebrow{margin:0 0 -6px;display:flex;align-items:center;gap:10px;font-family:var(--font-label);font-size:12px;font-weight:500;letter-spacing:.24em;color:var(--warm)}
 .eyebrow::before{content:"";width:28px;border-top:1px solid currentColor;flex:none}
@@ -1075,10 +1074,10 @@ button.mate:active .avatar{transform:scale(.92)}
 .mbar{display:flex;align-items:center;gap:8px;min-width:0}
 .mchips{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 .mchip{flex:none;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
-.mchip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.mchip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700}
 .mwishbtn{flex:none;margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
 .mwishbtn .num{color:var(--muted);font-weight:600}
-.mwishbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.mwishbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
 /* 手機：地圖固定在上方，約半個畫面，下面的行程往上捲 */
 .mtop{position:sticky;top:calc(58px + env(safe-area-inset-top,0px));z-index:4;background:var(--bg);display:grid;gap:8px;margin-inline:-16px;padding:4px 16px 8px}
 .mtop .mapslot{height:34vh;min-height:200px;border-radius:14px}
