@@ -61,7 +61,7 @@ function renderPack(S, trip) {
   return `
   <div class="todohead">
     ${ring(p)}
-    <div><b>我的行李</b><div class="small muted">${!p.total ? '還沒有行李清單，每個人各自一份' : p.done < p.total ? `還剩 ${p.total - p.done} 件沒放` : '都收好了'}</div></div>
+    <div><b>${!p.total ? '還沒有行李清單' : p.done < p.total ? `還剩 ${p.total - p.done} 件沒放` : '都收好了'}</b><div class="small muted">每個人各自一份</div></div>
   </div>
   ${rulesBox()}
   ${!mine.length ? `<div class="tplbox">
@@ -95,7 +95,7 @@ function renderTodoList(S, trip) {
   return `
   <div class="todohead">
     ${ring(p)}
-    <div><b>出發前準備</b><div class="small muted">${!p.total ? '還沒有待辦' : todo.length ? `還剩 ${todo.length} 件` : '都準備好了'}${d > 0 ? `，${d} 天後出發` : ''}</div></div>
+    <div><b>${!p.total ? '還沒有待辦' : todo.length ? `還剩 ${todo.length} 件` : '都準備好了'}</b>${d > 0 ? `<div class="small muted">${d} 天後出發</div>` : ''}</div>
   </div>
   <form class="quickadd" data-form="todo">
     <input class="grow" id="todoNew" maxlength="100" placeholder="還要準備什麼？例如：買轉接插頭" aria-label="新增待辦" ${off}>

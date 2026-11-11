@@ -213,8 +213,8 @@ a.btn:not(.primary){color:var(--fg)}
 :root:is([data-style="e"],[data-style="i"]) .tag.accent{background:color-mix(in srgb,var(--warm) 16%,var(--surface));color:var(--warm);font-weight:700}
 :root:is([data-style="e"],[data-style="i"]) .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
 :root:is([data-style="e"],[data-style="i"]) .chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
-:root:is([data-style="e"],[data-style="i"]) .sec-h h2{display:flex;align-items:center;gap:8px}
-:root:is([data-style="e"],[data-style="i"]) .sec-h h2::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warm);flex:none}
+:root:is([data-style="e"],[data-style="i"]) :is(.sec-h h2,.wishhead h3,.wishcolhead>b){display:flex;align-items:center;gap:8px}
+:root:is([data-style="e"],[data-style="i"]) :is(.sec-h h2,.wishhead h3,.wishcolhead>b)::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--warm);flex:none}
 :root:is([data-style="e"],[data-style="i"]) .exp .cat{background:color-mix(in srgb,var(--warm) 16%,var(--surface));color:var(--warm)}
 :root:is([data-style="e"],[data-style="i"]) .pertable .r b,:root:is([data-style="e"],[data-style="i"]) .exp .amt{color:var(--accent)}
 :root:is([data-style="e"],[data-style="i"]) .summary .card:first-child{background:var(--accent);color:var(--accent-fg)}
@@ -824,8 +824,8 @@ button.mate:active .avatar{transform:scale(.92)}
 
 /* 想去清單：電腦版在右半邊分頁，手機版在日期下面切換；列也是 .item，才能長按拖到行程裡 */
 .wishview{display:grid;gap:10px}
-.wishhead{display:flex;align-items:baseline;gap:10px}
-.wishhead h3{margin:0;font-size:15px}
+.wishhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wishhead h3{margin:0;font-size:17px}
 .wishhead .linkbtn,.maptop .linkbtn[data-act="importSheet"]{margin-left:auto;font-weight:700;color:var(--accent)}
 .wishpane{display:grid;gap:8px;align-content:start}
 .wishes{display:grid;gap:6px}
