@@ -1046,39 +1046,40 @@ button.mate:active .avatar{transform:scale(.92)}
 .dayopt:disabled{opacity:.55;cursor:default}
 .dayopt:not(:disabled):hover{border-color:var(--accent)}
 
-/* 電腦版行程三欄（參考去趣）：左當天行程、中地圖、右想去清單，三欄一個畫面高、各自捲動 */
+/* 電腦版行程兩欄：左邊當天行程 1/3、右邊地圖 2/3，一個畫面高、各自捲動 */
 @media (min-width:1000px){
-  .device.wide .wrap:has(.planwide.three){max-width:none;padding-inline:24px}
-  .device.wide .wrap:has(.planwide.three) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
-  .device.wide .planwide.three{grid-template-columns:minmax(260px,1fr) minmax(360px,1.8fr) minmax(240px,.9fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
-  .device.wide .three > *{min-height:0}
-  /* 收起的欄只留 44px 窄邊；地圖永遠是最寬的一欄 */
-  .device.wide .planwide.three.nol{grid-template-columns:44px minmax(360px,1.8fr) minmax(240px,.9fr)}
-  .device.wide .planwide.three.nor{grid-template-columns:minmax(260px,1fr) minmax(360px,1.8fr) 44px}
-  .device.wide .planwide.three.nol.nor{grid-template-columns:44px minmax(0,1fr) 44px}
-  .device.wide .colstrip{border:0;border-radius:14px;background:var(--surface);box-shadow:var(--sh-card);color:var(--muted);cursor:pointer;padding:14px 0;display:flex;flex-direction:column;align-items:center;gap:8px}
-  .device.wide .colstrip:hover{color:var(--fg)}
-  .device.wide .colstrip span{writing-mode:vertical-rl;letter-spacing:.2em;font-size:14px;font-weight:700}
-  .device.wide .colbar{display:flex;justify-content:space-between;gap:8px;font-size:13px}
-  /* 區域說明只占一行，太多時左右滑動，不再把地圖往下擠 */
-  .device.wide .mapcol .mlegend{flex-wrap:nowrap;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;padding-bottom:2px}
-  .device.wide .mapcol .mlegend > *{flex:none}
-  .device.wide .wishcol{display:flex;flex-direction:column;gap:8px;min-height:0}
-  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
-  .device.wide .wishcolhead b{font-size:17px}
-  .device.wide .wishcol .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:6px;scrollbar-width:thin}
-  .device.wide .wishcol .wishpane:has(.lifted){overflow:visible}
-  .device.wide .wishcol .wishtop{flex-wrap:wrap}
-  .device.wide .wishcol .wrow .addto{flex:none}
+  .device.wide .wrap:has(.planwide.two){max-width:none;padding-inline:24px}
+  .device.wide .wrap:has(.planwide.two) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  .device.wide .planwide.two{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  .device.wide .two > *{min-height:0}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
   .device.wide .mapcol .mapwrap{flex:1;min-height:0}
   .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
+  /* 想去清單蓋在地圖右邊，地圖不用縮 */
+  .device.wide .wishover{position:absolute;top:10px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
+  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-right:8px}
+  .device.wide .wishcolhead b{font-size:17px}
+  .device.wide .wishover .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:8px;scrollbar-width:thin}
+  .device.wide .wishover .wishpane:has(.lifted){overflow:visible}
+  .device.wide .wishover .wishtop{flex-wrap:wrap}
   /* 固定高度又要捲動，用 flex 並且子項不縮，日期列才不會被下面的天數標題蓋住 */
-  .device.wide .three > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
-  .device.wide .three > .day > *{flex-shrink:0}
-  .device.wide .three > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
-  .device.wide .three > .day .dpill{flex:0 0 auto;min-width:76px;padding:6px 10px;box-shadow:none;border:1px solid var(--line);gap:1px}
-  .device.wide .three > .day .dpill b{font-size:15px;white-space:nowrap}
-  .device.wide .three > .day .dpill span{font-size:12px;white-space:nowrap}
-  .device.wide .three > .day .dpill[aria-current="true"]{border-color:var(--warm)}
+  .device.wide .two > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
+  .device.wide .two > .day > *{flex-shrink:0}
+  .device.wide .two > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
+  .device.wide .two > .day .dpill{flex:0 0 auto;min-width:76px;padding:6px 10px;box-shadow:none;border:1px solid var(--line);gap:1px}
+  .device.wide .two > .day .dpill b{font-size:15px;white-space:nowrap}
+  .device.wide .two > .day .dpill span{font-size:12px;white-space:nowrap}
+  .device.wide .two > .day .dpill[aria-current="true"]{border-color:var(--warm)}
+}
+/* 地圖上方：區域篩選標籤（一行，太多時左右滑）＋想去清單按鈕 */
+.mbar{display:flex;align-items:center;gap:8px;min-width:0}
+.mchips{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.mchip{flex:none;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
+.mchip[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.mwishbtn{flex:none;margin-left:auto;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.mwishbtn .num{color:var(--muted);font-weight:600}
+.mwishbtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+/* 點地圖號碼針時，左邊那一站閃一下 */
+@keyframes flash{from{box-shadow:0 0 0 3px var(--warm)}to{box-shadow:0 0 0 3px transparent}}
+.item.flash{animation:flash 1.6s ease-out}
 }

@@ -6,6 +6,7 @@ import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
+let wishPts = [], wishMarks = [], clusterZoom = -1, onActRef;
 let nearCat = '', nearAt = null, nearBtn, nearBar, nearSeq = 0;
 const nearMarks = [];
 
@@ -31,8 +32,8 @@ function popup(p, onAct) {
   el.className = 'mpop';
   // 一行放「第幾天＋加入」，其他動作放下面一行小字連結
   el.innerHTML = `${p.sub ? `<span class="mpopsub">${esc(p.sub)}</span>` : ''}
-    ${p.kind === 'wish' && p.opts ? `<div class="mpoprow"><button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入行程</button></div>` : ''}
-    ${p.url ? `<div class="mpoplinks"><a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a></div>` : ''}`;
+    ${p.kind === 'wish' ? `<div class="mpoprow">${p.d ? `<button type="button" class="btn sm primary" data-act="wishDay" data-id="${esc(p.id.slice(2))}" data-d="${p.d}">加入第 ${p.d} 天</button>` : `<button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入行程</button>`}</div>` : ''}
+    <div class="mpoplinks">${p.kind === 'wish' && p.d ? `<button type="button" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加到別天</button>` : ''}${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
 }
@@ -220,6 +221,55 @@ export async function attachSuggest(input, near, onPick, onSelf) {
   list.addEventListener('click', ev => { ev.stopPropagation(); const b = ev.target.closest('button'); if (b) pick(+b.dataset.i); });
 }
 
+// 名稱放在彈出框的標題列（和關閉鈕同一行），上方才不會空一大塊
+function openPop(p, m) {
+  const head = document.createElement('b');
+  head.className = 'mpophead';
+  head.textContent = p.title;
+  info.setOptions({ headerContent: head, content: popup(p, onActRef) });
+  info.open({ map, anchor: m });
+}
+// 點地圖上的號碼針，左邊行程捲到那一站並閃一下
+function showInList(id) {
+  const el = document.querySelector(`.planwide [data-iid="${CSS.escape(id)}"]`);
+  if (!el) return;
+  // 只捲左邊行程欄，不捲整頁
+  const box = el.closest('.day');
+  if (box) box.scrollTo({ top: el.offsetTop - box.offsetTop - box.clientHeight / 3, behavior: 'smooth' });
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+// 想去清單的點：淡色空心小點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
+const WISH_GRAY = '#868e96', CELL = 44;
+function drawWish() {
+  const g = window.google?.maps, z = map?.getZoom(), proj = map?.getProjection();
+  if (!g || z === undefined || !proj || z === clusterZoom) return;
+  clusterZoom = z;
+  wishMarks.forEach(m => m.setMap(null)); wishMarks = [];
+  const scale = 2 ** z, cells = new Map();
+  for (const p of wishPts) {
+    const w = proj.fromLatLngToPoint(new g.LatLng(p.lat, p.lng));
+    const k = `${Math.floor(w.x * scale / CELL)}:${Math.floor(w.y * scale / CELL)}`;
+    (cells.get(k) || cells.set(k, []).get(k)).push(p);
+  }
+  for (const list of cells.values()) {
+    if (list.length === 1 || z >= 17) {
+      for (const p of list) {
+        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { path: g.SymbolPath.CIRCLE, scale: 6, fillColor: '#fff', fillOpacity: 0.95, strokeColor: WISH_GRAY, strokeWeight: 2.5 } });
+        m.addListener('click', () => openPop(p, m));
+        markers.set(p.id, m); wishMarks.push(m);
+      }
+      continue;
+    }
+    const b = new g.LatLngBounds();
+    list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+    const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, title: `${list.length} 個想去的地點，點一下放大`,
+      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: '#fff', fillOpacity: 0.95, strokeColor: WISH_GRAY, strokeWeight: 2 },
+      label: { text: String(list.length), color: '#495057', fontSize: '12px', fontWeight: '700' } });
+    m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
+    wishMarks.push(m);
+  }
+}
+
 // data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連想去清單一起框）, focus, opts }
 // onPlace(動作 'placeAdd'|'placeWish', 地點, 第幾天)：搜尋或點地圖上的地點後按加入，成功回傳 true
 export async function syncMap(data, onAct, onPlace) {
@@ -239,6 +289,7 @@ export async function syncMap(data, onAct, onPlace) {
     search = bar.querySelector('input');
     map.controls[g.ControlPosition.TOP_LEFT].push(bar);
     nearControls(g, bar);
+    map.addListener('idle', drawWish);
     attachSuggest(search, () => map.getBounds() || null, showPlace, title => act?.('placeSelf', { title }, 0)).catch(console.error);
     // 點地圖上的店家、景點圖示：不開 Google 原本的小視窗，改開可以加入行程的彈出框
     const { Place } = await g.importLibrary('places');
@@ -262,24 +313,20 @@ export async function syncMap(data, onAct, onPlace) {
     const route = data.points.filter(p => p.kind === 'day').sort((a, b) => a.n - b.n).map(p => ({ lat: p.lat, lng: p.lng }));
     line?.setMap(null);
     line = route.length > 1 ? new g.Polyline({ map, path: route, strokeOpacity: 0, zIndex: 0, icons: [{ icon: { path: 'M 0,-1 0,1', strokeColor: DAY, strokeOpacity: 0.9, strokeWeight: 3, scale: 3 }, offset: '0', repeat: '14px' }] }) : null;
-    for (const p of data.points) {
-      const day = p.kind === 'day';
+    wishPts = data.points.filter(p => p.kind === 'wish'); clusterZoom = -1;
+    for (const p of data.points.filter(q => q.kind === 'day')) {
+      const day = true;
       const m = new g.Marker({
         map, position: { lat: p.lat, lng: p.lng }, title: day ? `${p.n}. ${p.title}` : p.title, zIndex: day ? 1000 - p.n : 1,
         icon: { path: g.SymbolPath.CIRCLE, scale: day ? 13 : 7, fillColor: day ? DAY : p.color || WISH, fillOpacity: day ? 1 : 0.85, strokeColor: '#fff', strokeWeight: day ? 3 : 2 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
-      m.addListener('click', () => {
-        // 名稱放在彈出框的標題列（和關閉鈕同一行），上方才不會空一大塊
-        const head = document.createElement('b');
-        head.className = 'mpophead';
-        head.textContent = p.title;
-        info.setOptions({ headerContent: head, content: popup(p, onAct) });
-        info.open({ map, anchor: m });
-      });
+      m.addListener('click', () => { openPop(p, m); showInList(p.id); });
       markers.set(p.id, m);
     }
   }
+  onActRef = onAct;
+  drawWish();
   // 換天或地點數量變了，把所有針放進畫面
   // 當天有行程針時只框住行程針，想去清單的點在附近才會看到，不會把畫面拉到整座城市
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
@@ -293,6 +340,8 @@ export async function syncMap(data, onAct, onPlace) {
   }
   if (data.focus !== lastFocus) {
     lastFocus = data.focus;
+    const wp = wishPts.find(p => p.id === data.focus);
+    if (wp && !wishMarks.some(m => m === markers.get(wp.id) && m.getMap())) { map.setCenter({ lat: wp.lat, lng: wp.lng }); map.setZoom(Math.max(map.getZoom(), 17)); drawWish(); }
     const m = markers.get(data.focus);
     if (m) { map.panTo(m.getPosition()); if (map.getZoom() < 15) map.setZoom(15); g.event.trigger(m, 'click'); }
   }
