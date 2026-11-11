@@ -62,6 +62,7 @@ const S = {
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
+  wishOpen: false, // 電腦版想去清單蓋在地圖上，平常收著
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
@@ -92,7 +93,7 @@ function render() {
   if (S.view === 'trip' && S.tab === 'more' && !S.localOnly) loadNames();
   syncItineraryWatch();
   // 電腦版三欄的行程欄、想去清單欄各自捲動，重畫後要停在原位（換天才回到最上面）
-  const keep = ['.three > .day', '.wishcol .wishpane'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
+  const keep = ['.two > .day', '.wishover .wishpane'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
   $('#scroller').innerHTML = html + envTag();
   for (const k of keep) { const el = $(k.s); if (el && el.id === k.day) el.scrollTop = k.top; }
   const trip = curTrip();
@@ -884,6 +885,8 @@ const actions = {
   },
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
+  // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
+  wishOpen() { S.wishOpen = !S.wishOpen; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
@@ -1030,7 +1033,11 @@ const actions = {
   areaMove(el) { const t = curTrip(); if (t && !S.offline) areaMoveSheet(S, t, el.dataset.area, +el.dataset.d); },
   moveArea(el) { closeSheet(); moveArea(el.dataset.area, +el.dataset.from, +el.dataset.d); },
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
-  mside(el) { S.mside = el.dataset.v; render(); window.scrollTo(0, 0); },
+  // 手機版地圖下面切換行程或想去清單：捲到地圖剛好貼在上方，下面就是清單
+  mside(el) {
+    S.mside = el.dataset.v; render();
+    const d = $('.dpills'); window.scrollTo(0, d ? d.getBoundingClientRect().bottom + scrollY - 58 : 0);
+  },
   jump(el) {
     const d = +el.dataset.d;
     S.days[d] = true; render();
@@ -1079,6 +1086,8 @@ const actions = {
       toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },
+  // 地圖上想去地點的彈出框：直接加到目前看的那天
+  async wishDay(el) { const d = +el.dataset.d; if (d && !S.offline) await wishToDay(el.dataset.id, d); },
   wishAdd(el) {
     const t = curTrip(), p = S.wishDocs.find(x => x.id === el.dataset.id);
     if (!t || !p || S.offline) return;
