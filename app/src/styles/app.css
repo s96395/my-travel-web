@@ -999,9 +999,9 @@ button.mate:active .avatar{transform:scale(.92)}
 /* 地圖分類（景點、美食…）與「搜尋此區域」 */
 .mcats{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
 .mcats button{flex:none;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.mcats button::before{content:"";width:8px;height:8px;border-radius:50%;border:2px solid var(--c)}
+.mcats button::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c)}
 .mcats button[aria-pressed="true"]{background:var(--c);color:#fff}
-.mcats button[aria-pressed="true"]::before{border-color:#fff}
+.mcats button[aria-pressed="true"]::before{background:#fff}
 .mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}
 .mnear[hidden]{display:none}
 .mnearlab{text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
@@ -1086,4 +1086,27 @@ button.mate:active .avatar{transform:scale(.92)}
 /* 點地圖號碼針時，左邊那一站閃一下 */
 @keyframes flash{from{box-shadow:0 0 0 3px var(--warm)}to{box-shadow:0 0 0 3px transparent}}
 .item.flash{animation:flash 1.6s ease-out}
-}
+
+/* 參考釜山網站：一句提示、文字時段、備案、區域標題 */
+.item .itip{color:var(--fg);font-weight:600}
+.whentxt{display:inline-block;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 8px;margin-right:4px;vertical-align:2px}
+.inote{margin-top:2px;font-size:13px;color:var(--muted)}
+.inote summary{cursor:pointer;width:max-content;list-style:none}
+.inote summary::-webkit-details-marker{display:none}
+.inote summary::before{content:'▸ '}
+.inote[open] summary::before{content:'▾ '}
+.inote p{white-space:pre-wrap}
+.bkbox{display:grid;gap:6px;margin-top:8px}
+.bkrow{display:flex;align-items:center;gap:8px;font-size:13px;border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 8px}
+.bkrow .grow{flex:1;min-width:0;display:grid;gap:2px}
+.bkrow .grow .tag{padding:2px 6px;vertical-align:1px}
+.bkrow .more{width:28px;height:28px}
+.bkset{display:grid;gap:8px}
+.bkset summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.bkset[open]{gap:10px}
+.twords{gap:6px;margin-top:-4px}
+.twords .chip{font-size:13px;padding:4px 10px}
+/* 區域是時間軸上的分組標題，不是一站 */
+:root .items .item.areacard{background:var(--accent-soft);border:0;border-radius:var(--r-sm);margin:8px 0 2px -22px;padding:8px 10px 8px 12px}
+:root .items .item.areacard h4{font-size:14px}
+.arealabel{font-size:11px;font-weight:700;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:2px}

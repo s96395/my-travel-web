@@ -133,7 +133,7 @@ async function runNear() {
     for (const pl of places || []) {
       const p = toInfo(pl);
       if (!p) continue;
-      const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 2, icon: { path: g.SymbolPath.CIRCLE, scale: 7, fillColor: '#fff', fillOpacity: 1, strokeColor: cat[2], strokeWeight: 4, labelOrigin: new g.Point(0, 2.9) }, label: { text: p.title.length > 10 ? p.title.slice(0, 10) + '…' : p.title, color: cat[2], fontSize: '12px', fontWeight: '700', className: 'mnearlab' } });
+      const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 2, icon: { path: g.SymbolPath.CIRCLE, scale: 6, fillColor: cat[2], fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, labelOrigin: new g.Point(0, 3.2) }, label: { text: p.title.length > 10 ? p.title.slice(0, 10) + '…' : p.title, color: cat[2], fontSize: '12px', fontWeight: '700', className: 'mnearlab' } });
       m.addListener('click', () => showPlace(p, true));
       nearMarks.push(m);
     }
@@ -239,8 +239,10 @@ function showInList(id) {
   else { const top = document.querySelector('.mtop'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (top ? top.getBoundingClientRect().bottom : 80) - 12, behavior: 'smooth' }); }
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
-// 想去清單的點：淡色空心小點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
-const WISH_GRAY = '#868e96', CELL = 44;
+// 想去清單的點：紅色星星；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
+// 想去清單用紅色星星：Google 地圖本身的店家、景點都是圓形圖示，星星一眼就分得出來
+const WISH_RED = '#e03131', CELL = 44;
+const STAR = 'M0,-10 L2.9,-4 9.5,-3.1 4.7,1.6 5.9,8.1 0,5 -5.9,8.1 -4.7,1.6 -9.5,-3.1 -2.9,-4Z';
 function drawWish() {
   const g = window.google?.maps, z = map?.getZoom(), proj = map?.getProjection();
   if (!g || z === undefined || !proj || z === clusterZoom) return;
@@ -255,7 +257,7 @@ function drawWish() {
   for (const list of cells.values()) {
     if (list.length === 1 || z >= 17) {
       for (const p of list) {
-        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { path: g.SymbolPath.CIRCLE, scale: 6, fillColor: '#fff', fillOpacity: 0.95, strokeColor: WISH_GRAY, strokeWeight: 2.5 } });
+        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { path: STAR, scale: 1.15, fillColor: WISH_RED, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1.5 } });
         m.addListener('click', () => openPop(p, m));
         markers.set(p.id, m); wishMarks.push(m);
       }
@@ -264,8 +266,8 @@ function drawWish() {
     const b = new g.LatLngBounds();
     list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
     const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, title: `${list.length} 個想去的地點，點一下放大`,
-      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: '#fff', fillOpacity: 0.95, strokeColor: WISH_GRAY, strokeWeight: 2 },
-      label: { text: String(list.length), color: '#495057', fontSize: '12px', fontWeight: '700' } });
+      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_RED, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+      label: { text: String(list.length), color: '#fff', fontSize: '12px', fontWeight: '700' } });
     m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
     wishMarks.push(m);
   }

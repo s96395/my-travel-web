@@ -888,6 +888,33 @@ const actions = {
   // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
   wishOpen() { S.wishOpen = !S.wishOpen; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
+  timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
+  // 設成某一站的備案，或修改什麼時候改去
+  async backupSet(el) {
+    const id = el.dataset.id, of = el.dataset.of || $('#bk-of')?.value;
+    if (!of || S.busy || S.offline) return;
+    S.busy = true;
+    try {
+      await updateItem(S.tripId, id, { backupOf: of, backupWhen: $('#bk-when')?.value.trim() || '' }, S.user, S.nickname);
+      closeSheet(); toast(el.dataset.of ? '已儲存' : '已設成備案');
+    } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 備案改回正式行程：排回時間軸，放在原本那一站的後面
+  async backupOff(el) {
+    const it = findItem(el.dataset.id);
+    if (!it || S.busy || S.offline) return;
+    const main = findItem(it.backupOf), day = main ? main.day : it.day;
+    const items = S.items.map(x => (x.id === it.id ? { ...x, backupOf: '', day } : x));
+    const list = itemsOfDay(items, day).filter(x => x.id !== it.id), at = list.findIndex(x => x.id === main?.id);
+    S.busy = true;
+    try {
+      await updateItem(S.tripId, it.id, { backupOf: '', backupWhen: '', day }, S.user, S.nickname);
+      await saveMoves(S.tripId, planMove(items, it.id, { day, beforeId: list[at + 1]?.id }), S.user, S.nickname);
+      closeSheet(); toast('已排回時間軸');
+    } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
     if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
@@ -1508,7 +1535,8 @@ function onDraftInput(t) {
 // 24 小時制時間欄：打字時補冒號；日期＋時間兩格合成到同名隱藏欄位，下面照舊用隱藏欄位的 id 判斷
 function onTimeInput(ev) {
   const t = ev.target;
-  if (t.classList?.contains('t24') && !String(ev.inputType || '').startsWith('delete')) {
+  // 行程的時間欄也能寫「午餐」：打的是數字才補冒號
+  if ((t.classList?.contains('t24') || (t.classList?.contains('tany') && /^[\d:：.\s]+$/.test(t.value))) && !String(ev.inputType || '').startsWith('delete')) {
     const v = maskTime(t.value);
     if (v !== t.value) t.value = v;
   }
@@ -1519,7 +1547,7 @@ function onTimeInput(ev) {
 }
 document.addEventListener('focusout', ev => {
   const t = ev.target;
-  if (!t.classList?.contains('t24')) return;
+  if (!t.classList?.contains('t24') && !(t.classList?.contains('tany') && /^[\d:：.\s]+$/.test(t.value.trim()))) return;
   const v = normTime(t.value);
   t.classList.toggle('err', v === null);
   if (v && v !== t.value) { t.value = v; t.dispatchEvent(new Event('change', { bubbles: true })); }

@@ -27,6 +27,10 @@ export function normalizeItem(raw) {
     time: raw.reservationTime || '',
     stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
+    tip: raw.tip || '', // 一句提示：常駐顯示在名稱下面，20 字內
+    timeText: raw.reservationTime ? '' : raw.timeText || '', // 沒有幾點時可以寫「午餐」「看完夕陽後」
+    backupOf: raw.backupOf || '', // 是哪一站的備案；備案不排進時間軸，掛在那一站下面
+    backupWhen: raw.backupWhen || '', // 什麼時候改去，例如「排隊超過 30 分鐘」
     legacyTime: raw.time || '',
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
     // 座標：查過 Google 的精確位置（exact）優先；其次由地點連結算出大約位置，再來用存下來的
@@ -56,13 +60,16 @@ export function planDays(items, tripDayCount) {
   return Math.max(tripDayCount || 0, maxDay, 1);
 }
 
+// 備案掛在主要那一站下面，不算時間軸上的一站；主要那站被刪掉時，備案回到時間軸
 export function itemsOfDay(items, day) {
-  return sortItems(items.filter(it => it.day === day));
+  const ids = new Set(items.map(it => it.id));
+  return sortItems(items.filter(it => it.day === day && !(it.backupOf && ids.has(it.backupOf))));
 }
+export const backupsOf = (items, id) => sortItems(items.filter(it => it.backupOf === id));
 
 // 這一天的區域（舊版當作天數標題用）
 export function dayAreas(items, day) {
-  return [...new Set(items.filter(it => it.day === day).map(it => it.area).filter(Boolean))];
+  return [...new Set(itemsOfDay(items, day).map(it => it.area).filter(Boolean))];
 }
 
 export function nextOrder(items, day) {
