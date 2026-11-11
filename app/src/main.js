@@ -91,7 +91,10 @@ function render() {
   else html = S.view === 'trip' ? renderTrip(S) : renderHome(S);
   if (S.view === 'trip' && S.tab === 'more' && !S.localOnly) loadNames();
   syncItineraryWatch();
+  // 電腦版三欄的行程欄、想去清單欄各自捲動，重畫後要停在原位（換天才回到最上面）
+  const keep = ['.three > .day', '.wishcol .wishpane'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
   $('#scroller').innerHTML = html + envTag();
+  for (const k of keep) { const el = $(k.s); if (el && el.id === k.day) el.scrollTop = k.top; }
   const trip = curTrip();
   $('#tabSlot').innerHTML = S.user && S.view === 'trip' && trip && !S.wide
     ? `<nav class="tabbar" aria-label="旅程分頁">${tabButtons(trip, S.tab)}</nav>` : '';
@@ -486,7 +489,8 @@ async function groupNear(xy = new Map()) {
   const writes = [];
   for (const g of groups) {
     const geo = await geoName(g);
-    const base = geo || `${g[0].title.slice(0, 15)}一帶`;
+    const head = g[0].title.slice(0, 15), zh = !geo && FOREIGN.test(head) ? await toZh(head) : '';
+    const base = geo || `${(zh && !FOREIGN.test(zh) ? zh : head).slice(0, 15)}一帶`;
     let name = base;
     for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
     names.add(name);
@@ -505,6 +509,24 @@ async function geoName(list) {
   const n = await m.areaName(center).catch(() => '');
   if (n === 'off') { geoOff = true; return ''; }
   return n;
+}
+
+// 用外文店名取的區域（例如「부엌간 해운대점一帶」）：只把「一帶」前面翻成中文。
+// 用同一把地圖金鑰呼叫 Cloud Translation API，Google Cloud 沒啟用時就跳過
+let transOff = false;
+const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af]/; // 日文假名、韓文
+async function toZh(text) {
+  if (!mapsKey || transOff || S.offline) return '';
+  try {
+    const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(mapsKey)}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q: [text], target: 'zh-TW', format: 'text' }),
+    });
+    if (r.status === 403) { transOff = true; return ''; }
+    if (!r.ok) return '';
+    const j = await r.json();
+    return (j.data?.translations?.[0]?.translatedText || '').trim();
+  } catch (err) { console.error(err); return ''; }
 }
 
 // 改區域名稱：想去清單、行程、區域卡片一起改
@@ -924,12 +946,16 @@ const actions = {
     if (S.busy || S.offline) return;
     S.busy = true; el.disabled = true;
     const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && a.endsWith('一帶')))];
-    const names = new Set(S.wishDocs.map(p => p.area).filter(a => a && !olds.includes(a)));
+    const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean)); // 沒改到的舊名稱也要算，免得新名稱撞名把兩區併在一起
     let n = 0;
     try {
       for (const old of olds) {
-        const base = await geoName(S.wishDocs.filter(p => p.area === old));
-        if (!base) continue;
+        const head = old.slice(0, -2).trim();
+        // 韓文、日文店名：「一帶」前面翻成中文；其他的照舊找附近的中文地名
+        const zh = FOREIGN.test(head) ? await toZh(head) : '';
+        const base = zh && !FOREIGN.test(zh) ? `${zh.slice(0, 15)}一帶` : await geoName(S.wishDocs.filter(p => p.area === old));
+        if (!base || base === old) continue;
+        names.delete(old);
         let name = base;
         for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
         names.add(name);
@@ -937,7 +963,8 @@ const actions = {
         if (S.mapArea === old) S.mapArea = name;
         n++;
       }
-      toast(n ? `${n} 個區域改用地名，不滿意可以按區域旁的 ⋯ 自己改` : '附近查不到合適的中文地名，可以按區域旁的 ⋯ 自己改');
+      const left = transOff && olds.some(a => FOREIGN.test(a)) ? '。韓文、日文翻譯還沒開通，可以按區域旁的 ⋯ 自己改' : '，不滿意可以按區域旁的 ⋯ 自己改';
+      toast(n ? `${n} 個區域改好了${left}` : `附近查不到合適的中文地名${left}`);
     } catch (err) { console.error(err); toast('沒有改完，請稍後再試'); }
     S.busy = false; el.disabled = false;
   },
