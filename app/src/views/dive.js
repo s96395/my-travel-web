@@ -31,7 +31,7 @@ export function renderDive(S, trip) {
   const byDate = {};
   dives.forEach(d => (byDate[d.diveDate || ''] ||= []).push(d));
   let n = 0;
-  const add = `<button type="button" class="btn sm primary" data-act="diveForm" ${S.offline ? 'disabled' : ''}>${ICON.plus}記一支</button>`;
+  const add = `<button type="button" class="btn sm" data-act="diveForm" ${S.offline ? 'disabled' : ''}>${ICON.plus}記一支</button>`;
   const empty = S.localOnly ? '下載的離線資料不含潛水日誌，連上網路後就看得到' : '還沒有潛水紀錄，按「記一支」開始';
   return `
   <div class="divesum">

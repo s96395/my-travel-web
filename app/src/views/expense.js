@@ -66,7 +66,7 @@ function expList(S, c) {
       <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
       <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
     </div>
-    <button type="button" class="btn sm primary" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
+    <button type="button" class="btn sm" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
   </div>
   ${catStrip(all)}
   <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day || '沒有日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
