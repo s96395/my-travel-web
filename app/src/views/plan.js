@@ -44,9 +44,9 @@ function itemHtml(it, S, trip, r = {}) {
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1">
-      <h4>${when}${esc(it.title)}</h4>
+      <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${esc(it.title)}</button>` : esc(it.title)}</h4>
       ${sub ? `<p>${sub}</p>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority ? `<span class="tag${PRI_TAG[it.priority]}">${PRIORITY_LABEL[it.priority]}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? `<button type="button" class="tag" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}">${ICON.pin}地圖</button>` : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
@@ -87,9 +87,9 @@ function areaCard(it, S, trip, r) {
   return `<div class="item areacard" data-iid="${esc(it.id)}" data-type="area">
     <span class="ico" role="img" aria-label="區域">${ICON.pin}</span>
     <div class="grow" style="flex:1">
-      <h4>${when}${esc(it.title)}</h4>
+      <h4>${when}${sideMap(S) && places.some(hasXY) && !S.offline ? `<button type="button" class="wname" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}" title="地圖只看這區">${esc(it.title)}</button>` : esc(it.title)}</h4>
       <p>${sub}</p>
-      <div class="tags">${places.length ? `<button type="button" class="tag accent" data-act="areaOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${open ? '收起清單' : '展開清單'}</button>` : ''}${places.some(hasXY) && !S.offline ? `<button type="button" class="tag" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}">${ICON.pin}地圖看這區</button>` : ''}${open ? nearBtn : ''}</div>
+      <div class="tags">${places.length ? `<button type="button" class="tag accent" data-act="areaOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${open ? '收起清單' : '展開清單'}</button>` : ''}${places.some(hasXY) && !S.offline && !sideMap(S) ? `<button type="button" class="tag" data-act="areaMap" data-area="${esc(it.area)}" aria-pressed="${S.mapArea === it.area}">${ICON.pin}地圖看這區</button>` : ''}${open ? nearBtn : ''}</div>
     </div>
     ${GRIP}
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${off} aria-label="移動或編輯">⋯</button>
@@ -207,19 +207,18 @@ function wishPanel(S, trip, d) {
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
   const name = p => (S.offline || !hasXY(p) ? `<b>${esc(p.title)}</b>` : `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>`);
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
-      <div class="grow">${name(p)}<span class="small muted">${[used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null ? `相距 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・')}</span></div>
-      ${addTo(S, trip, d, off, `class="btn sm" data-act="wishAdd" data-id="${esc(p.id)}"`, '加入')}
+      <div class="grow">${name(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
+      <button type="button" class="wadd" data-act="wishAdd" data-id="${esc(p.id)}" ${off} aria-label="加入「${esc(p.title)}」" title="加入行程">${ICON.plus}</button>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
   const geo = mapsKey && S.wishDocs.some(p => p.area && /一帶$|^新區域( \d+)?$/.test(p.area)) ? `<button type="button" class="btn sm" data-act="areaGeo" ${off}>區域改用地名</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
-  if (!named) return `${count}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
-  return `<div class="wishtop">${count}${addArea}</div>${groups.map(g => {
+  if (!named) return `<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  return `<div class="wishtop">${addArea}</div>${groups.map(g => {
     const a = esc(g.area);
     return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
-      <div class="grow"><i class="dot" style="background:${colors.get(g.area) || NO_AREA_COLOR}" aria-hidden="true"></i><b>${g.area ? a : '還沒分區域'}</b><span class="small muted num">${g.places.length} 個地點${cardDays(S, g.area)}</span></div>
-      <span class="wgact">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="tag" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}">${ICON.pin}地圖看這區</button>` : ''}
-      ${g.area ? addTo(S, trip, d, off, `class="btn sm primary" data-act="areaAdd" data-area="${a}"`, '排進這天') : ''}
+      <div class="grow"><i class="dot" style="background:${colors.get(g.area) || NO_AREA_COLOR}" aria-hidden="true"></i>${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>
+      <span class="wgact">${g.area ? addTo(S, trip, d, off, `class="btn sm" data-act="areaAdd" data-area="${a}"`, '排進這天') : ''}
       ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}</span>
     </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
   }).join('')}`;

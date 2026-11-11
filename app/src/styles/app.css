@@ -824,7 +824,22 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishhead .linkbtn,.maptop .linkbtn[data-act="importSheet"]{margin-left:auto;font-weight:700;color:var(--accent)}
 .wishpane{display:grid;gap:8px;align-content:start}
 .wishes{display:grid;gap:6px}
-.wishes .item.wrow{align-items:center;gap:8px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;box-shadow:none}
+.wishes{gap:0}
+.wishes .item.wrow{align-items:center;gap:8px;background:none;border:0;border-radius:0;padding:9px 2px;box-shadow:none}
+.wishes .item.wrow + .item.wrow{border-top:1px solid var(--line)}
+.wrow .wadd{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:grid;place-items:center;padding:0;cursor:pointer}
+.wrow .wadd:hover{border-color:var(--accent)}
+.wrow .wadd .ic,.wrow .wadd svg{width:16px;height:16px;margin:0}
+.wrow .wadd:disabled{opacity:.4;cursor:default}
+/* 有滑鼠時 × 只在指到那一列才出現 */
+@media (hover:hover){.wrow .more:not(.sure){opacity:0}.wrow:hover .more,.wrow:focus-within .more{opacity:1}}
+.wgname{all:unset;cursor:pointer;font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wgname:hover{text-decoration:underline}
+.wgname[aria-pressed="true"]{color:var(--accent)}
+.wgname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.item h4 .wname{all:unset;cursor:pointer}
+.item h4 .wname:hover,.item h4 .wname[aria-pressed="true"]{text-decoration:underline}
+.item h4 .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .grow{flex:1;min-width:0;display:grid;gap:2px}
 .wrow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wrow .wname,.aplace .wname{all:unset;cursor:pointer;font-weight:700;font-size:15px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -832,8 +847,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .wrow .wname:focus-visible,.aplace .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
-.wgroup{display:grid;gap:6px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
-.wgroup.none{border-style:dashed}
+/* 想去清單：不再框裡有框，區域之間用留白分開，地點之間用細線 */
+.wgroup{display:grid;gap:0;padding:4px 0 6px}
+.wgroup + .wgroup{border-top:1px solid var(--line);padding-top:12px}
 .wghead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .wghead .grow{flex:1 0 auto;display:flex;align-items:baseline;gap:8px}
 .wghead .grow b,.wghead .grow span{white-space:nowrap}
@@ -922,10 +938,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .driver-popover.tour .driver-popover-arrow-side-top{border-top-color:var(--surface)}
 .driver-popover.tour .driver-popover-arrow-side-bottom{border-bottom-color:var(--surface)}
 /* 手機：地點名稱自己一行完整顯示，按鈕排到下一行 */
-.device:not(.wide) .wishes .item.wrow{flex-wrap:wrap;row-gap:6px}
-.device:not(.wide) .wrow .grow{flex-basis:100%}
+/* 手機：按鈕只剩小小的＋和 ×，名稱可以換行，不必再把按鈕擠到第二行 */
 .device:not(.wide) .wrow b,.device:not(.wide) .wrow .wname,.aplace .wname{white-space:normal}
-.device:not(.wide) .wrow .more{margin-left:auto}
+.device:not(.wide) .wrow .more{color:var(--muted)}
 .device:not(.wide) .wishtop{flex-wrap:wrap}
 .wghead .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);flex:none;align-self:center}
 .addto{display:inline-flex;align-items:center;gap:4px;flex:none}
