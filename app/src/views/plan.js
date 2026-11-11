@@ -354,7 +354,7 @@ function planWide(S, trip) {
     </section>`;
   // 沒有地圖（離線、沒金鑰）時維持一欄
   if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
-  // 電腦版兩欄：左邊當天行程占 1/3、右邊地圖占 2/3；想去清單是地圖上的紅色星星，要看清單再打開
+  // 電腦版兩欄：左邊當天行程占 1/3、右邊地圖占 2/3；想去清單是地圖上的粉紅色愛心圓點，要看清單再打開
   return `<div class="planwide two">
     ${day}
     <section class="mapcol" aria-label="地圖">${mapBox(S, sel, trip)}</section>

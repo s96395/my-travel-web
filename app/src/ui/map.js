@@ -239,10 +239,11 @@ function showInList(id) {
   else { const top = document.querySelector('.mtop'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (top ? top.getBoundingClientRect().bottom : 80) - 12, behavior: 'smooth' }); }
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
-// 想去清單的點：紅色星星；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
-// 想去清單用紅色星星：Google 地圖本身的店家、景點都是圓形圖示，星星一眼就分得出來
-const WISH_RED = '#e03131', CELL = 44;
-const STAR = 'M0,-10 L2.9,-4 9.5,-3.1 4.7,1.6 5.9,8.1 0,5 -5.9,8.1 -4.7,1.6 -9.5,-3.1 -2.9,-4Z';
+// 想去清單的點：粉紅色愛心圓點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
+// 想去清單照 Google 地圖收藏「最愛」的樣子：粉紅色圓形、白邊、白色愛心，使用者一看就知道是自己收藏的
+const WISH_PINK = '#e8577a', CELL = 44;
+const WISH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="${WISH_PINK}" stroke="#fff" stroke-width="2.5"/><path d="M14 20.2s-5.8-3.6-5.8-7.6a3.1 3.1 0 0 1 5.8-1.6 3.1 3.1 0 0 1 5.8 1.6c0 4-5.8 7.6-5.8 7.6z" fill="#fff"/></svg>`;
+const WISH_ICON = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(WISH_SVG);
 function drawWish() {
   const g = window.google?.maps, z = map?.getZoom(), proj = map?.getProjection();
   if (!g || z === undefined || !proj || z === clusterZoom) return;
@@ -257,7 +258,7 @@ function drawWish() {
   for (const list of cells.values()) {
     if (list.length === 1 || z >= 17) {
       for (const p of list) {
-        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { path: STAR, scale: 1.15, fillColor: WISH_RED, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 1.5 } });
+        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { url: WISH_ICON, scaledSize: new g.Size(26, 26), anchor: new g.Point(13, 13) } });
         m.addListener('click', () => openPop(p, m));
         markers.set(p.id, m); wishMarks.push(m);
       }
@@ -266,7 +267,7 @@ function drawWish() {
     const b = new g.LatLngBounds();
     list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
     const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, title: `${list.length} 個想去的地點，點一下放大`,
-      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_RED, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
+      icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_PINK, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
       label: { text: String(list.length), color: '#fff', fontSize: '12px', fontWeight: '700' } });
     m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
     wishMarks.push(m);
@@ -275,6 +276,37 @@ function drawWish() {
 
 // data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連想去清單一起框）, focus, opts }
 // onPlace(動作 'placeAdd'|'placeWish', 地點, 第幾天)：搜尋或點地圖上的地點後按加入，成功回傳 true
+// 深色模式的底圖：顏色接近頁面深藍底，路名、地名維持看得清楚
+const DARK = [
+  { elementType: 'geometry', stylers: [{ color: '#1b2638' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#9aa9bd' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0f1622' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#3a4a63' }] },
+  { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#1f2b3e' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#223047' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#b7c4d6' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1d3a36' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#7fb3a6' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2c3a52' }] },
+  { featureType: 'road', elementType: 'geometry.stroke', stylers: [{ color: '#1b2638' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#a9b6c8' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#3d4f6d' }] },
+  { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#1b2638' }] },
+  { featureType: 'transit', elementType: 'geometry', stylers: [{ color: '#2a374b' }] },
+  { featureType: 'transit.station', elementType: 'labels.text.fill', stylers: [{ color: '#c3cfdf' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0c1a2b' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#5f7899' }] }
+];
+const DARK_MQ = window.matchMedia('(prefers-color-scheme: dark)');
+const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : DARK_MQ.matches; };
+// 切換深淺色（按鈕或跟著系統）時，地圖跟著換
+function followTheme() {
+  const set = () => map?.setOptions({ styles: isDark() ? DARK : null });
+  set();
+  DARK_MQ.addEventListener('change', set);
+  new MutationObserver(set).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+
 export async function syncMap(data, onAct, onPlace) {
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
@@ -284,6 +316,7 @@ export async function syncMap(data, onAct, onPlace) {
     box = document.createElement('div');
     box.className = 'lmap';
     map = new g.Map(box, { center: { lat: 23.7, lng: 121 }, zoom: 7, mapTypeControl: false, streetViewControl: false, clickableIcons: true, gestureHandling: 'greedy' });
+    followTheme();
     info = new g.InfoWindow();
     // 左上角搜尋框：打字跳出候選地點，選了就插針
     const bar = document.createElement('div');
