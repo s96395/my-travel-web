@@ -946,7 +946,7 @@ const actions = {
     if (S.busy || S.offline) return;
     S.busy = true; el.disabled = true;
     const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && a.endsWith('一帶')))];
-    const names = new Set(S.wishDocs.map(p => p.area).filter(a => a && !olds.includes(a)));
+    const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean)); // 沒改到的舊名稱也要算，免得新名稱撞名把兩區併在一起
     let n = 0;
     try {
       for (const old of olds) {
@@ -955,6 +955,7 @@ const actions = {
         const zh = FOREIGN.test(head) ? await toZh(head) : '';
         const base = zh && !FOREIGN.test(zh) ? `${zh.slice(0, 15)}一帶` : await geoName(S.wishDocs.filter(p => p.area === old));
         if (!base || base === old) continue;
+        names.delete(old);
         let name = base;
         for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
         names.add(name);
