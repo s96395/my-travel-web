@@ -827,9 +827,9 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishes .item.wrow{align-items:center;gap:8px;background:var(--surface);border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;box-shadow:none}
 .wrow .grow{flex:1;min-width:0;display:grid;gap:2px}
 .wrow b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wrow .wname{all:unset;cursor:pointer;font-weight:700;font-size:15px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.wrow .wname:hover{text-decoration:underline}
-.wrow .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.wrow .wname,.aplace .wname{all:unset;cursor:pointer;font-weight:700;font-size:15px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wrow .wname:hover,.aplace .wname:hover{text-decoration:underline}
+.wrow .wname:focus-visible,.aplace .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
 .wgroup{display:grid;gap:6px;padding:8px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg)}
@@ -924,7 +924,7 @@ button.mate:active .avatar{transform:scale(.92)}
 /* 手機：地點名稱自己一行完整顯示，按鈕排到下一行 */
 .device:not(.wide) .wishes .item.wrow{flex-wrap:wrap;row-gap:6px}
 .device:not(.wide) .wrow .grow{flex-basis:100%}
-.device:not(.wide) .wrow b,.device:not(.wide) .wrow .wname{white-space:normal}
+.device:not(.wide) .wrow b,.device:not(.wide) .wrow .wname,.aplace .wname{white-space:normal}
 .device:not(.wide) .wrow .more{margin-left:auto}
 .device:not(.wide) .wishtop{flex-wrap:wrap}
 .wghead .dot{display:inline-block;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px var(--line);flex:none;align-self:center}
@@ -996,6 +996,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .aplace{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:var(--r-sm);background:var(--surface2);font-size:14px}
 .aplace .grow{flex:1;min-width:0;display:grid}
 .aplace small{font-size:12px}
+.aplace .wname{font-weight:400;font-size:14px;white-space:normal;overflow-wrap:anywhere}
 .aplace.done .grow{color:var(--muted)}
 .aplace.seen .grow{color:var(--muted);text-decoration:line-through}
 .aplace small .tag{padding:2px 6px;font-size:11px;vertical-align:1px}
@@ -1007,3 +1008,36 @@ button.mate:active .avatar{transform:scale(.92)}
 .item h4,.item p{overflow-wrap:anywhere}
 .device.wide .withmap .dayhead{flex-wrap:wrap}
 .device.wide .withmap .dayhead>.grow{min-width:220px!important}
+
+/* 要加在哪一天 */
+.daypick{display:grid;gap:8px;max-height:55vh;overflow:auto}
+.dayopt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;color:var(--fg);background:var(--surface2);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;cursor:pointer}
+.dayopt .grow{flex:1;min-width:0;display:grid;gap:2px}
+.dayopt b{font-size:15px}
+.dayopt small{font-size:12px}
+.dayopt .tag{flex:none;white-space:nowrap}
+.dayopt.best{border:2px solid var(--accent);background:var(--surface)}
+.dayopt .tag.best{background:var(--accent);color:#fff;font-weight:700}
+.dayopt:disabled{opacity:.55;cursor:default}
+.dayopt:not(:disabled):hover{border-color:var(--accent)}
+
+/* 電腦版行程三欄（參考去趣）：左當天行程、中地圖、右想去清單，三欄一個畫面高、各自捲動 */
+@media (min-width:1000px){
+  .device.wide .wrap:has(.planwide.three){max-width:none;padding-inline:24px}
+  .device.wide .wrap:has(.planwide.three) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  .device.wide .planwide.three{grid-template-columns:minmax(340px,400px) minmax(0,1fr) minmax(300px,360px);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  .device.wide .three > *{min-height:0}
+  .device.wide .wishcol{display:flex;flex-direction:column;gap:8px;min-height:0}
+  .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between}
+  .device.wide .wishcolhead b{font-size:17px}
+  .device.wide .wishcol .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:6px;scrollbar-width:thin}
+  .device.wide .wishcol .wishpane:has(.lifted){overflow:visible}
+  .device.wide .wishcol .wishtop{flex-wrap:wrap}
+  .device.wide .wishcol .wrow .addto{flex:none}
+  .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
+  .device.wide .mapcol .mapwrap{flex:1;min-height:0}
+  .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
+  .device.wide .three > .day{overflow-y:auto;padding-right:6px;scrollbar-width:thin;align-content:start;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
+  .device.wide .three > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 4px;padding:12px 12px 8px;flex-shrink:0;min-height:max-content}
+  .device.wide .three > .day .dpill{flex:0 0 64px;padding:6px 4px}
+}
