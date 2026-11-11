@@ -63,6 +63,7 @@ const S = {
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
+  live: store.get('live') === '1', livePane: '', // 現場模式：只看當天時間軸；電腦版右邊臨時打開的是地圖或想去清單
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
@@ -885,13 +886,49 @@ const actions = {
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
+  // 現場模式：打開時直接跳到今天
+  live() {
+    S.live = !S.live; S.livePane = ''; S.mside = 'plan'; S.mapFull = false;
+    store.set('live', S.live ? '1' : '0');
+    const t = curTrip(), c = S.live && t?.start && t.end ? countdown(t) : null;
+    if (c?.ongoing) S.pday = c.day;
+    render();
+  },
+  livePane(el) { S.livePane = S.livePane === el.dataset.v ? '' : el.dataset.v; render(); },
+  timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
+  // 設成某一站的備案，或修改什麼時候改去
+  async backupSet(el) {
+    const id = el.dataset.id, of = el.dataset.of || $('#bk-of')?.value;
+    if (!of || S.busy || S.offline) return;
+    S.busy = true;
+    try {
+      await updateItem(S.tripId, id, { backupOf: of, backupWhen: $('#bk-when')?.value.trim() || '' }, S.user, S.nickname);
+      closeSheet(); toast(el.dataset.of ? '已儲存' : '已設成備案');
+    } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 備案改回正式行程：排回時間軸，放在原本那一站的後面
+  async backupOff(el) {
+    const it = findItem(el.dataset.id);
+    if (!it || S.busy || S.offline) return;
+    const main = findItem(it.backupOf), day = main ? main.day : it.day;
+    const items = S.items.map(x => (x.id === it.id ? { ...x, backupOf: '', day } : x));
+    const list = itemsOfDay(items, day).filter(x => x.id !== it.id), at = list.findIndex(x => x.id === main?.id);
+    S.busy = true;
+    try {
+      await updateItem(S.tripId, it.id, { backupOf: '', backupWhen: '', day }, S.user, S.nickname);
+      await saveMoves(S.tripId, planMove(items, it.id, { day, beforeId: list[at + 1]?.id }), S.user, S.nickname);
+      closeSheet(); toast('已排回時間軸');
+    } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
     if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
     S.mapFocus = el.dataset.id || '';
     // 只看某區時點了別區的地點，改回看全部，地圖上才有那根針
     if (S.mapArea && S.wishDocs.find(p => 'w:' + p.id === S.mapFocus && p.area !== S.mapArea)) S.mapArea = '';
-    if (S.mapFocus) S.side = 'map'; render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
+    if (S.mapFocus) { S.side = 'map'; if (S.live && S.wide) S.livePane = 'map'; } render(); if (!S.wide) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); },
   // 地圖只看某個區域的想去清單地點；再按一次看全部
   mapArea(el) {
     const a = el.dataset.area || '';
@@ -1499,7 +1536,8 @@ function onDraftInput(t) {
 // 24 小時制時間欄：打字時補冒號；日期＋時間兩格合成到同名隱藏欄位，下面照舊用隱藏欄位的 id 判斷
 function onTimeInput(ev) {
   const t = ev.target;
-  if (t.classList?.contains('t24') && !String(ev.inputType || '').startsWith('delete')) {
+  // 行程的時間欄也能寫「午餐」：打的是數字才補冒號
+  if ((t.classList?.contains('t24') || (t.classList?.contains('tany') && /^[\d:：.\s]+$/.test(t.value))) && !String(ev.inputType || '').startsWith('delete')) {
     const v = maskTime(t.value);
     if (v !== t.value) t.value = v;
   }
@@ -1510,7 +1548,7 @@ function onTimeInput(ev) {
 }
 document.addEventListener('focusout', ev => {
   const t = ev.target;
-  if (!t.classList?.contains('t24')) return;
+  if (!t.classList?.contains('t24') && !(t.classList?.contains('tany') && /^[\d:：.\s]+$/.test(t.value.trim()))) return;
   const v = normTime(t.value);
   t.classList.toggle('err', v === null);
   if (v && v !== t.value) { t.value = v; t.dispatchEvent(new Event('change', { bubbles: true })); }

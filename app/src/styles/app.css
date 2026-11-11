@@ -1046,3 +1046,38 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .three > .day .dpill span{font-size:12px;white-space:nowrap}
   .device.wide .three > .day .dpill[aria-current="true"]{border-color:var(--warm)}
 }
+
+/* 參考釜山網站：一句提示、文字時段、備案、區域標題、現場模式 */
+.item .itip{color:var(--fg);font-weight:600}
+.whentxt{display:inline-block;font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 8px;margin-right:4px;vertical-align:2px}
+.inote{margin-top:2px;font-size:13px;color:var(--muted)}
+.inote summary{cursor:pointer;width:max-content;list-style:none}
+.inote summary::-webkit-details-marker{display:none}
+.inote summary::before{content:'▸ '}
+.inote[open] summary::before{content:'▾ '}
+.inote p{white-space:pre-wrap}
+.bkbox{display:grid;gap:6px;margin-top:8px}
+.bkrow{display:flex;align-items:center;gap:8px;font-size:13px;border:1px dashed var(--line);border-radius:var(--r-sm);padding:6px 8px}
+.bkrow .grow{flex:1;min-width:0;display:grid;gap:2px}
+.bkrow .grow .tag{padding:2px 6px;vertical-align:1px}
+.bkrow .more{width:28px;height:28px}
+.bkset{display:grid;gap:8px}
+.bkset summary{cursor:pointer;font-weight:700;color:var(--accent)}
+.bkset[open]{gap:10px}
+.twords{gap:6px;margin-top:-4px}
+.twords .chip{font-size:13px;padding:4px 10px}
+/* 區域是時間軸上的分組標題，不是一站 */
+:root .items .item.areacard{background:var(--accent-soft);border:0;border-radius:var(--r-sm);margin:8px 0 2px -22px;padding:8px 10px 8px 12px}
+:root .items .item.areacard h4{font-size:14px}
+.arealabel{font-size:11px;font-weight:700;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:2px}
+.planbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.livebtn{margin-left:auto}
+.livebar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+.livetag{font-size:13px;color:var(--warm)}
+.livebar .tag{border:0;cursor:pointer}
+.livebar .tag[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
+.day.live .grip{display:none}
+@media (min-width:1000px){
+  .device.wide .planwide.three.live{grid-template-columns:minmax(0,760px);justify-content:center}
+  .device.wide .planwide.three.live.pane{grid-template-columns:minmax(360px,460px) minmax(0,1fr);justify-content:stretch}
+}
