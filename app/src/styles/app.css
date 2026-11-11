@@ -170,11 +170,11 @@ a.btn:not(.primary){color:var(--fg)}
 .install .grow{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .install .linkbtn{font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap}
 .install .x{border:0;background:none;color:var(--muted);font-size:17px;line-height:1;width:28px;height:28px;border-radius:50%;flex:none}
-.fab{position:fixed;right:max(16px,calc(50% - var(--appw)/2 + 16px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:999px;background:var(--accent);color:var(--accent-fg);padding:13px 18px;font-weight:700;display:flex;gap:6px;align-items:center;box-shadow:var(--sh-pop)}
+.fab{position:fixed;right:max(16px,calc(50% - var(--appw)/2 + 16px));bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:6;border:0;border-radius:999px;background:var(--warm);color:#fff;padding:13px 18px;font-weight:700;display:flex;gap:6px;align-items:center;box-shadow:var(--sh-pop)}
 @media (min-width:860px){.fab{right:16px}}
 
 /* 原版延續：白卡片加柔和陰影、數字置中、出發倒數用橘色 */
-:root:is([data-style="e"],[data-style="i"]) .btn.primary,:root:is([data-style="e"],[data-style="i"]) .fab{background:var(--accent);border-color:var(--accent)}
+:root:is([data-style="e"],[data-style="i"]) .btn.primary{background:var(--accent);border-color:var(--accent)}
 
 /* 原版＋登機證：原版配色，加上票根、虛線撕口、機場代碼 */
 .bp-top{display:flex;justify-content:space-between;background:var(--accent);color:var(--accent-fg);padding:8px 18px;font-size:12px;letter-spacing:.16em;font-weight:700}
@@ -773,8 +773,8 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .ring text{font-size:15px;font-weight:800;fill:var(--fg);font-family:var(--font-data)}
 .quickadd{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:5px 5px 5px 16px}
 .quickadd input{flex:1;border:0;background:none;min-width:0;font-size:15px;padding:6px 0;outline:none}
-.quickadd:focus-within{border-color:var(--warm)}
-.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--warm);color:#fff;font-size:24px;line-height:1;flex:none}
+.quickadd:focus-within{border-color:var(--accent)}
+.quickadd button{width:36px;height:36px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;flex:none}
 .quickadd button[disabled]{opacity:.45}
 .todo input{appearance:none;-webkit-appearance:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;cursor:pointer;transition:background .2s,border-color .2s,transform .15s}
 .todo input::after{content:"";width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg) scale(0);transition:transform .2s}
