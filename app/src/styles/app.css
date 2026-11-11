@@ -323,7 +323,8 @@ a.btn:not(.primary){color:var(--fg)}
 .tour .info>div{display:grid;gap:2px;min-width:0}
 .tour .info .full{grid-column:1/-1}
 .tour .info .num{white-space:nowrap}
-@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:240px}}
+/* 電腦版封面只當頁首裝飾：矮一點，內容不用捲到畫面一半才出現 */
+@media (min-width:1000px){.device.wide .cover.big{aspect-ratio:auto;height:120px}}
 .divesum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .divesum .card{display:grid;gap:2px;padding:10px 12px}
 .divesum b{font-size:15px;white-space:nowrap}
@@ -1053,6 +1054,8 @@ button.mate:active .avatar{transform:scale(.92)}
 @media (min-width:1000px){
   .device.wide .wrap:has(.planwide.two){max-width:none;padding-inline:24px}
   .device.wide .wrap:has(.planwide.two) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
+  /* 行程分頁內容滿版，標題列和分頁也跟著滿版，左邊緣才對得齊 */
+  .device.wide:has(.planwide.two) .appbar,.device.wide:has(.planwide.two) .toptabs{padding-inline:24px}
   .device.wide .planwide.two{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
   .device.wide .two > *{min-height:0}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
