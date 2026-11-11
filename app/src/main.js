@@ -194,9 +194,9 @@ async function fetchHours() {
 
 const legTried = new Set();
 let legsBusy = false, legsOff = false;
-S.legs = (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
 // 站與站的交通時間：使用者目前不需要（2026-11-11），先關掉，也不再跳 Routes API 提示
 const LEGS_ON = false;
+S.legs = !LEGS_ON ? new Map() : (() => { try { return new Map(Object.entries(JSON.parse(store.get('legs') || '{}'))); } catch { return new Map(); } })();
 async function fetchLegs() {
   if (!LEGS_ON || legsBusy || legsOff || !mapsKey || S.offline || S.view !== 'trip' || S.tab !== 'plan') return;
   const its = itemsOfDay(S.items, S.pday).filter(it => it.kind !== 'area'); // 區域卡片不是實際的一站，交通算前後兩站
