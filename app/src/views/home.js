@@ -164,7 +164,7 @@ function heroBox(S, w, next, hero) {
   if (auto) hidden = new Set(ids); // 先藏起來再畫，避免國家先亮又暗掉
   const sum = n ? `<span class="wsum">去過 <b class="num">${n}</b> 個國家・<b class="num">${conts}</b> 大洲・<b class="num">${S.trips.length}</b> 趟</span>`
     : '<span class="wsum">還沒有去過的國家。新增旅程並填上國家，地圖就會亮起來。</span>';
-  const toggle = (on, label, cls = '') => `<button type="button" class="${cls}" ${on ? 'data-act="stat" data-k="country"' : ''} aria-pressed="${!on}">${label}</button>`;
+  const toggle = (on, label, cls = '') => `<button type="button" class="${cls}" ${on ? `data-act="stat" data-k="country" aria-expanded="${open}"` : ''} aria-pressed="${!on}">${label}</button>`;
   const seg = !S.wide && n ? `<div class="hseg" role="group" aria-label="地圖或各洲明細">${toggle(open, '地圖')}${toggle(!open, '各洲明細')}</div>` : '';
   const detail = open ? `<div class="wdetail">${worldList(w, true, S.wide)}</div>` : '';
   const more = S.wide && n ? `<button type="button" class="btn sm hmore" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '各洲明細'}</button>` : '';
