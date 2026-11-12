@@ -257,7 +257,7 @@ function wishPanel(S, trip, d) {
 // 「加入」都先跳出「要加在哪一天」，選好天數自動放在最順路的位置
 const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button type="button" ${attrs} ${off}>${ICON.plus}${text}</button></span>`;
 
-// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改放想去清單
+// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入想去清單
 export function daySheet(S, trip, p, kind) {
   const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p);
   const tag = r => (r.has ? '<span class="tag">已經排了</span>'
@@ -269,7 +269,7 @@ export function daySheet(S, trip, p, kind) {
     <p class="small muted" style="margin:0">${kind === 'area' ? '區域卡片會放在那天離它最近的站旁邊' : '會自動放在那天最順路的位置'}</p>
     <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${r.best ? ' best' : ''}" data-act="dayPick" data-d="${r.day}" ${r.has ? 'disabled' : ''}>
       <span class="grow"><b>第 ${r.day} 天${dayDate(trip, r.day) ? `　${dayDate(trip, r.day)}` : ''}</b><small class="muted">${esc(sub(r))}</small></span>${tag(r)}</button>`).join('')}</div>
-    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">先放想去清單</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
+    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">改加入想去清單</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
 }
 
 // 這個區域的卡片排在哪幾天
