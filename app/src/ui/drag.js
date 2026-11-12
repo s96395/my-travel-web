@@ -62,7 +62,13 @@ function autoScroll() {
   if (!DR.active) return;
   const box = document.querySelector('.withmap > .day, .two > .day, .msheet .mbody');
   const r = box?.getBoundingClientRect();
-  if (r && DR.px >= r.left && DR.px <= r.right) { if (DR.py < r.top + 50) box.scrollBy(0, -8); else if (DR.py > r.bottom - 50) box.scrollBy(0, 8); }
+  if (r && DR.px >= r.left && DR.px <= r.right) {
+    // 欄位比畫面高時，只用看得到的上下緣；欄位自己捲到底了就改捲整頁
+    const top = Math.max(r.top, 0), bot = Math.min(r.bottom, window.innerHeight);
+    const end = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+    if (DR.py < top + 50) (box.scrollTop > 0 ? box : window).scrollBy(0, -8);
+    else if (DR.py > bot - 50) (end ? window : box).scrollBy(0, 8);
+  }
   else if (DR.py < 70) window.scrollBy(0, -8); else if (DR.py > window.innerHeight - 110) window.scrollBy(0, 8);
   DR.raf = requestAnimationFrame(autoScroll);
 }
