@@ -297,6 +297,11 @@ function go(hash) {
 
 /* ---------- 資料監看 ---------- */
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
+// 給司機看畫面：重畫時把小地圖放回去
+function showDriver(d) {
+  driverSheet(d, S.offline);
+  if ($('#drvmap')) import('./ui/map.js').then(m => m.driverMap($('#drvmap'), d)).catch(console.error);
+}
 const findItem = id => S.items.find(it => it.id === id);
 
 // 進入旅程時開始監看行程、班機、住宿、待辦、公費放入紀錄，離開時停止（支出在首頁就已經在監看）；換旅程時分頁與展開狀態歸零
@@ -935,8 +940,18 @@ const actions = {
     const t = curTrip(), d = t && driverData(S, t, el.dataset.k, el.dataset.id);
     if (!d) return;
     S.drv = d;
-    driverSheet(d, S.offline);
-    if ($('#drvmap')) import('./ui/map.js').then(m => m.driverMap($('#drvmap'), d)).catch(console.error);
+    showDriver(d);
+  },
+  // 給司機看「顯示韓文」等：按了才查 Google，查到的名稱、地址只放在 S.drv（不存）
+  async drvLocal() {
+    const d = S.drv;
+    if (!d?.lang || d.busy || d.local) return;
+    showDriver(S.drv = { ...d, busy: true, miss: false });
+    let local = null, err = false;
+    try { local = await (await import('./ui/map.js')).localPlace(d, d.lang); } catch (e) { console.error(e); err = true; }
+    if (S.drv?.key !== d.key || !sheetOpen()) return; // 查詢中已經關掉或換了別的地點
+    showDriver(S.drv = { ...d, busy: false, local, miss: !local });
+    if (err) toast('查詢失敗，請稍後再試');
   },
   async drvCopy() {
     const text = S.drv && driverText(S.drv);

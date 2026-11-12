@@ -472,36 +472,50 @@ function infoCard(S, trip, d, mini = false) {
 
 // 給司機看：只用網站上已經有的資料（名稱、自己輸入的地址、座標），不查 Google 地點資料
 // k：'day' 行程、'wish' 收藏、'place' 資訊卡上的 Google 地點（名稱、地址是 Google 回傳的，只在畫面上顯示，要標資料來源）
+// 顯示當地語言：依地點位置或旅程國家決定查哪種語言；查到的名稱、地址只在這次畫面顯示，不存
+const LOCAL = [[/韓國|南韓|大韓民國|濟州/, 'ko', '韓文'], [/日本/, 'ja', '日文'], [/泰國/, 'th', '泰文'], [/越南/, 'vi', '越南文']];
+const localLang = (p, c) => (inKorea(p, c) && hasXY(p) ? LOCAL[0] : LOCAL.find(([re]) => re.test(c || ''))) || null;
+const plainName = s => String(s || '').split(/[｜|]/)[0].replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim();
 export function driverData(S, trip, k, id) {
+  const more = (p, key, pid = '') => { const l = localLang(p, trip.country); return { key, pid, q: plainName(p.title), lang: l?.[1] || '', langName: l?.[2] || '' }; };
   if (k === 'day') {
     const it = S.items.find(x => x.id === id);
     if (!it) return null;
-    return { name: it.title, addr: it.address && !isMapLink(it.address) ? it.address : '', lat: it.lat, lng: it.lng, nav: onMap(it) ? navHref(it, trip.city, trip.country) : '', open: onMap(it) ? placeHref(it, trip.city, trip.country) : '', map: mapName(it, trip.country), google: false };
+    return { name: it.title, addr: it.address && !isMapLink(it.address) ? it.address : '', lat: it.lat, lng: it.lng, nav: onMap(it) ? navHref(it, trip.city, trip.country) : '', open: onMap(it) ? placeHref(it, trip.city, trip.country) : '', map: mapName(it, trip.country), google: false, ...more(it, 'day:' + it.id) };
   }
   if (k === 'wish') {
     const p = S.wishDocs.find(x => x.id === id);
     if (!p) return null;
-    return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false };
+    return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false, ...more(p, 'wish:' + p.id) };
   }
   const p = S.card?.kind === 'place' ? S.card.p : null;
   if (!p) return null;
-  return { name: p.title, addr: p.addr || '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: true };
+  return { name: p.title, addr: p.addr || '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: true, ...more(p, 'pid:' + (p.pid || p.title), p.pid || '') };
 }
-export const driverText = d => [d.name, d.addr].filter(Boolean).join('\n');
+// 複製：查到當地語言時複製當地語言的名稱和地址（給司機或貼到當地地圖用）
+export const driverText = d => (d.local ? [d.local.name, d.local.addr] : [d.name, d.addr]).filter(Boolean).join('\n');
 // 名稱大字、地址次大字；有座標又有網路時放小地圖（#drvmap，由 ui/map.js 放進同一張地圖），沒有就給「在 Google 地圖開啟」
+// d.local：按「顯示韓文」等按鈕查到的當地語言名稱、地址（Google 回傳，只顯示不保存）；d.busy 查詢中；d.miss 找不到可以確定的地點
 export function driverSheet(d, offline) {
   const map = hasXY(d) && !offline && mapsKey;
-  // 韓國：導航已經開 Naver 地點頁，不再另外放「在 Naver 地圖開啟」
-  if (d.map === 'Naver' && d.nav) d = { ...d, open: '' };
+  // 韓國：導航已經開 Naver 地點頁，不再另外放「在 Naver 地圖開啟」；查到韓文名稱就用韓文名稱搜尋 Naver，比較找得到
+  if (d.map === 'Naver' && d.nav) d = { ...d, open: '', nav: d.local?.name ? naverHref({ title: d.local.name, lat: d.lat, lng: d.lng }, d.local.name, true) : d.nav };
   const go = (href, text, cls) => (href && !offline ? `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
+  const big = 'margin:0;font-size:clamp(30px,8.5vw,44px);font-weight:800;line-height:1.25;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';
+  const mid = 'margin:0;font-size:clamp(18px,5vw,22px);line-height:1.45;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';
+  const name = d.local?.name || d.name, addr = d.local?.addr || d.addr;
+  const ask = d.lang && !d.local && !offline && mapsKey
+    ? `<button type="button" class="btn" data-act="drvLocal" ${d.busy ? 'disabled' : ''}>${d.busy ? '查詢中…' : `顯示${d.langName}`}</button>${d.miss ? `<p class="small muted" style="margin:0">找不到可以確定的地點，請先用上面的名稱和地址。</p>` : ''}` : '';
   openSheet(`<div class="row" style="justify-content:space-between"><span class="label" style="margin:0">給司機看</span><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
-    <p class="drvname" style="margin:0;font-size:clamp(30px,8.5vw,44px);font-weight:800;line-height:1.25;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text">${esc(d.name)}</p>
-    ${d.addr ? `<p style="margin:0;font-size:clamp(18px,5vw,22px);line-height:1.45;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text">${esc(d.addr)}</p>` : ''}
+    <p class="drvname" style="${big}" ${d.local ? `lang="${esc(d.lang)}"` : ''}>${esc(name)}</p>
+    ${addr ? `<p style="${mid}" ${d.local?.addr ? `lang="${esc(d.lang)}"` : ''}>${esc(addr)}</p>` : ''}
+    ${d.local ? `<p class="muted" style="margin:0">${esc(d.name)}</p>` : ''}
+    ${ask}
     ${map ? '<div id="drvmap" style="height:min(36vh,280px);min-height:180px;border-radius:12px;overflow:hidden;background:var(--surface2)" aria-label="目的地地圖"></div>' : go(d.open, `${ICON.pin}在 ${d.map || 'Google'} 地圖開啟`, 'btn')}
-    <div class="row"><button type="button" class="btn grow" data-act="drvCopy">複製名稱${d.addr ? '和地址' : ''}</button>${go(d.nav, `${ICON.map}導航`, 'btn primary grow')}</div>
+    <div class="row"><button type="button" class="btn grow" data-act="drvCopy">複製名稱${addr ? '和地址' : ''}</button>${go(d.nav, `${ICON.map}導航`, 'btn primary grow')}</div>
     ${map && d.open ? `<div class="row" style="gap:16px">${go(d.open, `在 ${d.map || 'Google'} 地圖開啟`, 'linkbtn')}</div>` : ''}
     ${offline ? '<p class="small muted" style="margin:0">離線中：只顯示已存在這趟旅程的名稱和地址。</p>' : ''}
-    ${d.google ? '<p class="small muted" style="margin:0">資料來源：Google Maps</p>' : ''}`);
+    ${d.google || d.local ? '<p class="small muted" style="margin:0">資料來源：Google Maps</p>' : ''}`);
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單

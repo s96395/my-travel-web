@@ -448,6 +448,36 @@ function followTheme() {
 
 let syncSeq = 0;
 // 給司機看的小地圖：整個網站只建立一張（每建立一張地圖算一次地圖載入），之後換地點只移動大頭針
+// 給司機看「顯示當地語言」：按了才查，結果只放在這次開著的網頁（不存資料庫）
+// 有地點代碼就直接查；沒有就用名稱在原本座標附近搜尋（只取代碼，免費），最多 3 個候選，
+// 再逐一查位置（Essentials），200 公尺內剛好一個才採用，有兩個以上或都不在附近就不選，回傳 null
+// 最後用當地語言查名稱和地址（Pro，一次）
+const localMemo = new Map();
+export async function localPlace(p, lang) {
+  const k = `${p.key}|${lang}`;
+  if (localMemo.has(k)) return localMemo.get(k);
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  let id = p.pid || '';
+  if (!id) {
+    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng) || !p.q) return null;
+    const at = { lat: p.lat, lng: p.lng };
+    const { places } = await Place.searchByText({ textQuery: p.q, fields: ['id'], locationBias: { center: at, radius: 300 }, maxResultCount: 3, language: 'zh-TW' });
+    const near = [];
+    for (const c of places || []) {
+      await c.fetchFields({ fields: ['location'] });
+      if (c.location && distanceKm(at, { lat: c.location.lat(), lng: c.location.lng() }) <= 0.2) near.push(c.id);
+    }
+    if (near.length !== 1) { localMemo.set(k, null); return null; }
+    id = near[0];
+  }
+  const pl = new Place({ id, requestedLanguage: lang });
+  await pl.fetchFields({ fields: ['displayName', 'formattedAddress'] });
+  const r = pl.displayName ? { name: pl.displayName, addr: pl.formattedAddress || '' } : null;
+  localMemo.set(k, r);
+  return r;
+}
+
 let dMap, dBox, dPin;
 export async function driverMap(slot, p) {
   if (!slot) return;
