@@ -965,7 +965,7 @@ const actions = {
     if (S.mapArea) S.side = 'map';
     render(); if (!S.wide && S.mapArea) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   },
-  areaSheet(el) { if (!S.offline) areaSheet(S, el.dataset.area || ''); },
+  areaSheet(el) { if (!S.offline) areaSheet(S, el.dataset.area || '', el.dataset.wid || ''); },
   // 存區域：勾的地點放進這區，沒勾的移出；改名時，已排進行程的同區域行程也一起改
   async areaSave(el) {
     const old = el.dataset.area || '', drop = !!el.dataset.drop;

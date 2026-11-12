@@ -387,12 +387,14 @@ function infoCard(S, trip, d) {
     return wrap(`<div class="tags"><span class="tag accent">收藏</span>${p.area ? `<span class="tag">${esc(p.area)}</span>` : ''}${days ? `<span class="tag">已排第 ${days.join('、')} 天</span>` : ''}</div>
       <div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
       <div class="row"><button type="button" class="btn primary grow" data-act="wishAdd" data-id="${id}" ${off}>${ICON.plus}加入行程</button>${navTo(p) ? `<a class="btn grow" href="${esc(navTo(p))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
-      ${cardLinks([extLink(p.url, '在 Google 地圖開啟')], cardMore([`<button type="button" data-act="areaSheet" data-area="${esc(p.area || '')}">${p.area ? '改分區' : '放進區域'}</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
+      ${cardLinks([extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
       ${facts([['備註', esc(noteOf(p))]])}`);
   }
   const p = c.p;
   if (!p) return '';
-  const today = p.hours?.[(new Date().getDay() + 6) % 7];
+  // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
+  const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
+  const today = p.hours?.[(local + 6) % 7];
   const rate = Number.isFinite(p.rating) ? `★ ${p.rating.toFixed(1)}${p.ratingN ? `（${p.ratingN.toLocaleString()} 則評論）` : ''}` : '';
   return wrap(`${p.photo ? `<img src="${esc(p.photo)}" alt="" onerror="this.remove()" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;display:block;flex:none">` : ''}
     <div class="tags"><span class="tag accent">Google 地點</span>${ITEM_LABEL[p.type] ? `<span class="tag">${ITEM_LABEL[p.type]}</span>` : ''}</div>
@@ -480,13 +482,14 @@ export function areaMoveSheet(S, trip, area, from) {
 }
 
 // 新增或編輯區域：取名字，再勾哪些想去清單的地點放在這區；已在這區的排最前面，其次是還沒分區域的
-export function areaSheet(S, area = '') {
-  const rank = p => (area && p.area === area ? 0 : p.area ? 2 : 1);
+// wid：從資訊卡「放進新的區域」打開時，先勾好那個收藏並排在最前面
+export function areaSheet(S, area = '', wid = '') {
+  const rank = p => (p.id === wid || (area && p.area === area) ? 0 : p.area ? 2 : 1);
   const list = S.wishDocs.map((p, i) => ({ p, i })).sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i).map(x => x.p);
   openSheet(`${head(area ? '編輯區域' : '新增區域')}
     <input class="namein lg" id="a-name" maxlength="20" placeholder="區域名稱，例如：尖沙咀" aria-label="區域名稱" value="${esc(area)}">
     <p class="label">勾選放在這區的地點</p>
-    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${area && p.area === area ? 'checked' : ''}>
+    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${p.id === wid || (area && p.area === area) ? 'checked' : ''}>
       <span class="grow" style="flex:1">${esc(p.title)}${p.area && p.area !== area ? ` <small class="muted">（目前在「${esc(p.area)}」）</small>` : ''}</span></label>`).join('')}</div>
     <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
 }

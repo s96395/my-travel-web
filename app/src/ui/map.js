@@ -104,7 +104,7 @@ async function placeMore(p) {
     const pl = new Place({ id: p.pid, requestedLanguage: 'zh-TW' });
     await pl.fetchFields({ fields: MORE_FIELDS });
     const h = pl.regularOpeningHours;
-    cardFn?.({ kind: 'place', p: { ...p, more: true, rating: pl.rating ?? null, ratingN: pl.userRatingCount || 0, hours: h?.weekdayDescriptions || null, open: h ? openAt(h.periods, pl.utcOffsetMinutes) : null, photo: pl.photos?.[0]?.getURI({ maxWidth: 640 }) || '', phone: pl.nationalPhoneNumber || '', web: pl.websiteURI || '' } });
+    cardFn?.({ kind: 'place', p: { ...p, more: true, rating: pl.rating ?? null, ratingN: pl.userRatingCount || 0, hours: h?.weekdayDescriptions || null, off: pl.utcOffsetMinutes ?? null, open: h ? openAt(h.periods, pl.utcOffsetMinutes) : null, photo: pl.photos?.[0]?.getURI({ maxWidth: 640 }) || '', phone: pl.nationalPhoneNumber || '', web: pl.websiteURI || '' } });
   } catch (err) { console.error(err); cardFn?.({ kind: 'place', p: { ...p, more: true } }); }
 }
 
