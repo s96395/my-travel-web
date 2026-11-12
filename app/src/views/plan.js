@@ -122,6 +122,8 @@ function areaCard(it, S, trip, r) {
 // 地圖和行程同時看得到（電腦版在右邊，手機版在上方）
 const sideMap = S => !S.offline && !!mapsKey;
 const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
+// 搜尋此區域：收藏在不在按下時的地圖範圍內（b 是 { s, w, n, e }）
+const inBox = (b, p) => hasXY(p) && p.lat >= b.s && p.lat <= b.n && (b.w <= b.e ? p.lng >= b.w && p.lng <= b.e : p.lng >= b.w || p.lng <= b.e);
 const mapBox = (S, d, trip, bare) => {
   const pts = mapData(S, null).points;
   const none = !S.wishDocs.length;
@@ -154,14 +156,20 @@ export function mapData(S, trip) {
   const dup = p => its.some(it => sameName(it.title, p.title)) || pins.some(it => distanceKm(it, p) < 0.05);
   // 地圖平常只放當天行程；打開想去清單（或點某個區域名稱）要安排時，才把想去的地點放上去
   // 從區域卡片點某個收藏的名稱時，只把那一個放上去
+  // 按了「搜尋此區域」也把收藏放上去：範圍內的照常，範圍外的變淡
   const wishOn = (S.wide ? !!S.wishOpen : S.mside === 'wish') || !!S.mapArea;
-  const shown = p => wishOn || 'w:' + p.id === S.mapFocus;
+  const box = S.wbox;
+  const shown = p => wishOn || !!box || 'w:' + p.id === S.mapFocus;
   const points = [
     ...pins.map((it, i) => ({ id: it.id, kind: 'day', n: i + 1, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${i + 1} 站` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S, d).filter(p => shown(p) && (!S.mapArea || p.area === S.mapArea)), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '' })),
+    ...nearDay(wishLeft(S, d).filter(p => shown(p) && (!S.mapArea || p.area === S.mapArea)), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '', ...(box ? { dim: !inBox(box, p) } : {}) })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull };
+  // 「搜尋此區域」多放上去的收藏不算，免得一按地圖就跳走
+  const fitN = box ? points.filter(p => p.kind === 'day' || wishOn || p.id === S.mapFocus).length : points.length;
+  // 結果條：範圍內亮著的收藏數、這天還沒排又沒有位置的收藏數（有區域篩選時只算那一區）
+  const stat = box && { ...box, area: S.mapArea, cnt: points.filter(p => p.kind === 'wish' && !p.dim).length, noxy: wishLeft(S, d).filter(p => !hasXY(p) && (!S.mapArea || p.area === S.mapArea)).length };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + fitN : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, wishN: S.wishDocs.some(hasXY) };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
@@ -224,10 +232,15 @@ export const wishLeft = (S, d) => { const inDay = new Set(itemsOfDay(S.items, d)
 const usedDays = S => { const m = new Map(); S.items.forEach(it => { if (it.address && it.day) m.set(it.address, [...new Set([...(m.get(it.address) || []), it.day])].sort((a, b) => a - b)); }); return m; };
 function wishPanel(S, trip, d) {
   const off = S.offline ? 'disabled' : '';
-  const left = wishLeft(S, d), used = usedDays(S);
+  const used = usedDays(S);
+  // 從「搜尋此區域」的結果條按「看清單」：只列地圖上亮著的收藏，或只列沒有位置的
+  const only = S.wbox && S.wboxList;
+  const lit = only === 'in' && new Set(mapData(S, null).points.filter(p => p.kind === 'wish' && !p.dim).map(p => p.id.slice(2)));
+  const left = wishLeft(S, d).filter(p => !only || (only === 'in' ? lit.has(p.id) : !hasXY(p) && (!S.mapArea || p.area === S.mapArea)));
+  const onlyTip = only ? `<div class="tip"><span><b>${only === 'in' ? '只顯示這一帶' : '只顯示沒有位置的收藏'}</b>${S.mapArea ? `（${esc(S.mapArea)}）` : ''}・${left.length} 個</span><button type="button" class="btn sm" data-act="wboxList" data-v="">顯示全部</button></div>` : '';
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個</p>`;
-  if (!left.length) return `${count}<p class="small muted" style="margin:0">清單上的地點都排進這一天了。</p>`;
+  if (!left.length) return `${onlyTip}${count}<p class="small muted" style="margin:0">${only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
   const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
   const named = groups.some(g => g.area);
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
@@ -239,8 +252,8 @@ function wishPanel(S, trip, d) {
     </div>`;
   const geo = mapsKey && S.wishDocs.some(p => p.area && /一帶$|^新區域( \d+)?$/.test(p.area)) ? `<button type="button" class="btn sm" data-act="areaGeo" ${off}>區域改用地名</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
-  if (!named) return `<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
-  return `<div class="wishtop">${addArea}</div>${groups.map(g => {
+  if (!named) return `${onlyTip}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  return `${onlyTip}<div class="wishtop">${addArea}</div>${groups.map(g => {
     const a = esc(g.area);
     return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
       <div class="grow">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>

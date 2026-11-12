@@ -11,6 +11,8 @@ let wishPts = [], wishMarks = [], clusterZoom = -1, onActRef;
 let cardFn = null, cardOn = false, view0 = null, selId = '';
 let nearCat = '', nearAt = null, nearBtn, nearBar, nearOpen = false, nearSeq = 0;
 const nearMarks = [];
+// 搜尋此區域：只篩自己的收藏，不查 Google；wBox 是按下時的地圖範圍
+let wBtn, wBar, wLegend, wBox = null, wHtml = '';
 
 function loadApi() {
   ready ??= new Promise((ok, fail) => {
@@ -189,8 +191,11 @@ async function runNear() {
 function nearControls(g, bar) {
   nearBar = document.createElement('div');
   nearBar.className = 'mcats';
-  nearBar.innerHTML = `<button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
+  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
+  wBtn = nearBar.querySelector('[data-wbox]');
   nearBar.addEventListener('click', ev => {
+    // 「搜尋此區域」：只看地圖範圍內有哪些收藏
+    if (ev.target.closest('[data-wbox]')) { ev.stopPropagation(); runBox(); return; }
     // 「找附近店家」：打開分類；再按一次收起，同時清掉找到的店家
     if (ev.target.closest('[data-near]')) {
       ev.stopPropagation();
@@ -213,8 +218,82 @@ function nearControls(g, bar) {
   nearBtn.hidden = true;
   nearBtn.textContent = NEAR_AGAIN;
   nearBtn.addEventListener('click', ev => { ev.stopPropagation(); runNear(); });
-  map.controls[g.ControlPosition.BOTTOM_CENTER].push(nearBtn);
+  // 下方中間：「搜尋此區域」的結果條在上、找附近店家的重找鈕在下，兩個可以同時出現
+  // 外框固定寬度，Google 才會一直把它放在正中間（內容出現或消失時不會重新置中）
+  const bottom = document.createElement('div');
+  bottom.className = 'mbottom';
+  wBar = document.createElement('div');
+  wBar.className = 'wbar';
+  wBar.setAttribute('role', 'status');
+  wBar.hidden = true;
+  wBar.addEventListener('click', ev => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    ev.stopPropagation();
+    if (b.hasAttribute('data-wre')) runBox(); else onActRef?.(b);
+  });
+  bottom.append(wBar, nearBtn);
+  map.controls[g.ControlPosition.BOTTOM_CENTER].push(bottom);
   map.addListener('idle', syncNearUi);
+  map.addListener('idle', syncBoxMoved);
+}
+
+// 搜尋此區域：記下目前地圖範圍交給畫面去篩收藏；地圖移動後不自動重算，結果條提示重新搜尋
+function boxStyle() {
+  if (document.getElementById('wboxcss')) return;
+  const st = document.createElement('style');
+  st.id = 'wboxcss';
+  st.textContent = `.mcats .wbtn::before{display:none}.mcats .wbtn .h{color:${WISH_PINK}}.mcats .wbtn[aria-pressed="true"]{background:${WISH_PINK};color:#fff}.mcats .wbtn[aria-pressed="true"] .h{color:#fff}
+.mbottom{display:flex;flex-direction:column;align-items:center;gap:8px;width:min(480px,calc(100vw - 40px));pointer-events:none}.mbottom>*{pointer-events:auto}
+.wbar{margin-bottom:8px;display:flex;align-items:center;flex-wrap:wrap;justify-content:center;gap:4px 10px;background:#fff;color:#1f2937;border-radius:20px;padding:7px 8px 7px 16px;box-shadow:var(--sh-pop);font-size:14px;font-weight:600}
+.wbar[hidden]{display:none}.mbottom:has(.mnear:not([hidden])) .wbar{margin-bottom:0}
+.wbar .h{color:${WISH_PINK}}.wbar button{border:0;font:inherit;cursor:pointer;border-radius:999px}
+.wbar .go{background:#1f2937;color:#fff;padding:5px 12px;font-size:13px}.wbar .lk{background:none;color:#c2410c;padding:4px 2px;font-size:13px;text-decoration:underline}
+.wbar .re{background:#fff4e6;color:#c2410c;padding:5px 12px;font-size:13px}.wbar .x{background:none;color:#6b7280;width:30px;height:30px;font-size:16px}
+.wlegend{margin:0 0 72px 10px;background:#fff;color:#1f2937;border-radius:12px;padding:8px 12px;box-shadow:var(--sh-pop);font-size:12px;line-height:1.9}
+.wlegend[hidden]{display:none}.wlegend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.wlegend button{border:0;background:none;font:inherit;color:#6b7280;text-decoration:underline;cursor:pointer;padding:0;float:right;margin-left:12px}
+@media (max-width:700px){.wlegend{margin:0 0 60px 8px;padding:6px 10px;line-height:1.7}.wlegend div{white-space:nowrap}.wlegend div:nth-of-type(n+4){display:none}}`; /* 手機地圖小，圖例只留和收藏有關的三行，才不會蓋住上面的按鈕 */
+  document.head.appendChild(st);
+}
+const LEGEND_KEY = 'wboxLegend';
+function showLegend(g) {
+  try { if (localStorage.getItem(LEGEND_KEY)) return; } catch { return; }
+  if (!wLegend) {
+    wLegend = document.createElement('div');
+    wLegend.className = 'wlegend';
+    wLegend.innerHTML = `<button type="button">收起</button><div><i style="background:${DAY}"></i>當天行程（號碼）</div><div><i style="background:${WISH_PINK}"></i>收藏，還沒排進這天</div><div><i style="background:${WISH_PINK};opacity:.3"></i>收藏，但不在這一帶</div><div><i style="background:${WISH}"></i>搜尋到的地點（還沒收藏）</div><div><i style="background:#2f6fdb"></i>找附近店家（分類色）</div>`;
+    wLegend.querySelector('button').addEventListener('click', ev => { ev.stopPropagation(); wLegend.hidden = true; try { localStorage.setItem(LEGEND_KEY, '1'); } catch { /* 無痕模式存不了，下次再顯示 */ } });
+    map.controls[g.ControlPosition.LEFT_BOTTOM].push(wLegend);
+  }
+  wLegend.hidden = false;
+}
+function runBox() {
+  const b = map?.getBounds();
+  if (!b) return;
+  const ne = b.getNorthEast(), sw = b.getSouthWest();
+  const r = n => +n.toFixed(6);
+  // 交給畫面的處理：和點按鈕一樣用 data-act
+  onActRef?.({ dataset: { act: 'wboxRun', box: [r(sw.lat()), r(sw.lng()), r(ne.lat()), r(ne.lng()), map.getZoom()].join(',') } });
+  showLegend(window.google.maps);
+}
+// 移動超過範圍的四分之一或縮放過，才算「地圖已移動」
+function syncBoxMoved() {
+  const re = wBar?.querySelector('[data-wre]'), c = map?.getCenter();
+  if (!re || !wBox || !c) return;
+  const dy = Math.abs(c.lat() - (wBox.s + wBox.n) / 2), dx = Math.abs(c.lng() - (wBox.w + wBox.e) / 2);
+  re.hidden = !(map.getZoom() !== wBox.z || dy > (wBox.n - wBox.s) / 4 || dx > Math.abs(wBox.e - wBox.w) / 4);
+}
+function syncBox(data) {
+  boxStyle();
+  if (wBtn) { wBtn.hidden = !data.wishN; wBtn.setAttribute('aria-pressed', !!data.box); }
+  const b = data.box || null;
+  wBox = b;
+  const where = b?.area ? `「${esc(b.area)}」` : '';
+  const html = !b ? '' : `${b.cnt ? `<span><span class="h">♥</span> 這一帶${where}有 <b class="num">${b.cnt}</b> 個收藏</span><button type="button" class="go" data-act="wboxList" data-v="in">看清單</button>` : `<span>這一帶${where}沒有收藏</span>`}${b.noxy ? `<button type="button" class="lk" data-act="wboxList" data-v="noxy">另有 ${b.noxy} 個沒有位置</button>` : ''}<button type="button" class="re" data-wre hidden>地圖已移動，重新搜尋</button><button type="button" class="x" data-act="wboxClear" aria-label="清除搜尋此區域">✕</button>`;
+  if (html !== wHtml) { wHtml = html; wBar.innerHTML = html; }
+  wBar.hidden = !b;
+  syncBoxMoved();
 }
 
 // 輸入框打字時跳出 Google 候選地點（Places API (New) 自動完成）
@@ -309,13 +388,13 @@ function drawWish() {
   const scale = 2 ** z, cells = new Map();
   for (const p of wishPts) {
     const w = proj.fromLatLngToPoint(new g.LatLng(p.lat, p.lng));
-    const k = `${Math.floor(w.x * scale / CELL)}:${Math.floor(w.y * scale / CELL)}`;
+    const k = `${p.dim ? 'd' : ''}${Math.floor(w.x * scale / CELL)}:${Math.floor(w.y * scale / CELL)}`; // 範圍內外分開合併，亮的數字才會和結果條一樣
     (cells.get(k) || cells.set(k, []).get(k)).push(p);
   }
   for (const list of cells.values()) {
     if (list.length === 1 || z >= 17) {
       for (const p of list) {
-        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { url: WISH_ICON, scaledSize: new g.Size(26, 26), anchor: new g.Point(13, 13) } });
+        const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: p.dim ? 0 : 1, opacity: p.dim ? 0.3 : 1, icon: { url: WISH_ICON, scaledSize: new g.Size(26, 26), anchor: new g.Point(13, 13) } });
         m.addListener('click', () => openPop(p, m));
         markers.set(p.id, m); wishMarks.push(m);
         if (p.id === selId) { selId = ''; pick(p.id); }
@@ -324,7 +403,7 @@ function drawWish() {
     }
     const b = new g.LatLngBounds();
     list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
-    const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, title: `${list.length} 個想去的地點，點一下放大`,
+    const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, opacity: list[0].dim ? 0.3 : 1, title: `${list.length} 個想去的地點，點一下放大`,
       icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_PINK, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
       label: { text: String(list.length), color: '#fff', fontSize: '12px', fontWeight: '700' } });
     m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
@@ -365,7 +444,9 @@ function followTheme() {
   new MutationObserver(set).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
+let syncSeq = 0;
 export async function syncMap(data, onAct, onPlace, onCard) {
+  const my = ++syncSeq;
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
   if (!slot) return;
@@ -393,6 +474,7 @@ export async function syncMap(data, onAct, onPlace, onCard) {
       try { const p = await placeInfo(new Place({ id: ev.placeId, requestedLanguage: 'zh-TW' })); if (p) showPlace(p); } catch (err) { console.error(err); }
     });
   }
+  if (my !== syncSeq) return; // 第一次建地圖要等一下，這段期間畫面又更新過，就用新的資料，不要拿舊的蓋回去
   act = onPlace;
   cardFn = onCard || null; cardOn = !!(data.card && onCard);
   if (!cardOn) { view0 = null; pick(''); }
@@ -425,6 +507,7 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   }
   onActRef = onAct;
   drawWish();
+  syncBox(data);
   // 換天或地點數量變了，把所有針放進畫面
   // 當天有行程針時只框住行程針，想去清單的點在附近才會看到，不會把畫面拉到整座城市
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
