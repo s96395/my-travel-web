@@ -1695,7 +1695,7 @@ function gripEnd() {
     const full = innerHeight - top - tab - 64;
     const hs = { peek: 120, half: innerHeight * 0.45, full };
     // 開著資訊卡時，從收合再往下拖就關掉資訊卡
-    if (S.card && cur === 'peek' && now < from - 40) { closeCard(); return; }
+    if (S.card && cur === 'peek' && now < from - 30) { closeCard(); return; }
     to = SHEET_H.reduce((a, b) => (Math.abs(hs[b] - now) < Math.abs(hs[a] - now) ? b : a));
   }
   if (to !== cur) { S.sheet = to; render(); }
