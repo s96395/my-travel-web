@@ -122,11 +122,31 @@ export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.addres
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 // 有座標（從想去清單加進來的）就用座標，位置最準
 export const routeStops = (items, city) => items.filter(onMap).map(it => (Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, city)));
+// 韓國的地點改開 Naver 地圖（Google 地圖在韓國不能開車、步行導航）
+// 有座標就看座標在不在南韓範圍（大致的多邊形，避開對馬、福岡）；沒有座標就看旅程國家
+const KR = [[124, 38.7], [132, 38.7], [132, 36.5], [129.6, 35.2], [129.2, 34.9], [127.8, 33.9], [126.8, 33], [125.8, 33], [124, 34.5]];
+const inPoly = (x, y, poly) => poly.reduce((inside, [x1, y1], i) => {
+  const [x2, y2] = poly[(i + 1) % poly.length];
+  return (y1 > y) !== (y2 > y) && x < ((x2 - x1) * (y - y1)) / (y2 - y1) + x1 ? !inside : inside;
+}, false);
+export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.isFinite(p?.lng) ? inPoly(p.lng, p.lat, KR) : /韓國|南韓|大韓民國|濟州/.test(country || ''));
+const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+// 手機直接開 Naver 地圖 App（nav＝導航，不然只標出地點）；電腦沒有 App，開 Naver 地圖網頁搜尋
+export function naverHref(p, query, nav = false) {
+  const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
+  const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
+  if (coarse()) {
+    if (xy) return nav ? `nmap://route/public?${new URLSearchParams({ dlat: p.lat, dlng: p.lng, dname: name, appname: app })}` : `nmap://place?${new URLSearchParams({ lat: p.lat, lng: p.lng, name, appname: app })}`;
+    return `nmap://search?${new URLSearchParams({ query: query || name, appname: app })}`;
+  }
+  return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
+}
+export const mapName = (p, country = '') => (inKorea(p, country) ? 'Naver' : 'Google');
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 // 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
-export const placeHref = (it, city = '') => (isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));
+export const placeHref = (it, city = '', country = '') => (inKorea(it, country) ? naverHref(it, placeQuery(it, city)) : isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));
 // 手機的「導航」：從目前位置導航到這個行程；貼了連結就開那個地點（連結沒辦法當目的地）
-export const navHref = (it, city = '') => (isMapLink(it.address) ? it.address : `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: placeQuery(it, city) })}`);
+export const navHref = (it, city = '', country = '') => (inKorea(it, country) ? naverHref(it, placeQuery(it, city), true) : isMapLink(it.address) ? it.address : `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination: placeQuery(it, city) })}`);
 
 // 開啟完整路線（Google 地圖網址，不需要金鑰）；中途點 Google 最多收 9 個，超過的只留前 9 個
 export function routeUrl(stops) {
