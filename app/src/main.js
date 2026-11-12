@@ -83,10 +83,10 @@ let itin = { tripId: null, stops: [], tries: 0 }; // 目前開著的旅程資料
 // 電腦版資訊卡（views/plan.js infoCard）：開卡前記下左欄捲到哪裡，關卡時捲回去；地圖範圍由 ui/map.js 還原
 let cardBack = null;
 function openCard(c) {
-  if (!S.wide || S.offline) return;
+  if (S.offline) return;
   // 晚到的 Google 詳細資料：卡片已關或換成別的地點，就不用了
   if (c.p?.more && (S.card?.kind !== 'place' || S.card.p?.pid !== c.p.pid || S.card.p?.title !== c.p.title)) return;
-  if (!S.card) cardBack = { top: $('.two > .day')?.scrollTop || 0 };
+  if (!S.card) cardBack = { top: $('.two > .day, .msheet .mbody')?.scrollTop || 0 };
   const t = curTrip(), it = c.kind === 'day' ? findItem(c.id) : null;
   S.card = { ...c, tid: S.tripId, canDel: !!(t && it && canDelRecord(t, it)) };
   render();
@@ -95,7 +95,7 @@ function closeCard() {
   if (!S.card) return;
   S.card = null; S.mapFocus = '';
   render();
-  const el = $('.two > .day');
+  const el = $('.two > .day, .msheet .mbody');
   if (el && cardBack) el.scrollTop = cardBack.top;
   cardBack = null;
   import('./ui/map.js').then(m => m.closeCard()).catch(console.error);
@@ -104,7 +104,7 @@ function closeCard() {
 function cardGone() {
   const c = S.card;
   if (!c) return false;
-  return c.tid !== S.tripId || S.view !== 'trip' || S.tab !== 'plan' || !S.wide || S.offline
+  return c.tid !== S.tripId || S.view !== 'trip' || S.tab !== 'plan' || S.offline
     || (c.kind === 'day' && !findItem(c.id)) || (c.kind === 'wish' && !S.wishDocs.some(p => p.id === c.id));
 }
 
@@ -122,7 +122,7 @@ function render() {
   if (S.view === 'trip' && S.tab === 'more' && !S.localOnly) loadNames();
   syncItineraryWatch();
   // 電腦版三欄的行程欄、想去清單欄各自捲動，重畫後要停在原位（換天才回到最上面）
-  const keep = ['.two > .day', '.wishover .wishpane'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
+  const keep = ['.two > .day', '.wishover .wishpane', '.msheet .mbody'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
   $('#scroller').innerHTML = html + envTag();
   for (const k of keep) { const el = $(k.s); if (el && el.id === k.day) el.scrollTop = k.top; }
   const trip = curTrip();
@@ -1098,7 +1098,11 @@ const actions = {
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
   // 手機版地圖下面切換行程或想去清單：捲到地圖剛好貼在上方，下面就是清單
   mside(el) {
-    S.mside = el.dataset.v; render();
+    S.mside = el.dataset.v;
+    // 手機底部面板收合時，切換後打開到半展開才看得到清單
+    if ($('.mplan') && (S.sheet === 'peek' || S.card)) { S.sheet = 'half'; S.card = null; }
+    render();
+    if ($('.mplan')) return;
     const d = $('.dpills'); window.scrollTo(0, d ? d.getBoundingClientRect().bottom + scrollY - 58 : 0);
   },
   jump(el) {
@@ -1646,6 +1650,56 @@ document.addEventListener('submit', async ev => {
   if (!text) { input.focus(); return; }
   if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
+// 手機底部面板（views/plan.js planSheet）：只有頂端把手可以拖；放開時停在最近的一段，點一下在收合與半展開間切換。
+// 資訊卡只有一層，往下拖或在卡片頂端往下拉就關閉，回到原本的面板高度
+const SHEET_H = ['peek', 'half', 'full'];
+let grip = null, pull = null;
+document.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-grip]');
+  if (!g) return;
+  const sh = g.closest('.msheet');
+  grip = { y: e.clientY, h: sh.getBoundingClientRect().height, sh, moved: false };
+  sh.classList.add('moving');
+  try { g.setPointerCapture(e.pointerId); } catch { /* 有些瀏覽器不支援 */ }
+});
+document.addEventListener('pointermove', e => {
+  if (!grip) return;
+  const dy = e.clientY - grip.y;
+  if (Math.abs(dy) > 6) grip.moved = true;
+  if (grip.moved) grip.sh.style.height = `${Math.max(80, grip.h - dy)}px`;
+});
+function gripEnd() {
+  if (!grip) return;
+  const { sh, moved, h: from } = grip;
+  grip = null;
+  const now = sh.getBoundingClientRect().height;
+  sh.classList.remove('moving'); sh.style.height = '';
+  if (S.card) { if (moved && now < from - 60) closeCard(); return; }
+  const cur = sh.closest('.mplan')?.dataset.h || 'half';
+  let to;
+  if (!moved) to = cur === 'peek' ? 'half' : 'peek';
+  else {
+    const full = ($('.mmap')?.getBoundingClientRect().height || innerHeight) - 64;
+    const hs = { peek: 120, half: innerHeight * 0.45, full };
+    to = SHEET_H.reduce((a, b) => (Math.abs(hs[b] - now) < Math.abs(hs[a] - now) ? b : a));
+  }
+  if (to !== cur) { S.sheet = to; render(); }
+}
+document.addEventListener('pointerup', gripEnd);
+document.addEventListener('pointercancel', gripEnd);
+// 列表已經捲到最上面還往下拉：面板往下收一段（拿起行程排序時不算）
+document.addEventListener('touchstart', e => {
+  const b = e.target.closest('.msheet .mbody');
+  pull = b && b.scrollTop <= 0 ? { y: e.touches[0].clientY } : null;
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!pull || document.querySelector('.lifted')) return;
+  if (e.touches[0].clientY - pull.y < 70) return;
+  pull = null;
+  if (S.card) { closeCard(); return; }
+  const i = SHEET_H.indexOf(S.sheet || 'half');
+  if (i > 0) { S.sheet = SHEET_H[i - 1]; render(); }
+}, { passive: true });
 // 中文輸入法組字時按 Esc 是取消選字，不關閉視窗
 document.addEventListener('keydown', ev => {
   if (ev.key !== 'Escape' || ev.isComposing || ev.keyCode === 229) return;

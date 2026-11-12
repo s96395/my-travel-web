@@ -165,7 +165,7 @@ export function mapData(S, trip) {
     ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '' })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
@@ -321,12 +321,57 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
 
+// 手機底部面板收合時的兩行：第幾天幾站＋前後一天；旅行當天是「下一站」（現在之後第一站），其他日子是「第一站」
+function peekHtml(S, trip, days, sel) {
+  const idx = days.indexOf(sel), n = stopCount(S, sel), date = dayIso(trip, sel);
+  const today = !!date && date === todayString();
+  const its = itemsOfDay(S.items, sel);
+  const rows = sel ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
+  const at = today ? Math.max(nowIndex(rows, nowMin()), 0) : 0;
+  const next = rows.slice(at).find(r => r.kind === 'item' && r.it.kind !== 'area' && !r.it.backupOf);
+  const it = next?.it;
+  const line2 = it ? `<span class="tag accent">${today ? '下一站' : '第一站'}</span><b class="grow">${next.at !== null ? `<span class="num">${hmOf(next.at)}</span> ` : ''}${esc(it.title)}</b>${onMap(it) && !S.offline ? `<a class="linkbtn" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">導航</a>` : ''}`
+    : `<span class="muted grow">${today && rows.some(r => r.kind === 'item') ? '今天的行程都走完了' : '這天還沒安排'}</span>`;
+  return `<div class="mpeek">
+    <div class="row"><b class="daynum">${sel ? 'D' + sel : '?'}</b><b>${today ? '今天' : '這天'} ${n} 站</b><span class="small muted grow">${esc([dayDate(trip, sel), sel ? dayAreas(S.items, sel)[0] : ''].filter(Boolean).join(' '))}</span>
+      <button type="button" class="iconbtn" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''} aria-label="前一天">‹</button><button type="button" class="iconbtn" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''} aria-label="後一天">›</button></div>
+    <div class="row">${line2}</div>
+  </div>`;
+}
+
+// 手機有地圖時：地圖鋪滿，行程放在底部面板。面板三段高度（收合、半展開、完整展開），只有頂端把手可以拖；
+// 點地圖標記時面板換成資訊卡（同一層，不疊第二張），關閉後回原本高度
+const SHEET_H = ['peek', 'half', 'full'];
+function planSheet(S, trip, days, sel) {
+  const card = infoCard(S, trip, sel);
+  const h = card ? 'half' : SHEET_H.includes(S.sheet) ? S.sheet : 'half';
+  const wish = S.mside === 'wish';
+  const seg = `<div class="mseg" role="group" aria-label="行程或想去清單"><button type="button" data-act="mside" data-v="plan" aria-pressed="${!wish}">行程</button><button type="button" data-act="mside" data-v="wish" aria-pressed="${wish}">想去清單 <span class="num">${S.wishDocs.length || ''}</span></button></div>`;
+  const n = stopCount(S, sel);
+  const list = wish
+    ? `<section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`
+    : `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+      <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
+      ${dayItems(S, trip, sel)}
+    </section>`;
+  const body = card || (h === 'peek' ? peekHtml(S, trip, days, sel) : `${seg}${wish ? '' : dayPills(S, trip, days, sel)}${list}`);
+  return `<div class="mplan" data-h="${h}">
+    <div class="mmap">${mapBox(S, sel, trip)}</div>
+    <section class="msheet" aria-label="行程面板">
+      <div class="mgrip" data-grip role="slider" aria-label="拖曳調整面板高度" aria-valuetext="${{ peek: '收合', half: '半展開', full: '完整展開' }[h]}" tabindex="0"><span></span></div>
+      <div class="mbody" id="mbody-${card ? 'card' : h + (wish ? 'w' : sel)}">${body}</div>
+    </section>
+    ${card ? '' : addFab(S, sel)}
+  </div>`;
+}
+
 // 手機：上面地圖（約半個畫面，固定在上方）、下面當天行程；想去清單從地圖上方的按鈕切換
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = stopCount(S, sel);
   const full = S.mapFull && mapsKey && !S.offline;
+  if (sideMap(S) && !full) return planSheet(S, trip, days, sel);
   const top = !S.offline && !full ? `<div class="mtop">${mapBox(S, sel, trip)}</div>` : '';
   const wish = S.mside === 'wish' && !S.offline && !full;
   if (wish) return `${dayPills(S, trip, days, sel)}${top}
