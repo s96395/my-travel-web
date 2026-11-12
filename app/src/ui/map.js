@@ -454,7 +454,8 @@ let syncSeq = 0;
 // 最後用當地語言查名稱和地址（Pro，一次）
 const localMemo = new Map();
 export async function localPlace(p, lang) {
-  const k = `${p.key}|${lang}`;
+  // 名稱、座標、代碼都放進快取的鍵，改過行程地點後再查會重查，不會拿到舊地點
+  const k = [p.key, p.q, p.lat, p.lng, p.pid, lang].join('|');
   if (localMemo.has(k)) return localMemo.get(k);
   await loadApi();
   const { Place } = await window.google.maps.importLibrary('places');

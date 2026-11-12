@@ -946,11 +946,13 @@ const actions = {
   async drvLocal() {
     const d = S.drv;
     if (!d?.lang || d.busy || d.local) return;
-    showDriver(S.drv = { ...d, busy: true, miss: false });
+    const tok = {};
+    showDriver(S.drv = { ...d, busy: true, miss: false, tok });
     let local = null, err = false;
     try { local = await (await import('./ui/map.js')).localPlace(d, d.lang); } catch (e) { console.error(e); err = true; }
-    if (S.drv?.key !== d.key || !sheetOpen()) return; // 查詢中已經關掉或換了別的地點
-    showDriver(S.drv = { ...d, busy: false, local, miss: !local });
+    // 查詢中關掉、換了別的地點，或開了別的視窗（例如編輯表單）就不重畫，免得蓋掉別的視窗
+    if (S.drv?.tok !== tok || !$('#layer .drvname')) return;
+    showDriver(S.drv = { ...d, busy: false, tok: null, local, miss: !local });
     if (err) toast('查詢失敗，請稍後再試');
   },
   async drvCopy() {
