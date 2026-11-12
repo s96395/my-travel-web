@@ -1062,8 +1062,17 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .wrap:has(.planwide.two) .cover{aspect-ratio:auto;height:120px;border-radius:16px}
   /* 行程分頁內容滿版，標題列和分頁也跟著滿版，左邊緣才對得齊 */
   .device.wide:has(.planwide.two) .appbar,.device.wide:has(.planwide.two) .toptabs{padding-inline:24px}
-  .device.wide .planwide.two{grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;height:calc(100vh - 140px);min-height:520px;align-items:stretch}
+  /* 左欄固定 340–420px 只放每日行程，其餘都給地圖 */
+  .device.wide .planwide.two{grid-template-columns:clamp(340px,28vw,420px) minmax(0,1fr);gap:16px;height:calc(100vh - 274px);min-height:520px;align-items:stretch;padding-bottom:0}
   .device.wide .two > *{min-height:0}
+  /* 行程分頁標題列 44px：左邊封面小圖（點了換封面），日期地點和同行者排一行 */
+  .device.wide .triphead.mini{grid-template-columns:auto minmax(0,1fr) auto;gap:12px;height:44px;margin-bottom:12px}
+  .device.wide .triphead.mini .when{flex-wrap:nowrap;align-items:center;white-space:nowrap;overflow:hidden}
+  .device.wide .covthumb{display:block;width:72px;height:44px;padding:0;border:0;border-radius:10px;overflow:hidden;background:var(--surface2);flex:none}
+  .device.wide button.covthumb{cursor:pointer}
+  .device.wide button.covthumb:hover,.device.wide button.covthumb:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .device.wide .covthumb .cover,.device.wide .wrap:has(.planwide.two) .covthumb .cover{aspect-ratio:auto;height:44px;border-radius:0}
+  .device.wide .covthumb .cover .status{display:none}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
   .device.wide .mapcol .mapwrap{flex:1;min-height:0}
   .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
