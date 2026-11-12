@@ -1596,8 +1596,10 @@ document.addEventListener('click', ev => {
   const el = ev.target.closest('[data-act]');
   // 時間軸整塊都可以點：沒點到按鈕、連結、備註、拖曳把手時，等於點地點名稱（開資訊卡、地圖跳過去）；長按拖曳放開不算
   if (!el) {
+    // 區域卡片裡有很多地點：只認點到的那一個地點（.aplace），點到區域卡片其他地方不動作
     const row = ev.target.closest('.item[data-iid]');
-    const name = row && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && row.querySelector('.wname[data-act="mapFocus"]');
+    const box = row && (row.classList.contains('areacard') ? ev.target.closest('.aplace') : row);
+    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"]');
     if (name) actions.mapFocus(name, ev);
     return;
   }
