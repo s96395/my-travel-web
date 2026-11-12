@@ -136,12 +136,7 @@ const mapBox = (S, d, trip, bare) => {
   const bar = wishBtn ? `<div class="mbar"><div class="grow"></div>${wishBtn}</div>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
-  // 電腦版的想去清單平常收著，按「想去清單」才蓋在地圖右邊
-  const over = S.wide && trip && S.wishOpen ? `<aside class="wishover" aria-label="想去清單">
-      <div class="wishcolhead"><b>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></b><span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button><button type="button" class="iconbtn" data-act="wishOpen" aria-label="關閉想去清單">×</button></span></div>
-      <div class="wishpane">${wishPanel(S, trip, d)}</div>
-    </aside>` : '';
-  return (bare ? '' : bar) + (note && !bare ? `<p class="mlegend small muted">${note}</p>` : '') + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}${over}</div>`;
+  return (bare ? '' : bar) + (note && !bare ? `<p class="mlegend small muted">${note}</p>` : '') + `<div class="mapwrap">${mapsKey ? '<div id="mapslot" class="mapslot"></div>' : '<div class="mapslot mapempty">要設定 Google 地圖金鑰才會顯示地圖</div>'}${cta}</div>`;
 };
 
 // 當天有座標的行程照順序編 1、2、3…，左邊時間軸和地圖上的針用同一個號碼
@@ -238,7 +233,7 @@ function wishPanel(S, trip, d) {
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
   const name = p => (S.offline || !hasXY(p) ? `<b>${esc(p.title)}</b>` : `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>`);
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
-      <div class="grow">${name(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
+      ${S.wide ? GRIP : ''}<div class="grow">${name(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
       <button type="button" class="wadd" data-act="wishAdd" data-id="${esc(p.id)}" ${off} aria-label="加入「${esc(p.title)}」" title="加入行程">${ICON.plus}</button>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
@@ -464,9 +459,14 @@ function planWide(S, trip) {
     </section>`;
   // 沒有地圖（離線、沒金鑰）時維持一欄
   if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
-  // 電腦版兩欄：左邊當天行程占 1/3、右邊地圖占 2/3；想去清單是地圖上的粉紅色愛心圓點，要看清單再打開
-  return `<div class="planwide two">
-    ${day}
+  // 電腦版兩欄：左邊當天行程、右邊地圖；按「想去清單」才在行程旁多開一欄（視窗較窄時改成浮在地圖上），可直接拖到左邊行程
+  const wish = S.wishOpen ? `<aside class="wishover" aria-label="想去清單">
+      <div class="wishcolhead"><b>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></b><span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button><button type="button" class="iconbtn" data-act="wishOpen" aria-label="關閉想去清單">×</button></span></div>
+      <p class="small muted" style="margin:0">長按地點拖到左邊行程，放在想去的位置</p>
+      <div class="wishpane">${wishPanel(S, trip, sel)}</div>
+    </aside>` : '';
+  return `<div class="planwide two${wish ? ' wish' : ''}">
+    ${day}${wish}
     <section class="mapcol" aria-label="地圖">${mapBox(S, sel, trip)}</section>
   </div>
   ${addFab(S, sel)}`;

@@ -724,6 +724,8 @@ function onDrop(id, t) {
     const ref = t.kind === 'item' ? findItem(t.id) : null;
     const day = t.kind === 'day' ? t.d : ref?.day;
     if (!day) return;
+    // 拖到區域卡片上：加進那一區，放在區域卡片和它後面已排的同區地點之後（和卡片裡按「加入」一樣）
+    if (ref?.kind === 'area') { wishToDay(id.slice(2), day, afterArea(S.items, ref.id), { area: ref.area }); return; }
     const list = itemsOfDay(S.items, day);
     const beforeId = ref ? (t.before ? ref.id : list[list.findIndex(x => x.id === ref.id) + 1]?.id) : undefined;
     wishToDay(id.slice(2), day, beforeId);

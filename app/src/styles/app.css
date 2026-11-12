@@ -1076,13 +1076,20 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
   .device.wide .mapcol .mapwrap{flex:1;min-height:0}
   .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
-  /* 想去清單蓋在地圖右邊，地圖不用縮 */
-  .device.wide .wishover{position:absolute;top:10px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
+  /* 想去清單：視窗較窄時浮在地圖右邊；1180px 以上改成行程旁的第二欄，地圖跟著縮窄 */
+  .device.wide .planwide.two{position:relative}
+  .device.wide .wishover{position:absolute;top:44px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
   .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-right:8px}
   .device.wide .wishcolhead b{font-size:17px}
   .device.wide .wishover .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:8px;scrollbar-width:thin}
   .device.wide .wishover .wishpane:has(.lifted){overflow:visible}
   .device.wide .wishover .wishtop{flex-wrap:wrap}
+  /* 從想去清單拖出來的地點，拖曳時像一張卡片，蓋在行程上也看得清楚 */
+  .device.wide .wishes .item.wrow.lifted{background:var(--surface);border:1px solid var(--warm);border-radius:12px;padding:9px 12px}
+  @media (min-width:1180px){
+    .device.wide .planwide.two.wish{grid-template-columns:clamp(340px,28vw,420px) 340px minmax(0,1fr)}
+    .device.wide .two.wish > .wishover{position:static;width:auto;box-shadow:var(--sh-card);border-radius:18px}
+  }
   /* 固定高度又要捲動，用 flex 並且子項不縮，日期列才不會被下面的天數標題蓋住 */
   .device.wide .two > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
   .device.wide .two > .day > *{flex-shrink:0}
