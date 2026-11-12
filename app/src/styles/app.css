@@ -372,6 +372,7 @@ textarea.input{resize:vertical;font-family:inherit}
 .item{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
 .item::before{content:"";position:absolute;left:-21px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--bg);border:2px solid var(--accent)}
 .item .grow{min-width:0}
+.item:has(.wname){cursor:pointer}
 .item[data-iid]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:box-shadow .15s,background .15s}
 .item.pressing{background:var(--surface2)}
 .item.lifted{position:relative;z-index:15;box-shadow:var(--sh-pop);border-color:var(--warm);pointer-events:none;transition:none}
