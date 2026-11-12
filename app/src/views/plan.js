@@ -6,7 +6,7 @@ import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, mapName, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, mapName, nq, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -185,7 +185,7 @@ function legHtml(r) {
   const kr = inKorea(r.it), naver = kr && naverHref(r.it, r.it.title, true);
   // 韓國：手機開 Naver 地圖 App 的兩站路線，電腦開 Naver 地圖網頁
   const href = !kr ? `https://www.google.com/maps/dir/?api=1&origin=${xy(l.from)}&destination=${xy(r.it)}&travelmode=${walk ? 'walking' : 'transit'}`
-    : naver.startsWith('nmap:') ? `nmap://route/${walk ? 'walk' : 'public'}?${new URLSearchParams({ slat: l.from.lat, slng: l.from.lng, sname: l.from.title || '出發', dlat: r.it.lat, dlng: r.it.lng, dname: r.it.title || '', appname: location.origin })}` : naver;
+    : naver.startsWith('nmap:') ? `nmap://route/${walk ? 'walk' : 'public'}?${nq({ slat: l.from.lat, slng: l.from.lng, sname: l.from.title || '出發', dlat: r.it.lat, dlng: r.it.lng, dname: r.it.title || '', appname: location.origin })}` : naver;
   return `<a class="legline" href="${esc(href)}" target="_blank" rel="noopener" title="開 ${kr ? 'Naver' : 'Google'} 地圖看路線">${walk ? '步行' : '搭車'} ${stayText(l.min)}</a>`;
 }
 const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
