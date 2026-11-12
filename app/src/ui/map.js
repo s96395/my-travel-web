@@ -7,6 +7,8 @@ import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
 let wishPts = [], wishMarks = [], clusterZoom = -1, onActRef;
+// 電腦版資訊卡：點標記不開地圖上的小視窗，改請畫面在左欄開資訊卡；開卡前記下地圖範圍，關卡時放回去
+let cardFn = null, cardOn = false, view0 = null, selId = '';
 let nearCat = '', nearAt = null, nearBtn, nearBar, nearOpen = false, nearSeq = 0;
 const nearMarks = [];
 
@@ -60,9 +62,11 @@ function placePopup(p) {
 }
 function showPlace(p, stay) {
   const g = window.google.maps;
+  if (cardOn) keepView();
   temp ??= new g.Marker({ zIndex: 3 });
   temp.setOptions({ map, position: { lat: p.lat, lng: p.lng }, title: p.title });
   if (!stay) { map.panTo(temp.getPosition()); if (map.getZoom() < 15) map.setZoom(15); }
+  if (cardOn) { info.close(); pick(''); cardFn({ kind: 'place', p }); placeMore(p); return; }
   const head = document.createElement('b');
   head.className = 'mpophead';
   head.textContent = p.title;
@@ -70,6 +74,39 @@ function showPlace(p, stay) {
   info.open({ map, anchor: temp });
 }
 export function clearPlace() { temp?.setMap(null); info?.close(); if (search) search.value = ''; }
+
+function keepView() { if (!view0 && map?.getCenter()) view0 = { c: map.getCenter(), z: map.getZoom() }; }
+// 資訊卡上的標記放大、加粗外框；換一個或關卡時改回原樣
+function pick(id) {
+  if (selId === id) return;
+  const old = markers.get(selId);
+  if (old?.__icon) old.setIcon(old.__icon);
+  selId = id;
+  const m = markers.get(id);
+  if (!m) return;
+  const ic = m.getIcon();
+  m.__icon = ic;
+  m.setIcon(ic.url ? { ...ic, scaledSize: new window.google.maps.Size(36, 36), anchor: new window.google.maps.Point(18, 18) } : { ...ic, scale: ic.scale + 4, strokeWeight: 4 });
+}
+// 關閉資訊卡：標記改回原樣、拿掉搜尋的大頭針、地圖回到開卡前的範圍
+export function closeCard() {
+  pick('');
+  clearPlace();
+  if (view0 && map) { map.setCenter(view0.c); map.setZoom(view0.z); }
+  view0 = null;
+}
+// Google 地點的評分、營業時間、照片、電話、網站：開資訊卡時才查（每點一次查一次）
+const MORE_FIELDS = ['rating', 'userRatingCount', 'regularOpeningHours', 'utcOffsetMinutes', 'photos', 'nationalPhoneNumber', 'websiteURI'];
+async function placeMore(p) {
+  if (!p.pid) { cardFn?.({ kind: 'place', p: { ...p, more: true } }); return; }
+  try {
+    const { Place } = await window.google.maps.importLibrary('places');
+    const pl = new Place({ id: p.pid, requestedLanguage: 'zh-TW' });
+    await pl.fetchFields({ fields: MORE_FIELDS });
+    const h = pl.regularOpeningHours;
+    cardFn?.({ kind: 'place', p: { ...p, more: true, rating: pl.rating ?? null, ratingN: pl.userRatingCount || 0, hours: h?.weekdayDescriptions || null, off: pl.utcOffsetMinutes ?? null, open: h ? openAt(h.periods, pl.utcOffsetMinutes) : null, photo: pl.photos?.[0]?.getURI({ maxWidth: 640 }) || '', phone: pl.nationalPhoneNumber || '', web: pl.websiteURI || '' } });
+  } catch (err) { console.error(err); cardFn?.({ kind: 'place', p: { ...p, more: true } }); }
+}
 
 // 右下角「＋」：地圖出來後捲到地圖（不先放游標，免得手機鍵盤蓋住地圖）
 export async function showSearch() {
@@ -95,7 +132,7 @@ function toInfo(place) {
   // Google 給的連結後面帶一長串追蹤參數，只留地點代碼 cid
   const cid = (place.googleMapsURI || '').match(/[?&]cid=(\d+)/)?.[1];
   const url = cid ? `https://maps.google.com/?cid=${cid}` : place.googleMapsURI || '';
-  return { title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
+  return { pid: place.id || '', title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
 }
 
 // 找附近店家：搜尋框下的「找附近店家」打開分類（景點、美食…），點了就把目前畫面附近的 Google 店家標出來；
@@ -237,6 +274,12 @@ export async function attachSuggest(input, near, onPick, onSelf) {
 
 // 名稱放在彈出框的標題列（和關閉鈕同一行），上方才不會空一大塊
 function openPop(p, m) {
+  if (cardOn) {
+    keepView(); info.close(); temp?.setMap(null); pick(p.id);
+    map.panTo(m.getPosition()); if (map.getZoom() < 15) map.setZoom(15);
+    cardFn({ kind: p.kind, id: p.kind === 'wish' ? p.id.slice(2) : p.id });
+    return;
+  }
   const head = document.createElement('b');
   head.className = 'mpophead';
   head.textContent = p.title;
@@ -275,6 +318,7 @@ function drawWish() {
         const m = new g.Marker({ map, position: { lat: p.lat, lng: p.lng }, title: p.title, zIndex: 1, icon: { url: WISH_ICON, scaledSize: new g.Size(26, 26), anchor: new g.Point(13, 13) } });
         m.addListener('click', () => openPop(p, m));
         markers.set(p.id, m); wishMarks.push(m);
+        if (p.id === selId) { selId = ''; pick(p.id); }
       }
       continue;
     }
@@ -321,7 +365,7 @@ function followTheme() {
   new MutationObserver(set).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 }
 
-export async function syncMap(data, onAct, onPlace) {
+export async function syncMap(data, onAct, onPlace, onCard) {
   await loadApi();
   const slot = document.getElementById('mapslot'); // 載入期間畫面可能重畫過，重新找一次
   if (!slot) return;
@@ -350,6 +394,8 @@ export async function syncMap(data, onAct, onPlace) {
     });
   }
   act = onPlace;
+  cardFn = onCard || null; cardOn = !!(data.card && onCard);
+  if (!cardOn) { view0 = null; pick(''); }
   // 換了旅程或天數選項，先前搜到的地點彈出框裡的天數已經不對，收掉
   const opts = `${String(data.fit).split(':')[0]}|${data.opts || ''}`;
   if (opts !== lastOpts) { lastOpts = opts; clearPlace(); }
@@ -359,6 +405,7 @@ export async function syncMap(data, onAct, onPlace) {
   if (key !== lastKey) {
     lastKey = key;
     markers.forEach(m => m.setMap(null)); markers.clear();
+    const was = selId; selId = '';
     // 當天行程照 1、2、3 的順序用虛線連起來，看得出怎麼走
     const route = data.points.filter(p => p.kind === 'day').sort((a, b) => a.n - b.n).map(p => ({ lat: p.lat, lng: p.lng }));
     line?.setMap(null);
@@ -371,9 +418,10 @@ export async function syncMap(data, onAct, onPlace) {
         icon: { path: g.SymbolPath.CIRCLE, scale: day ? 13 : 7, fillColor: day ? DAY : p.color || WISH, fillOpacity: day ? 1 : 0.85, strokeColor: '#fff', strokeWeight: day ? 3 : 2 },
         label: day ? { text: String(p.n), color: '#fff', fontSize: '12px', fontWeight: '700' } : null,
       });
-      m.addListener('click', () => { openPop(p, m); showInList(p.id); });
+      m.addListener('click', () => { openPop(p, m); if (!cardOn) showInList(p.id); });
       markers.set(p.id, m);
     }
+    if (was) pick(was);
   }
   onActRef = onAct;
   drawWish();
@@ -390,6 +438,7 @@ export async function syncMap(data, onAct, onPlace) {
   }
   if (data.focus !== lastFocus) {
     lastFocus = data.focus;
+    if (cardOn && data.focus) keepView();
     const wp = wishPts.find(p => p.id === data.focus);
     if (wp && !wishMarks.some(m => m === markers.get(wp.id) && m.getMap())) { map.setCenter({ lat: wp.lat, lng: wp.lng }); map.setZoom(Math.max(map.getZoom(), 17)); drawWish(); }
     const m = markers.get(data.focus);
