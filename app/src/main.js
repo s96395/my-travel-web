@@ -400,7 +400,7 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
 
-// 地圖上搜尋到、或點到的 Google 地點：直接加到某一天，或加入想去清單；成功回傳 true
+// 地圖上搜尋到、或點到的 Google 地點：直接加到某一天，或先放想去清單；成功回傳 true
 async function placeAct(kind, p, day) {
   if (S.busy || S.offline || !S.tripId) return false;
   // 搜尋找不到：開自己輸入的表單，名稱先帶進去
@@ -418,7 +418,7 @@ async function placeAct(kind, p, day) {
     const near = S.wishDocs.filter(w => w.area && Number.isFinite(w.lat)).map(w => ({ w, km: distanceKm(w, p) })).filter(x => x.km <= 1).sort((a, b) => a.km - b.km)[0];
     const area = near ? near.w.area : '';
     const tid = S.tripId;
-    try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已加入想去清單「${area}」` : '已加入想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+    try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已放進想去清單「${area}」` : '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   // 還沒選天數：先問要加在哪一天
   if (!day) { const t = curTrip(); if (t) { S.pick = { kind: 'place', p }; daySheet(S, t, { ...p, area: nearArea(p, S.wishDocs) }, 'place'); } return false; }
