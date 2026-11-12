@@ -134,13 +134,19 @@ export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.i
 export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
 // 手機直接開 Naver 地圖 App；電腦沒有 App，開 Naver 地圖網頁搜尋
-// nav（導航）：用名稱搜尋，打開 Naver 的地點頁（有評分、照片、出發／到達），不直接進導航，人不在當地也打得開
+// nav（導航）：用名稱搜尋，打開 Naver 的地點頁（有評分、照片、出發／到達），不直接進導航，人不在當地也打得開；中文名稱改用座標
 // 不是 nav（在地圖開啟）：有座標就照座標標出那一點
 export function naverHref(p, query, nav = false) {
   const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
   const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
   if (coarse()) {
-    if (nav) return `nmap://search?${nq({ query: cleanName(String(p?.title || '').split(/[｜|]/)[0]) || query || name, appname: app })}`;
+    const key = cleanName(String(p?.title || '').split(/[｜|]/)[0]);
+    // 中文名稱（有漢字、沒有韓文）在 Naver 常查不到，有座標就直接照座標開，位置一定對
+    const zh = /\p{Script=Han}/u.test(key) && !/\p{Script=Hangul}/u.test(key);
+    if (nav && zh && xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
+    // 中韓並列（例如「海雲台 해운대」）只拿韓文那段去搜尋
+    const kr = /\p{Script=Hangul}/u.test(key) ? key.split(' ').filter(w => !/\p{Script=Han}/u.test(w)).join(' ') : key;
+    if (nav) return `nmap://search?${nq({ query: kr || query || name, appname: app })}`;
     if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
     return `nmap://search?${nq({ query: query || name, appname: app })}`;
   }
