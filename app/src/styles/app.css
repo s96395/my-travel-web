@@ -1001,12 +1001,17 @@ button.mate:active .avatar{transform:scale(.92)}
 
 .sugg .suggself span{font-size:14px;color:var(--accent)}
 .msearch .sugg .suggself span{color:#c2410c}
-/* 地圖分類（景點、美食…）與「搜尋此區域」 */
+/* 找附近店家：開關鈕、分類（景點、美食…）與「在這一帶重找店家」 */
 .mcats{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none}
 .mcats button{flex:none;border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:13px;font-weight:600;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
 .mcats button::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--c)}
 .mcats button[aria-pressed="true"]{background:var(--c);color:#fff}
 .mcats button[aria-pressed="true"]::before{background:#fff}
+.mcats button[hidden]{display:none}
+.mcats .mnearopen::before{display:none}
+.mcats .mnearopen::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-3px 0 0 2px}
+.mcats .mnearopen[aria-expanded="true"]{background:#1f2937;color:#fff}
+.mcats .mnearopen[aria-expanded="true"]::after{transform:rotate(-135deg);margin:3px 0 0 2px}
 .mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}
 .mnear[hidden]{display:none}
 .mnearlab{text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}

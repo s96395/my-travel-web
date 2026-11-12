@@ -7,7 +7,7 @@ import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
 let wishPts = [], wishMarks = [], clusterZoom = -1, onActRef;
-let nearCat = '', nearAt = null, nearBtn, nearBar, nearSeq = 0;
+let nearCat = '', nearAt = null, nearBtn, nearBar, nearOpen = false, nearSeq = 0;
 const nearMarks = [];
 
 function loadApi() {
@@ -24,8 +24,11 @@ function loadApi() {
   return ready;
 }
 
-// 地圖底色固定是淺色，針的顏色不跟著網站主題走：行程橘色、想去清單紅色，在街道、綠地和海上都看得清楚
+// 針的顏色不跟著網站主題走：行程橘色號碼、想去清單粉紅愛心（WISH_PINK）、搜尋到的地點紅色大頭針，在街道、綠地和海上都看得清楚
 const DAY = '#e8792b', WISH = '#e03131';
+// 導航：用 Google 地圖從目前位置導航到這個座標
+const navLink = p => (p.lat != null && p.lng != null ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">導航</a>` : '');
+const gmapLink = p => (p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : '');
 
 function popup(p, onAct) {
   const el = document.createElement('div');
@@ -33,18 +36,18 @@ function popup(p, onAct) {
   // 一行放「第幾天＋加入」，其他動作放下面一行小字連結
   el.innerHTML = `${p.sub ? `<span class="mpopsub">${esc(p.sub)}</span>` : ''}
     ${p.kind === 'wish' ? `<div class="mpoprow">${p.d ? `<button type="button" class="btn sm primary" data-act="wishDay" data-id="${esc(p.id.slice(2))}" data-d="${p.d}">加入第 ${p.d} 天</button>` : `<button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入行程</button>`}</div>` : ''}
-    <div class="mpoplinks">${p.kind === 'wish' && p.d ? `<button type="button" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加到別天</button>` : ''}${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : ''}</div>`;
+    <div class="mpoplinks">${p.kind === 'wish' && p.d ? `<button type="button" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加到別天</button>` : ''}${navLink(p)}${gmapLink(p)}</div>`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
 }
 
-// 搜尋到或在地圖上點到的地點：先插一根紅色大頭針，彈出框可以直接加到某天，或先放想去清單
+// 搜尋到或在地圖上點到的地點：先插一根紅色大頭針，彈出框可以直接加入行程，或加入想去清單
 function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
   el.innerHTML = `${p.addr ? `<span class="mpopsub">${esc(p.addr)}</span>` : ''}
     ${dayOptsHtml ? '<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placeAdd">加入行程</button></div>' : ''}
-    <div class="mpoplinks"><button type="button" data-pact="placeWish">放想去清單</button>${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">Google 地圖</a>` : ''}</div>`;
+    <div class="mpoplinks"><button type="button" data-pact="placeWish">加入想去清單</button>${navLink(p)}${gmapLink(p)}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
   el.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', ev => {
     ev.stopPropagation();
@@ -95,7 +98,8 @@ function toInfo(place) {
   return { title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
 }
 
-// 地圖上方的分類（景點、美食…）：點了就把目前畫面附近的地點標出來；移動地圖後按「搜尋此區域」重找
+// 找附近店家：搜尋框下的「找附近店家」打開分類（景點、美食…），點了就把目前畫面附近的 Google 店家標出來；
+// 移動地圖後按「在這一帶重找」。這是找 Google 上的店家，和只篩選自己收藏的「搜尋此區域」不同
 const NEAR_CATS = [
   ['sight', '景點', '#2f6fdb', ['tourist_attraction', 'museum', 'park', 'amusement_park', 'art_gallery', 'zoo', 'aquarium', 'historical_landmark']],
   ['food', '美食', '#c2255c', ['restaurant']],
@@ -111,11 +115,13 @@ function nearView() {
   const r = Math.min(50000, Math.max(300, distanceKm({ lat: c.lat(), lng: c.lng() }, { lat: ne.lat(), lng: ne.lng() }) * 1000));
   return { lat: c.lat(), lng: c.lng(), r, z: map.getZoom() };
 }
+const NEAR_AGAIN = '在這一帶重找店家';
 function syncNearUi() {
-  nearBar?.querySelectorAll('[data-cat]').forEach(b => b.setAttribute('aria-pressed', b.dataset.cat === nearCat));
+  nearBar?.querySelectorAll('[data-cat]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.cat === nearCat); b.hidden = !nearOpen; });
+  nearBar?.querySelector('[data-near]')?.setAttribute('aria-expanded', nearOpen);
   if (!nearBtn) return;
   const v = nearCat && nearView();
-  // 移動超過畫面寬度的三分之一，或縮放過，才出現「搜尋此區域」
+  // 移動超過畫面寬度的三分之一，或縮放過，才出現「在這一帶重找」
   const moved = v && nearAt && (v.z !== nearAt.z || distanceKm(v, nearAt) * 1000 > nearAt.r / 3);
   nearBtn.hidden = !moved;
 }
@@ -137,17 +143,25 @@ async function runNear() {
       m.addListener('click', () => showPlace(p, true));
       nearMarks.push(m);
     }
-    nearBtn.textContent = places?.length ? '搜尋此區域' : '這附近沒找到，換個地方再搜尋';
-  } catch (err) { console.error(err); if (my === nearSeq) nearBtn.textContent = '搜尋失敗，再試一次'; }
+    nearBtn.textContent = places?.length ? NEAR_AGAIN : '這一帶沒找到店家，移動地圖再試';
+  } catch (err) { console.error(err); if (my === nearSeq) nearBtn.textContent = '找店家失敗，再試一次'; }
   if (my !== nearSeq) return;
   nearBtn.disabled = false;
-  nearBtn.hidden = nearBtn.textContent === '搜尋此區域';
+  nearBtn.hidden = nearBtn.textContent === NEAR_AGAIN;
 }
 function nearControls(g, bar) {
   nearBar = document.createElement('div');
   nearBar.className = 'mcats';
-  nearBar.innerHTML = NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}">${label}</button>`).join('');
+  nearBar.innerHTML = `<button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
   nearBar.addEventListener('click', ev => {
+    // 「找附近店家」：打開分類；再按一次收起，同時清掉找到的店家
+    if (ev.target.closest('[data-near]')) {
+      ev.stopPropagation();
+      nearOpen = !nearOpen;
+      if (!nearOpen) { nearCat = ''; nearSeq++; clearNear(); nearAt = null; }
+      syncNearUi();
+      return;
+    }
     const b = ev.target.closest('[data-cat]');
     if (!b) return;
     ev.stopPropagation();
@@ -160,7 +174,7 @@ function nearControls(g, bar) {
   nearBtn.type = 'button';
   nearBtn.className = 'mnear';
   nearBtn.hidden = true;
-  nearBtn.textContent = '搜尋此區域';
+  nearBtn.textContent = NEAR_AGAIN;
   nearBtn.addEventListener('click', ev => { ev.stopPropagation(); runNear(); });
   map.controls[g.ControlPosition.BOTTOM_CENTER].push(nearBtn);
   map.addListener('idle', syncNearUi);
