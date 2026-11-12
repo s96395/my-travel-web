@@ -57,12 +57,18 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid]')) e.preventDefault(); });
 }
 
-// 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程有自己的捲軸，拖到它的上下緣就捲它
+// 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程欄、手機底部面板的列表有自己的捲軸，拖到它的上下緣就捲它
 function autoScroll() {
   if (!DR.active) return;
-  const box = document.querySelector('.withmap > .day');
+  const box = document.querySelector('.withmap > .day, .two > .day, .msheet .mbody');
   const r = box?.getBoundingClientRect();
-  if (r && DR.px >= r.left && DR.px <= r.right) { if (DR.py < r.top + 50) box.scrollBy(0, -8); else if (DR.py > r.bottom - 50) box.scrollBy(0, 8); }
+  if (r && DR.px >= r.left && DR.px <= r.right) {
+    // 欄位比畫面高時，只用看得到的上下緣；欄位自己捲到底了就改捲整頁
+    const top = Math.max(r.top, 0), bot = Math.min(r.bottom, window.innerHeight);
+    const end = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+    if (DR.py < top + 50) (box.scrollTop > 0 ? box : window).scrollBy(0, -8);
+    else if (DR.py > bot - 50) (end ? window : box).scrollBy(0, 8);
+  }
   else if (DR.py < 70) window.scrollBy(0, -8); else if (DR.py > window.innerHeight - 110) window.scrollBy(0, 8);
   DR.raf = requestAnimationFrame(autoScroll);
 }

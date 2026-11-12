@@ -1679,7 +1679,9 @@ function gripEnd() {
   let to;
   if (!moved) to = cur === 'peek' ? 'half' : 'peek';
   else {
-    const full = ($('.mmap')?.getBoundingClientRect().height || innerHeight) - 64;
+    // 完整展開的高度和 CSS 一樣：畫面高扣掉標題列、底部分頁列，上方留 64px 地圖（地圖高度會跟著面板變，不能拿來算）
+    const top = $('.mmap')?.getBoundingClientRect().top ?? 62, tab = $('.tabbar')?.getBoundingClientRect().height ?? 63;
+    const full = innerHeight - top - tab - 64;
     const hs = { peek: 120, half: innerHeight * 0.45, full };
     to = SHEET_H.reduce((a, b) => (Math.abs(hs[b] - now) < Math.abs(hs[a] - now) ? b : a));
   }
