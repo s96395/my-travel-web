@@ -6,7 +6,7 @@ import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, mapName, nq, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, mapName, nq, stayPlace, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -489,6 +489,13 @@ export function driverData(S, trip, k, id) {
     const p = S.wishDocs.find(x => x.id === id);
     if (!p) return null;
     return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false, ...more(p, 'wish:' + p.id) };
+  }
+  // 交通住宿分頁的住宿：用自己貼的名稱、地址；沒有座標，所以不放小地圖、不查當地語言
+  if (k === 'stay') {
+    const st = allStays(S, trip).find(x => x.id === id);
+    if (!st) return null;
+    const p = stayPlace(st);
+    return { name: st.name, addr: st.address && !isMapLink(st.address) ? st.address : '', nav: navHref(p, trip.city, trip.country), open: placeHref(p, trip.city, trip.country), map: mapName(p, trip.country), google: false, key: 'stay:' + st.id, pid: '', q: '', lang: '', langName: '' };
   }
   const p = S.card?.kind === 'place' ? S.card.p : null;
   if (!p) return null;
