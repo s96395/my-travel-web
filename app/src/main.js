@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
@@ -930,6 +930,19 @@ const actions = {
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
   // 資訊卡：關閉；Google 地點的「加入行程」先問哪一天，「加入想去清單」直接加
   cardClose() { closeCard(); },
+  // 給司機看：蓋在資訊卡上的視窗，關掉後資訊卡、日期、清單捲動位置都不變；只用現有資料，不查 Google 地點資料
+  driver(el) {
+    const t = curTrip(), d = t && driverData(S, t, el.dataset.k, el.dataset.id);
+    if (!d) return;
+    S.drv = d;
+    driverSheet(d, S.offline);
+    if ($('#drvmap')) import('./ui/map.js').then(m => m.driverMap($('#drvmap'), d)).catch(console.error);
+  },
+  async drvCopy() {
+    const text = S.drv && driverText(S.drv);
+    if (!text) return;
+    try { await navigator.clipboard.writeText(text); toast('已複製'); } catch { toast('沒辦法自動複製，請長按名稱或地址選取'); }
+  },
   async cardPlace(el) {
     const c = S.card;
     if (c?.kind !== 'place' || !c.p) return;

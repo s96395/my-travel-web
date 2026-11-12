@@ -66,7 +66,7 @@ function itemHtml(it, S, trip, r = {}) {
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
       ${note ? `<details class="inote"><summary>備註</summary><p>${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>`) : S.offline ? drvLink('day', it.id, 'tag') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
     <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
@@ -401,6 +401,8 @@ const cardMore = btns => (btns.length ? `<div class="menulist" style="display:in
 const cardLinks = (links, more = '') => `<div class="row" style="gap:16px;flex-wrap:wrap">${links.filter(Boolean).join('')}${more}</div>`;
 const extLink = (href, text) => (href ? `<a class="linkbtn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
 const navTo = p => (hasXY(p) ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : '');
+// 給司機看的入口：資訊卡放在文字連結列；離線時資訊卡打不開，改在時間軸那一站下面放一個標籤
+const drvLink = (k, id, cls = 'linkbtn') => `<button type="button" class="${cls}" data-act="driver" data-k="${k}" data-id="${esc(id || '')}">給司機看</button>`;
 const facts = rows => (rows.some(r => r[1]) ? `<details open><summary class="label" style="cursor:pointer">詳細資訊</summary><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0">${rows.filter(r => r[1]).map(([k, v]) => `<dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd>`).join('')}</dl></details>` : '');
 // 手機面板收合時（mini）不把面板撐高，只放名稱和兩顆主要按鈕；要看更多就把面板往上拉
 const miniCard = (title, btns) => `<section class="day icard mini" id="icard" aria-label="地點資訊"><div class="row"><h3 class="grow">${esc(title)}</h3><button type="button" class="iconbtn" data-act="cardClose" aria-label="關閉資訊卡">×</button></div><div class="row">${btns}</div></section>`;
@@ -432,7 +434,7 @@ function infoCard(S, trip, d, mini = false) {
       <h3 style="margin:0;flex:none">${esc(it.title)}</h3>
       ${when ? `<p style="margin:0">${when}</p>` : ''}${it.tip ? `<p class="small muted" style="margin:0">一句提示：${esc(it.tip)}</p>` : ''}
       <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}<button type="button" class="btn grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${id}"`}>編輯</button></div>
-      ${cardLinks([onMap(it) ? extLink(placeHref(it, trip.city), '在 Google 地圖開啟') : ''], cardMore(more))}
+      ${cardLinks([onMap(it) ? extLink(placeHref(it, trip.city), '在 Google 地圖開啟') : '', it.kind !== 'area' && onMap(it) ? drvLink('day', it.id) : ''], cardMore(more))}
       ${facts([['地址', addr], ['備註', esc(noteOf(it))], ['備案', bk]])}`);
   }
   if (c.kind === 'wish') {
@@ -443,7 +445,7 @@ function infoCard(S, trip, d, mini = false) {
     return wrap(`<div class="tags"><span class="tag accent">收藏</span>${p.area ? `<span class="tag">${esc(p.area)}</span>` : ''}${days ? `<span class="tag">已排第 ${days.join('、')} 天</span>` : ''}</div>
       <div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
       <div class="row"><button type="button" class="btn primary grow" data-act="wishAdd" data-id="${id}" ${off}>${ICON.plus}加入行程</button>${navTo(p) ? `<a class="btn grow" href="${esc(navTo(p))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
-      ${cardLinks([extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
+      ${cardLinks([extLink(p.url, '在 Google 地圖開啟'), drvLink('wish', p.id)], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
       ${facts([['備註', esc(noteOf(p))]])}`);
   }
   const p = c.p;
@@ -458,8 +460,40 @@ function infoCard(S, trip, d, mini = false) {
     <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
     <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placeAdd">${ICON.plus}加入行程</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button></div>
-    ${cardLinks([extLink(navTo(p), '導航'), extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
+    ${cardLinks([extLink(navTo(p), '導航'), extLink(p.url, '在 Google 地圖開啟'), drvLink('place', ''), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
     ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
+}
+
+// 給司機看：只用網站上已經有的資料（名稱、自己輸入的地址、座標），不查 Google 地點資料
+// k：'day' 行程、'wish' 收藏、'place' 資訊卡上的 Google 地點（名稱、地址是 Google 回傳的，只在畫面上顯示，要標資料來源）
+export function driverData(S, trip, k, id) {
+  if (k === 'day') {
+    const it = S.items.find(x => x.id === id);
+    if (!it) return null;
+    return { name: it.title, addr: it.address && !isMapLink(it.address) ? it.address : '', lat: it.lat, lng: it.lng, nav: onMap(it) ? navHref(it, trip.city) : '', open: onMap(it) ? placeHref(it, trip.city) : '', google: false };
+  }
+  if (k === 'wish') {
+    const p = S.wishDocs.find(x => x.id === id);
+    if (!p) return null;
+    return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p) || p.url || '', open: p.url || '', google: false };
+  }
+  const p = S.card?.kind === 'place' ? S.card.p : null;
+  if (!p) return null;
+  return { name: p.title, addr: p.addr || '', lat: p.lat, lng: p.lng, nav: navTo(p) || p.url || '', open: p.url || '', google: true };
+}
+export const driverText = d => [d.name, d.addr].filter(Boolean).join('\n');
+// 名稱大字、地址次大字；有座標又有網路時放小地圖（#drvmap，由 ui/map.js 放進同一張地圖），沒有就給「在 Google 地圖開啟」
+export function driverSheet(d, offline) {
+  const map = hasXY(d) && !offline && mapsKey;
+  const go = (href, text, cls) => (href && !offline ? `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
+  openSheet(`<div class="row" style="justify-content:space-between"><span class="label" style="margin:0">給司機看</span><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
+    <p class="drvname" style="margin:0;font-size:clamp(30px,8.5vw,44px);font-weight:800;line-height:1.25;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text">${esc(d.name)}</p>
+    ${d.addr ? `<p style="margin:0;font-size:clamp(18px,5vw,22px);line-height:1.45;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text">${esc(d.addr)}</p>` : ''}
+    ${map ? '<div id="drvmap" style="height:min(36vh,280px);min-height:180px;border-radius:12px;overflow:hidden;background:var(--surface2)" aria-label="目的地地圖"></div>' : go(d.open, `${ICON.pin}在 Google 地圖開啟`, 'btn')}
+    <div class="row"><button type="button" class="btn grow" data-act="drvCopy">複製名稱${d.addr ? '和地址' : ''}</button>${go(d.nav, `${ICON.map}導航`, 'btn primary grow')}</div>
+    ${map && d.open ? `<div class="row" style="gap:16px">${go(d.open, '在 Google 地圖開啟', 'linkbtn')}</div>` : ''}
+    ${offline ? '<p class="small muted" style="margin:0">離線中：只顯示已存在這趟旅程的名稱和地址。</p>' : ''}
+    ${d.google ? '<p class="small muted" style="margin:0">資料來源：Google Maps</p>' : ''}`);
 }
 
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
