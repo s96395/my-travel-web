@@ -3,6 +3,7 @@
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
 import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
+import { inKorea, naverHref } from '../lib/itinerary.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
@@ -31,8 +32,9 @@ function loadApi() {
 // 針的顏色不跟著網站主題走：行程橘色號碼、想去清單粉紅愛心（WISH_PINK）、搜尋到的地點紅色大頭針，在街道、綠地和海上都看得清楚
 const DAY = '#e8792b', WISH = '#e03131';
 // 導航：用 Google 地圖從目前位置導航到這個座標
-const navLink = p => (p.lat != null && p.lng != null ? `<a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" rel="noopener">導航</a>` : '');
-const gmapLink = p => (p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : '');
+// 韓國的地點（看座標）改開 Naver 地圖
+const navLink = p => (p.lat != null && p.lng != null ? `<a href="${esc(inKorea(p) ? naverHref(p, p.title, true) : `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`)}" target="_blank" rel="noopener">導航</a>` : '');
+const gmapLink = p => (inKorea(p) ? `<a href="${esc(naverHref(p, p.title))}" target="_blank" rel="noopener">在 Naver 地圖開啟</a>` : p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">在 Google 地圖開啟</a>` : '');
 
 function popup(p, onAct) {
   const el = document.createElement('div');
