@@ -1,4 +1,4 @@
-// 首頁：下一趟登機證、四張統計、搜尋與類型篩選、依年度分組的旅程卡
+// 首頁：主視覺（下一趟登機證／旅行足跡兩個頁籤）、統計、搜尋與類型篩選、依年度分組的旅程卡
 import { esc, money, ICON, TYPE_ICO, themeBtn } from '../ui/dom.js';
 import { scene, art, coverHtml } from '../ui/scene.js';
 import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
@@ -31,7 +31,7 @@ function hero(next, S) {
       <span class="bp-fields"><span><small>出發</small><b class="num">${esc(next.start.slice(5).replace('-', '/'))}</b></span><span><small>天數</small><b>${tripDays(next)} 天</b></span><span><small>同行</small><b>${next.people || 1} 人</b></span><span><small>類型</small><b>${esc(next.type)}</b></span></span>
     </span>
     <span class="perf"></span>
-    <span class="bp-stub">${count}<span class="barcode" aria-hidden="true"></span></span>
+    <span class="bp-stub">${count}<span class="bpgo">查看行程 ›</span><span class="barcode" aria-hidden="true"></span></span>
   </button>`;
 }
 
@@ -57,15 +57,15 @@ const contBar = c => `<span class="bar"><i style="width:${Math.round(c.got / c.t
 
 const openConts = new Set(); // 手機版展開中的洲，重畫畫面時保留
 
-function mapBox(w) {
-  return `<div class="worldmap"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
+function mapBox(w, sum = '') {
+  return `<div class="worldmap">${sum}<svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" role="img" aria-label="去過的國家地圖，可拖曳、放大縮小">${mapShapes(w)}</svg>
       <div class="wz"><button type="button" data-wz="in" aria-label="放大">＋</button><button type="button" data-wz="out" aria-label="縮小">－</button><button type="button" data-wz="reset" aria-label="回到台灣、看整個世界">⟲</button>${lastPlay[0].length > 1 ? '<button type="button" data-wplay aria-label="照時間播放去過的國家" title="照時間播放">▶</button>' : ''}</div>
       <span class="winfo" role="status" hidden></span>
     </div>`;
 }
 
-// withBar：手機版把各洲進度條和國家標籤放在一起，洲名只出現一次；標籤預設收起，點洲名才展開
-function worldList(w, withBar) {
+// withBar：把各洲進度條和國家標籤放在一起，洲名只出現一次；標籤預設收起，點洲名才展開（allOpen：全部展開）
+function worldList(w, withBar, allOpen) {
   const chips = list => `<span class="wchips">${list.map(([id, n]) => `<span class="wchip">${esc(countryInfo(id).name)}<small class="num">${n}</small></span>`).join('')}</span>`;
   return `${w.unmatched.length ? `<p class="small muted worldnote">地圖上找不到：${w.unmatched.map(esc).join('、')}。把旅程的國家改成正式國名，就會亮起來。</p>` : ''}
     ${w.continents.map(c => {
@@ -73,7 +73,7 @@ function worldList(w, withBar) {
       if (!withBar) return list.length ? `<div class="wgroup k-${c.key}"><b>${c.name}</b>${chips(list)}</div>` : '';
       const row = `<span>${c.name}</span>${contBar(c)}`;
       return list.length
-        ? `<details class="wgroup k-${c.key}" data-cont="${c.key}"${openConts.has(c.key) ? ' open' : ''}><summary class="cont">${row}<span class="chev">${ICON.chev}</span></summary>${chips(list)}</details>`
+        ? `<details class="wgroup k-${c.key}" data-cont="${c.key}"${allOpen || openConts.has(c.key) ? ' open' : ''}><summary class="cont">${row}<span class="chev">${ICON.chev}</span></summary>${chips(list)}</details>`
         : `<div class="wgroup k-${c.key}"><div class="cont">${row}<span></span></div></div>`;
     }).join('')}`;
 }
@@ -127,28 +127,54 @@ const playSet = S => {
   return [steps, steps.flatMap(st => st.fresh)];
 };
 
-function worldStrip(S, w, hero) {
-  const has = w.visited.size || w.unmatched.length;
-  if (!has) return hero;
-  const conts = w.continents.filter(c => c.got).length;
-  const open = !!S.stats.country;
-  const title = `<h3>🌍 足跡地圖</h3><span class="small muted">去過 ${w.visited.size + w.unmatched.length} 個國家・${conts} 大洲</span>`;
-  const [steps, ids] = lastPlay = [...playSet(S), w.visited.size + w.unmatched.length];
-  const auto = steps.length > 1 && !hidden && !playTimer && !reduceMotion() && !playedOnce();
+// 首頁主視覺：「下一趟旅行」和「旅行足跡」兩個頁籤共用同一個固定高度的框，切換時下面的統計和旅程列表不動
+// 預設：出發前 60 天內或旅行中看登機證，其他時候看足跡；手動切換只記這次瀏覽（關掉網站重開再照規則），不會自己輪播
+const HERO_KEY = 'heroTab';
+let heroTab = '', heroManual = false;
+function pickTab(next) {
+  if (heroTab) return heroTab;
+  try { const v = sessionStorage.getItem(HERO_KEY); if (v === 'trip' || v === 'map') { heroManual = true; return (heroTab = v); } } catch { /* 讀不到就照規則 */ }
+  const c = next && countdown(next);
+  return (heroTab = c && (c.ongoing || c.left <= 60) ? 'trip' : 'map');
+}
+function setTab(box, tab) {
+  heroTab = tab; heroManual = true;
+  try { sessionStorage.setItem(HERO_KEY, tab); } catch { /* 無痕模式等存不了，只影響重新整理後的頁籤 */ }
+  box.dataset.tab = tab;
+  box.querySelectorAll('[role="tab"]').forEach(b => b.setAttribute('aria-selected', b.dataset.hero === tab));
+  if (tab === 'map') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
+  else endPlay(true);
+}
+
+function heroBox(S, w, next, hero) {
+  const tab = pickTab(next);
+  const n = w.visited.size + w.unmatched.length, conts = w.continents.filter(c => c.got).length;
+  const open = !!S.stats.country && n > 0;
+  const c = next && countdown(next);
+  const soon = c ? (c.ongoing ? `旅行中 Day ${c.day}` : c.left === 0 ? '今天出發' : `${c.left} 天後`) : '';
+  const tabs = `<div class="htabs" role="tablist" aria-label="主視覺">
+      <button type="button" role="tab" data-hero="trip" aria-selected="${tab === 'trip'}">${ICON.plane}下一趟旅行${next ? `<small><span class="hname">${esc(next.name)}・</span>${soon}</small>` : ''}</button>
+      <button type="button" role="tab" data-hero="map" aria-selected="${tab === 'map'}">🌍 旅行足跡</button>
+    </div>`;
+  // 電腦版登機證右邊放一張淡淡的足跡縮圖，點了等於切到「旅行足跡」
+  const thumb = S.wide ? `<button type="button" class="hthumb" data-hero="map" aria-label="看旅行足跡"><svg viewBox="0 0 ${MW} ${MH}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${SHAPES.map(([id, d]) => `<path d="${d}"${w.visited.has(id) ? ` class="on k-${countryInfo(id).cont}"` : ''}></path>`).join('')}</svg><span class="small">點一下看旅行足跡</span></button>` : '';
+  const [steps, ids] = lastPlay = [...playSet(S), n];
+  // 只在預設就是足跡時自動播一次；手動切過去不播
+  const auto = tab === 'map' && !heroManual && steps.length > 1 && !hidden && !playTimer && !reduceMotion() && !playedOnce();
   if (auto) hidden = new Set(ids); // 先藏起來再畫，避免國家先亮又暗掉
-  const card = `<section class="wcard" aria-label="足跡地圖">
-    <div class="wp-head">${title}
-      <button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '看明細'}</button></div>
-    ${mapBox(w)}
-    ${open && !S.wide ? `<div class="wdetail">${worldList(w, true)}</div>` : ''}
-  </section>`;
+  const sum = n ? `<span class="wsum">去過 <b class="num">${n}</b> 個國家・<b class="num">${conts}</b> 大洲・<b class="num">${S.trips.length}</b> 趟</span>`
+    : '<span class="wsum">還沒有去過的國家。新增旅程並填上國家，地圖就會亮起來。</span>';
+  const toggle = (on, label, cls = '') => `<button type="button" class="${cls}" ${on ? 'data-act="stat" data-k="country"' : ''} aria-pressed="${!on}">${label}</button>`;
+  const seg = !S.wide && n ? `<div class="hseg" role="group" aria-label="地圖或各洲明細">${toggle(open, '地圖')}${toggle(!open, '各洲明細')}</div>` : '';
+  const detail = open ? `<div class="wdetail">${worldList(w, true, S.wide)}</div>` : '';
+  const more = S.wide && n ? `<button type="button" class="btn sm hmore" data-act="stat" data-k="country" aria-expanded="${open}">${open ? '收起明細' : '各洲明細'}</button>` : '';
   if (typeof requestAnimationFrame !== 'undefined') requestAnimationFrame(() => { const svg = mapSvg(); if (svg) applyCam(svg); });
   if (auto) setTimeout(() => startPlay(...lastPlay), 600);
-  if (!S.wide) return hero + card;
-  return `<div class="toprow">${hero}${card}</div>${open ? `<section class="worldpanel wide" aria-label="去過的國家">
-    <div class="wp-head">${title}<button type="button" class="linkbtn" data-act="stat" data-k="country" aria-expanded="true">收起</button></div>
-    <div class="conts">${w.continents.map(c => `<div class="cont k-${c.key}"><span>${c.name}</span>${contBar(c)}</div>`).join('')}</div>
-    <div class="wlist">${worldList(w)}</div></section>` : ''}`;
+  return `<section class="herobox" data-tab="${tab}">
+    ${tabs}
+    <div class="hpane htrip" role="tabpanel">${hero}${thumb}</div>
+    <div class="hpane hmap" role="tabpanel" data-open="${open}">${seg}${mapBox(w, sum)}${detail}${more}</div>
+  </section>`;
 }
 
 // 拖曳、縮放直接改 SVG 的 viewBox，不重畫整頁
@@ -253,6 +279,8 @@ if (typeof document !== 'undefined') {
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
+    const hb = e.target.closest?.('[data-hero]');
+    if (hb) { const box = hb.closest('.herobox'); if (box) setTab(box, hb.dataset.hero); return; }
     if (e.target.closest?.('[data-wplay]')) { const [steps, ids, total] = lastPlay; if (steps.length) startPlay(steps, ids, total); return; }
     const btn = e.target.closest?.('[data-wz]');
     const map = e.target.closest?.('.worldmap'); if (!map) return;
@@ -314,7 +342,7 @@ export function renderHome(S) {
   </header>
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
-    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : worldStrip(S, worldFootprint(trips), hero(pickNextTrip(trips), S))}
+    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips))}
     ${loading ? '' : statsHtml(S, st)}
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
