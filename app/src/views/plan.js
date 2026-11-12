@@ -347,11 +347,11 @@ function peekHtml(S, trip, days, sel) {
 }
 
 // 手機有地圖時：地圖鋪滿，行程放在底部面板。面板三段高度（收合、半展開、完整展開），只有頂端把手可以拖；
-// 點地圖標記時面板換成資訊卡（同一層，不疊第二張），關閉後回原本高度
+// 點地圖標記時面板換成資訊卡（同一層，不疊第二張），面板高度不變；收合時只顯示名稱和主要按鈕
 const SHEET_H = ['peek', 'half', 'full'];
 function planSheet(S, trip, days, sel) {
-  const card = infoCard(S, trip, sel);
-  const h = card ? 'half' : SHEET_H.includes(S.sheet) ? S.sheet : 'half';
+  const h = SHEET_H.includes(S.sheet) ? S.sheet : 'half';
+  const card = infoCard(S, trip, sel, h === 'peek');
   const wish = S.mside === 'wish';
   const seg = `<div class="mseg" role="group" aria-label="行程或想去清單"><button type="button" data-act="mside" data-v="plan" aria-pressed="${!wish}">行程</button><button type="button" data-act="mside" data-v="wish" aria-pressed="${wish}">想去清單 <span class="num">${S.wishDocs.length || ''}</span></button></div>`;
   const n = stopCount(S, sel);
@@ -402,7 +402,9 @@ const cardLinks = (links, more = '') => `<div class="row" style="gap:16px;flex-w
 const extLink = (href, text) => (href ? `<a class="linkbtn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
 const navTo = p => (hasXY(p) ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : '');
 const facts = rows => (rows.some(r => r[1]) ? `<details open><summary class="label" style="cursor:pointer">詳細資訊</summary><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0">${rows.filter(r => r[1]).map(([k, v]) => `<dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd>`).join('')}</dl></details>` : '');
-function infoCard(S, trip, d) {
+// 手機面板收合時（mini）不把面板撐高，只放名稱和兩顆主要按鈕；要看更多就把面板往上拉
+const miniCard = (title, btns) => `<section class="day icard mini" id="icard" aria-label="地點資訊"><div class="row"><h3 class="grow">${esc(title)}</h3><button type="button" class="iconbtn" data-act="cardClose" aria-label="關閉資訊卡">×</button></div><div class="row">${btns}</div></section>`;
+function infoCard(S, trip, d, mini = false) {
   const c = S.card;
   if (!c || c.tid !== S.tripId) return '';
   const top = `<div class="row" style="justify-content:space-between"><button type="button" class="linkbtn" data-act="cardClose">‹ 回${d ? `第 ${d} 天` : ''}行程</button><button type="button" class="iconbtn" data-act="cardClose" aria-label="關閉資訊卡">×</button></div>`;
@@ -410,6 +412,7 @@ function infoCard(S, trip, d) {
   if (c.kind === 'day') {
     const it = S.items.find(x => x.id === c.id);
     if (!it) return '';
+    if (mini) return miniCard(it.title, `${onMap(it) ? `<a class="btn sm primary grow" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}<button type="button" class="btn sm grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${esc(it.id)}"`}>編輯</button>`);
     const its = itemsOfDay(S.items, it.day), far = farOf(S);
     const no = pinsOf(its).filter(x => !far.has(x.id)).findIndex(x => x.id === it.id) + 1;
     const rows = it.day ? buildDay(its, dayEvents(dayIso(trip, it.day), { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : [];
@@ -436,6 +439,7 @@ function infoCard(S, trip, d) {
     const p = S.wishDocs.find(x => x.id === c.id);
     if (!p) return '';
     const days = usedDays(S).get(p.url), off = S.offline ? 'disabled' : '', id = esc(p.id);
+    if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="wishAdd" data-id="${id}" ${off}>${ICON.plus}加入行程</button>${navTo(p) ? `<a class="btn sm grow" href="${esc(navTo(p))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}`);
     return wrap(`<div class="tags"><span class="tag accent">收藏</span>${p.area ? `<span class="tag">${esc(p.area)}</span>` : ''}${days ? `<span class="tag">已排第 ${days.join('、')} 天</span>` : ''}</div>
       <div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
       <div class="row"><button type="button" class="btn primary grow" data-act="wishAdd" data-id="${id}" ${off}>${ICON.plus}加入行程</button>${navTo(p) ? `<a class="btn grow" href="${esc(navTo(p))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
@@ -444,6 +448,7 @@ function infoCard(S, trip, d) {
   }
   const p = c.p;
   if (!p) return '';
+  if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placeAdd">${ICON.plus}加入行程</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
   // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
   const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
   const today = p.hours?.[(local + 6) % 7];

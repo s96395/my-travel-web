@@ -1663,7 +1663,7 @@ document.addEventListener('submit', async ev => {
   if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
 // 手機底部面板（views/plan.js planSheet）：只有頂端把手可以拖；放開時停在最近的一段，點一下在收合與半展開間切換。
-// 資訊卡只有一層，往下拖或在卡片頂端往下拉就關閉，回到原本的面板高度
+// 資訊卡只有一層，開卡不改面板高度；把手照常拖，收合時再往下拖或在卡片頂端往下拉就關閉
 const SHEET_H = ['peek', 'half', 'full'];
 let grip = null, pull = null;
 document.addEventListener('pointerdown', e => {
@@ -1686,7 +1686,6 @@ function gripEnd() {
   grip = null;
   const now = sh.getBoundingClientRect().height;
   sh.classList.remove('moving'); sh.style.height = '';
-  if (S.card) { if (moved && now < from - 60) closeCard(); return; }
   const cur = sh.closest('.mplan')?.dataset.h || 'half';
   let to;
   if (!moved) to = cur === 'peek' ? 'half' : 'peek';
@@ -1695,6 +1694,8 @@ function gripEnd() {
     const top = $('.mmap')?.getBoundingClientRect().top ?? 62, tab = $('.tabbar')?.getBoundingClientRect().height ?? 63;
     const full = innerHeight - top - tab - 64;
     const hs = { peek: 120, half: innerHeight * 0.45, full };
+    // 開著資訊卡時，從收合再往下拖就關掉資訊卡
+    if (S.card && cur === 'peek' && now < from - 30) { closeCard(); return; }
     to = SHEET_H.reduce((a, b) => (Math.abs(hs[b] - now) < Math.abs(hs[a] - now) ? b : a));
   }
   if (to !== cur) { S.sheet = to; render(); }
