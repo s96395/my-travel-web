@@ -2,6 +2,7 @@
 import { esc, ICON, openSheet, $, dtField } from '../ui/dom.js';
 import { monthDay } from '../lib/dates.js';
 import { normTime } from '../lib/time24.js';
+import { inKorea, navHref, placeHref, stayPlace } from '../lib/itinerary.js';
 import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
 
 // 新資料加上還沒轉過的舊版單筆資料
@@ -35,7 +36,14 @@ function flightCard(S, f) {
   </article>`;
 }
 
-function stayCard(S, s) {
+// 住宿卡：導航、給司機看（和行程資訊卡同樣的按鈕）；韓國的導航開 Naver 地點頁，不另外放「開啟地圖」；離線只留給司機看
+function stayLinks(S, s, trip) {
+  const p = stayPlace(s), kr = inKorea(p, trip.country);
+  const go = (href, text, cls, style = '') => `<a class="${cls}" style="text-decoration:none${style}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>`;
+  return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${S.offline ? '' : go(navHref(p, trip.city, trip.country), `${ICON.map}導航`, 'btn sm primary')}<button type="button" class="btn sm" data-act="driver" data-k="stay" data-id="${esc(s.id)}">🚕 給司機看</button>${S.offline || kr || !s.address ? '' : go(placeHref(p, trip.city, trip.country), '開啟地圖', 'linkbtn')}</div>`;
+}
+
+function stayCard(S, s, trip) {
   const n = nights(s);
   const md = d => (d ? esc(d.slice(5).replace('-', '/')) : '—');
   return `<article class="card stay">
@@ -44,7 +52,7 @@ function stayCard(S, s) {
     ${s.address ? `<div class="small muted">${esc(s.address)}</div>` : ''}
     <div class="codes small"><span class="muted">確認碼</span>${secret(S, s.id + '-code', s.confirmCode)}${s.pin ? `<span class="muted">PIN 碼</span>${secret(S, s.id + '-pin', s.pin)}` : ''}</div>
     ${s.note ? `<div class="small muted">${esc(s.note)}</div>` : ''}
-    ${s.address ? `<a class="btn sm" style="justify-self:start;text-decoration:none" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.address)}" target="_blank" rel="noopener">開啟地圖</a>` : ''}
+    ${stayLinks(S, s, trip)}
   </article>`;
 }
 
@@ -78,7 +86,7 @@ export function renderMove(S, trip) {
   <div class="sec-h"><h2>其他交通</h2>${addBtn(S, 'transitForm', '新增交通')}</div>
   <div class="list two">${transits.map(t => transitCard(S, t)).join('') || '<div class="empty">還沒有其他交通</div>'}</div>
   <div class="sec-h"><h2>住宿</h2>${addBtn(S, 'stayForm', '新增住宿')}</div>
-  <div class="list two">${stays.map(s => stayCard(S, s)).join('') || '<div class="empty">還沒有住宿</div>'}</div>`;
+  <div class="list two">${stays.map(s => stayCard(S, s, trip)).join('') || '<div class="empty">還沒有住宿</div>'}</div>`;
 }
 
 /* ---------- 表單 ---------- */
