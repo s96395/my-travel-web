@@ -133,12 +133,15 @@ export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.i
 // Naver 地圖 App 不把 + 當空格，所以不用 URLSearchParams（它把空格編成 +），改用 %20
 export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-// 手機直接開 Naver 地圖 App（nav＝導航，'walk' 是步行導航，不然只標出地點）；電腦沒有 App，開 Naver 地圖網頁搜尋
+// 手機直接開 Naver 地圖 App；電腦沒有 App，開 Naver 地圖網頁搜尋
+// nav（導航）：用名稱搜尋，打開 Naver 的地點頁（有評分、照片、出發／到達），不直接進導航，人不在當地也打得開
+// 不是 nav（在地圖開啟）：有座標就照座標標出那一點
 export function naverHref(p, query, nav = false) {
   const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
   const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
   if (coarse()) {
-    if (xy) return nav ? `nmap://route/${nav === 'walk' ? 'walk' : 'public'}?${nq({ dlat: p.lat, dlng: p.lng, dname: name, appname: app })}` : `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
+    if (nav) return `nmap://search?${nq({ query: cleanName(String(p?.title || '').split(/[｜|]/)[0]) || query || name, appname: app })}`;
+    if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
     return `nmap://search?${nq({ query: query || name, appname: app })}`;
   }
   return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
