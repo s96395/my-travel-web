@@ -165,11 +165,9 @@ export function mapData(S, trip) {
     ...nearDay(wishLeft(S, d).filter(p => shown(p) && (!S.mapArea || p.area === S.mapArea)), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '', ...(box ? { dim: !inBox(box, p) } : {}) })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
-  // 「搜尋此區域」多放上去的收藏不算，免得一按地圖就跳走
-  const fitN = box ? points.filter(p => p.kind === 'day' || wishOn || p.id === S.mapFocus).length : points.length;
   // 結果條：範圍內亮著的收藏數、這天還沒排又沒有位置的收藏數（有區域篩選時只算那一區）
   const stat = box && { ...box, area: S.mapArea, cnt: points.filter(p => p.kind === 'wish' && !p.dim).length, noxy: wishLeft(S, d).filter(p => !hasXY(p) && (!S.mapArea || p.area === S.mapArea)).length };
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + fitN : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, wishN: S.wishDocs.some(hasXY) };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, wishN: S.wishDocs.some(hasXY) };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細

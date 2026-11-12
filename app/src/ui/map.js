@@ -511,6 +511,8 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   // 換天或地點數量變了，把所有針放進畫面
   // 當天有行程針時只框住行程針，想去清單的點在附近才會看到，不會把畫面拉到整座城市
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
+  // 「搜尋此區域」進行中不自動框範圍，地圖停在搜尋的那一帶（打開清單、多放上收藏都不會跳走）
+  if (data.box) lastFit = data.fit;
   if (data.fit !== lastFit && fitPts.length) {
     lastFit = data.fit;
     if (fitPts.length === 1) { map.setCenter({ lat: fitPts[0].lat, lng: fitPts[0].lng }); map.setZoom(15); } else {
