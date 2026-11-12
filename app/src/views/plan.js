@@ -125,18 +125,15 @@ const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
 const mapBox = (S, d, trip, bare) => {
   const pts = mapData(S, null).points;
   const none = !S.wishDocs.length;
-  // 區域不再用顏色分，改成地圖上方的篩選標籤：點了只看那一區的想去地點
-  const areas = [...new Set(S.wishDocs.filter(hasXY).map(p => p.area).filter(Boolean))];
-  const chip = (a, label) => `<button type="button" class="mchip" data-act="mapArea" data-area="${esc(a)}" aria-pressed="${S.mapArea === a}">${esc(label)}</button>`;
-  const chips = areas.length ? `<div class="mchips" role="group" aria-label="只看某個區域">${chip('', '全部')}${areas.map(a => chip(a, a)).join('')}</div>` : '<div class="grow"></div>';
   // 當天有地點還查不到位置、或收藏位置有誤時，才放一行小字說明
   const far = farOf(S), lost = itemsOfDay(S.items, d).filter(it => onMap(it) && (!hasXY(it) || far.has(it.id))).length;
   const odd = S.wishDocs.filter(p => far.has(p.id)).length;
   const note = [lost ? `第 ${d} 天有 ${lost} 個地點還找不到位置` : '', odd ? `${odd} 個收藏位置有誤，正在重查` : ''].filter(Boolean).join('・');
-  // 電腦版想去清單蓋在地圖上；手機版地圖下面的行程換成想去清單
+  // 電腦版想去清單蓋在地圖上；手機底部面板自己有「行程｜想去清單」切換，地圖上方就不再放按鈕
+  // 地圖上方不放區域標籤；要只看某區，從想去清單的區域名稱或時間軸的區域卡片點
   const wishOn = S.wide ? !!S.wishOpen : S.mside === 'wish';
-  const wishBtn = trip ? `<button type="button" class="mwishbtn" ${S.wide ? 'data-act="wishOpen"' : `data-act="mside" data-v="${wishOn ? 'plan' : 'wish'}"`} aria-pressed="${wishOn}">想去清單 <span class="num">${S.wishDocs.length}</span></button>` : '';
-  const bar = chips !== '<div class="grow"></div>' || wishBtn ? `<div class="mbar">${chips}${wishBtn}</div>` : '';
+  const wishBtn = trip && (S.wide || !sideMap(S)) ? `<button type="button" class="mwishbtn" ${S.wide ? 'data-act="wishOpen"' : `data-act="mside" data-v="${wishOn ? 'plan' : 'wish'}"`} aria-pressed="${wishOn}">想去清單 <span class="num">${S.wishDocs.length}</span></button>` : '';
+  const bar = wishBtn ? `<div class="mbar"><div class="grow"></div>${wishBtn}</div>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
   // 電腦版的想去清單平常收著，按「想去清單」才蓋在地圖右邊
@@ -160,9 +157,13 @@ export function mapData(S, trip) {
   const its = itemsOfDay(S.items, d), pins = pinsOf(its).filter(it => !far.has(it.id));
   // 想去清單裡和當天行程同一個地方的（名稱一樣或幾乎同一點）不再插一次，免得一個地方兩根針
   const dup = p => its.some(it => sameName(it.title, p.title)) || pins.some(it => distanceKm(it, p) < 0.05);
+  // 地圖平常只放當天行程；打開想去清單（或點某個區域名稱）要安排時，才把想去的地點放上去
+  // 從區域卡片點某個收藏的名稱時，只把那一個放上去
+  const wishOn = (S.wide ? !!S.wishOpen : S.mside === 'wish') || !!S.mapArea;
+  const shown = p => wishOn || 'w:' + p.id === S.mapFocus;
   const points = [
     ...pins.map((it, i) => ({ id: it.id, kind: 'day', n: i + 1, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${i + 1} 站` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
-    ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '' })),
+    ...nearDay(wishLeft(S, d).filter(p => shown(p) && (!S.mapArea || p.area === S.mapArea)), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '' })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
   return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull };
