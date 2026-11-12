@@ -1586,12 +1586,22 @@ const actions = {
 let downOn = null, upOn = null; // 最後一次按下、放開的位置，用來判斷是不是在視窗外面按的
 document.addEventListener('pointerdown', ev => { downOn = ev.target; }, true);
 document.addEventListener('pointerup', ev => { upOn = ev.target; }, true);
+// 記下按下時間，用來分辨一般點擊和長按拖曳
+let pressAt = 0;
+document.addEventListener('pointerdown', () => { pressAt = Date.now(); }, true);
 document.addEventListener('click', ev => {
   // 行程頁右下角「＋」選單：點了選項或點外面就收起
   const fab = document.querySelector('.addfab[open]');
   if (fab && (!fab.contains(ev.target) || ev.target.closest('[data-act]'))) fab.open = false;
   const el = ev.target.closest('[data-act]');
-  if (!el || el.disabled) return;
+  // 時間軸整塊都可以點：沒點到按鈕、連結、備註、拖曳把手時，等於點地點名稱（開資訊卡、地圖跳過去）；長按拖曳放開不算
+  if (!el) {
+    const row = ev.target.closest('.item[data-iid]');
+    const name = row && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && row.querySelector('.wname[data-act="mapFocus"]');
+    if (name) actions.mapFocus(name, ev);
+    return;
+  }
+  if (el.disabled) return;
   const fn = actions[el.dataset.act];
   if (fn) fn(el, ev);
 });

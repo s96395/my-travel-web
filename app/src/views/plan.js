@@ -400,7 +400,8 @@ function planNarrow(S, trip) {
 // 電腦版資訊卡：點地圖標記、行程或清單名稱時，蓋在左欄的位置。主要按鈕只放兩顆，依地點來源不同；其他放文字連結和「更多」
 // S.card：{ kind: 'day'|'wish'|'place', id（行程或收藏）, p（Google 地點）, canDel }
 const MENU = 'position:absolute;left:0;top:calc(100% + 6px);z-index:5;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-pop)';
-const cardMore = btns => (btns.length ? `<div class="menulist" style="display:inline-block;padding:0;position:relative"><details><summary style="padding:0;color:var(--accent);font-size:13px">更多 ⋯</summary><div class="menulist" style="${MENU}">${btns.join('')}</div></details></div>` : '');
+// 其他動作直接列出來（資訊卡下面空間夠，不用再按「更多」才看得到）
+const cardMore = btns => (btns.length ? `<div class="menulist" style="flex-basis:100%;padding:0 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)">${btns.join('')}</div>` : '');
 const cardLinks = (links, more = '') => `<div class="row" style="gap:16px;flex-wrap:wrap">${links.filter(Boolean).join('')}${more}</div>`;
 const extLink = (href, text) => (href ? `<a class="linkbtn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
 const navTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title, true) : hasXY(p) ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : '');
