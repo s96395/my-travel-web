@@ -131,12 +131,12 @@ const inPoly = (x, y, poly) => poly.reduce((inside, [x1, y1], i) => {
 }, false);
 export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.isFinite(p?.lng) ? inPoly(p.lng, p.lat, KR) : /韓國|南韓|大韓民國|濟州/.test(country || ''));
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-// 手機直接開 Naver 地圖 App（nav＝導航，不然只標出地點）；電腦沒有 App，開 Naver 地圖網頁搜尋
+// 手機直接開 Naver 地圖 App（nav＝導航，'walk' 是步行導航，不然只標出地點）；電腦沒有 App，開 Naver 地圖網頁搜尋
 export function naverHref(p, query, nav = false) {
   const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
   const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
   if (coarse()) {
-    if (xy) return nav ? `nmap://route/public?${new URLSearchParams({ dlat: p.lat, dlng: p.lng, dname: name, appname: app })}` : `nmap://place?${new URLSearchParams({ lat: p.lat, lng: p.lng, name, appname: app })}`;
+    if (xy) return nav ? `nmap://route/${nav === 'walk' ? 'walk' : 'public'}?${new URLSearchParams({ dlat: p.lat, dlng: p.lng, dname: name, appname: app })}` : `nmap://place?${new URLSearchParams({ lat: p.lat, lng: p.lng, name, appname: app })}`;
     return `nmap://search?${new URLSearchParams({ query: query || name, appname: app })}`;
   }
   return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
