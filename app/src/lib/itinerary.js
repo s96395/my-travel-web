@@ -152,6 +152,12 @@ export function naverHref(p, query, nav = false) {
   }
   return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
 }
+// 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Naver 常查不到，改用地址搜尋
+export const stayPlace = st => {
+  const name = String(st?.name || ''), addr = st?.address && !isMapLink(st.address) ? String(st.address).trim() : '';
+  const zh = /\p{Script=Han}/u.test(name) && !/\p{Script=Hangul}/u.test(name);
+  return { title: zh && addr ? addr : name, address: st?.address || '', type: 'stay' };
+};
 export const mapName = (p, country = '') => (inKorea(p, country) ? 'Naver' : 'Google');
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 // 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
