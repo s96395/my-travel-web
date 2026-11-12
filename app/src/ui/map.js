@@ -445,6 +445,26 @@ function followTheme() {
 }
 
 let syncSeq = 0;
+// 給司機看的小地圖：整個網站只建立一張（每建立一張地圖算一次地圖載入），之後換地點只移動大頭針
+let dMap, dBox, dPin;
+export async function driverMap(slot, p) {
+  if (!slot) return;
+  await loadApi();
+  if (!slot.isConnected) return; // 載入期間視窗已經關了
+  const g = window.google.maps, at = { lat: p.lat, lng: p.lng };
+  if (!dMap) {
+    dBox = document.createElement('div');
+    dBox.style.cssText = 'width:100%;height:100%';
+    dMap = new g.Map(dBox, { center: at, zoom: 16, disableDefaultUI: true, zoomControl: true, clickableIcons: false, gestureHandling: 'cooperative' });
+    dPin = new g.Marker({ map: dMap });
+  }
+  dMap.setOptions({ styles: isDark() ? DARK : null });
+  slot.appendChild(dBox);
+  dPin.setOptions({ position: at, title: p.name || '' });
+  dMap.setCenter(at);
+  dMap.setZoom(16);
+}
+
 export async function syncMap(data, onAct, onPlace, onCard) {
   const my = ++syncSeq;
   await loadApi();
