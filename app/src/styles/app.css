@@ -1131,3 +1131,35 @@ button.mate:active .avatar{transform:scale(.92)}
 :root .items .item.areacard{background:var(--accent-soft);border:0;border-radius:var(--r-sm);margin:8px 0 2px -22px;padding:8px 10px 8px 12px}
 :root .items .item.areacard h4{font-size:14px}
 .arealabel{font-size:11px;font-weight:700;color:var(--accent);border:1px solid currentColor;border-radius:4px;padding:0 4px;margin-right:6px;vertical-align:2px}
+/* 手機行程頁（第一階段第 4 批）：地圖鋪滿，行程放底部面板，三段高度；只有頂端把手可拖 */
+.mplan{--tabh:calc(63px + env(safe-area-inset-bottom,0px));--toph:calc(62px + env(safe-area-inset-top,0px))}
+.mplan[data-h="peek"]{--sheeth:120px}
+.mplan[data-h="half"]{--sheeth:45vh;--sheeth:45dvh}
+.mplan[data-h="full"]{--sheeth:calc(100vh - var(--toph) - var(--tabh) - 64px);--sheeth:calc(100dvh - var(--toph) - var(--tabh) - 64px)}
+.mmap,.msheet{position:fixed;left:0;right:0;margin-inline:auto;max-width:var(--appw)}
+/* 地圖下緣接到面板上緣（多留 16px 藏在面板圓角下），標記才不會被面板蓋住 */
+.mmap{top:var(--toph);bottom:calc(var(--tabh) + var(--sheeth) - 16px);z-index:1;display:flex;flex-direction:column;gap:6px;padding:4px 12px 0;background:var(--bg);overscroll-behavior:contain}
+.mmap .mapwrap{flex:1;min-height:0}
+.mmap .mapslot{flex:1;height:auto;min-height:0;border-radius:14px;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.msheet{bottom:var(--tabh);height:var(--sheeth);z-index:6;display:flex;flex-direction:column;background:var(--surface);border-radius:18px 18px 0 0;box-shadow:0 -8px 24px -12px var(--shade);transition:height .2s ease-out}
+.msheet.moving{transition:none}
+.mgrip{flex:none;height:28px;display:grid;place-items:center;touch-action:none;cursor:grab}
+.mgrip span{width:40px;height:5px;border-radius:999px;background:var(--line)}
+.mbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;padding:0 16px 16px;display:flex;flex-direction:column;gap:10px}
+.mbody > *{flex-shrink:0}
+.mbody > .day{display:grid;gap:8px}
+.mbody > .icard{display:flex;flex-direction:column;gap:10px}
+.mbody .dpills{margin-inline:-16px;padding-inline:16px}
+.mpeek{display:grid;gap:8px}
+.mpeek .row{gap:8px;min-width:0}
+.mpeek .daynum{color:var(--warm)}
+.mpeek b.grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpeek .iconbtn{width:32px;height:32px}
+.mseg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:12px;background:var(--surface2)}
+.mseg button{border:0;border-radius:9px;background:none;padding:8px;font:inherit;color:var(--muted);touch-action:manipulation}
+.mseg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);font-weight:700;box-shadow:var(--sh-1)}
+.msheet button,.mmap button{touch-action:manipulation}
+.mplan .addfab{bottom:calc(var(--tabh) + var(--sheeth) + 12px)}
+.mplan[data-h="full"] .addfab{display:none}
+.scroller:has(.mplan){padding-bottom:0}
+html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
