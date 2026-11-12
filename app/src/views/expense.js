@@ -278,8 +278,12 @@ export function expSheetHtml(S, trip, d) {
   const cats = CATS.includes(d.cat) ? CATS : [...CATS, d.cat], pays = PAYS.includes(d.pay) ? PAYS : [...PAYS, d.pay];
   const inactive = c.people.filter(p => p.status === 'inactive').map(p => p.name);
   const m = fmt(d);
+  // 表單上方一句話說明目前套用的付款人與分攤方式（例如「我付・平均分給 3 人」），下面改了會跟著變
+  const who = d.payer === c.me ? '我付' : d.payer === MULTI ? '多人付' : d.payer === FUND ? '公費付' : d.payer ? `${c.name(d.payer)}付` : '還不確定誰付';
+  const how = d.mode === 'equal' ? `平均分給 ${selected(list, d).length} 人` : d.mode === 'custom' ? '自訂每人金額' : '先不分攤';
   return `
     ${head(d.id ? (d.edit ? '編輯支出' : '支出內容') : '記一筆支出')}
+    ${d.edit ? `<p class="small muted" style="margin:0;text-align:center" role="status">目前設定：<b style="color:var(--fg)">${esc(who)}・${esc(how)}</b>（可在下方修改）</p>` : ''}
     ${d.askClose ? '<div class="confirm"><span>剛剛的修改還沒儲存，確定要離開嗎？</span><div class="row"><button type="button" class="btn sm" data-act="stayExp">繼續編輯</button><button type="button" class="btn sm danger" data-act="discardExp">不儲存，離開</button></div></div>' : ''}
     <div class="amtbox">
       <label class="label" for="x-amt">金額</label>
