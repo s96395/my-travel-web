@@ -57,10 +57,10 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid]')) e.preventDefault(); });
 }
 
-// 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程有自己的捲軸，拖到它的上下緣就捲它
+// 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程欄、手機底部面板的列表有自己的捲軸，拖到它的上下緣就捲它
 function autoScroll() {
   if (!DR.active) return;
-  const box = document.querySelector('.withmap > .day');
+  const box = document.querySelector('.withmap > .day, .two > .day, .msheet .mbody');
   const r = box?.getBoundingClientRect();
   if (r && DR.px >= r.left && DR.px <= r.right) { if (DR.py < r.top + 50) box.scrollBy(0, -8); else if (DR.py > r.bottom - 50) box.scrollBy(0, 8); }
   else if (DR.py < 70) window.scrollBy(0, -8); else if (DR.py > window.innerHeight - 110) window.scrollBy(0, 8);
