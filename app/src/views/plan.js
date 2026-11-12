@@ -165,7 +165,7 @@ export function mapData(S, trip) {
     ...nearDay(wishLeft(S, d).filter(p => !S.mapArea || p.area === S.mapArea), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d, area: p.area || '' })),
   ];
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '' };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
@@ -257,7 +257,7 @@ function wishPanel(S, trip, d) {
 // 「加入」都先跳出「要加在哪一天」，選好天數自動放在最順路的位置
 const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button type="button" ${attrs} ${off}>${ICON.plus}${text}</button></span>`;
 
-// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改放想去清單
+// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入想去清單
 export function daySheet(S, trip, p, kind) {
   const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p);
   const tag = r => (r.has ? '<span class="tag">已經排了</span>'
@@ -269,7 +269,7 @@ export function daySheet(S, trip, p, kind) {
     <p class="small muted" style="margin:0">${kind === 'area' ? '區域卡片會放在那天離它最近的站旁邊' : '會自動放在那天最順路的位置'}</p>
     <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${r.best ? ' best' : ''}" data-act="dayPick" data-d="${r.day}" ${r.has ? 'disabled' : ''}>
       <span class="grow"><b>第 ${r.day} 天${dayDate(trip, r.day) ? `　${dayDate(trip, r.day)}` : ''}</b><small class="muted">${esc(sub(r))}</small></span>${tag(r)}</button>`).join('')}</div>
-    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">先放想去清單</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
+    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">改加入想去清單</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
 }
 
 // 這個區域的卡片排在哪幾天
@@ -321,12 +321,57 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
 
+// 手機底部面板收合時的兩行：第幾天幾站＋前後一天；旅行當天是「下一站」（現在之後第一站），其他日子是「第一站」
+function peekHtml(S, trip, days, sel) {
+  const idx = days.indexOf(sel), n = stopCount(S, sel), date = dayIso(trip, sel);
+  const today = !!date && date === todayString();
+  const its = itemsOfDay(S.items, sel);
+  const rows = sel ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
+  const at = today ? Math.max(nowIndex(rows, nowMin()), 0) : 0;
+  const next = rows.slice(at).find(r => r.kind === 'item' && r.it.kind !== 'area' && !r.it.backupOf);
+  const it = next?.it;
+  const line2 = it ? `<span class="tag accent">${today ? '下一站' : '第一站'}</span><b class="grow">${next.at !== null ? `<span class="num">${hmOf(next.at)}</span> ` : ''}${esc(it.title)}</b>${onMap(it) && !S.offline ? `<a class="linkbtn" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">導航</a>` : ''}`
+    : `<span class="muted grow">${today && rows.some(r => r.kind === 'item') ? '今天的行程都走完了' : '這天還沒安排'}</span>`;
+  return `<div class="mpeek">
+    <div class="row"><b class="daynum">${sel ? 'D' + sel : '?'}</b><b>${today ? '今天' : '這天'} ${n} 站</b><span class="small muted grow">${esc([dayDate(trip, sel), sel ? dayAreas(S.items, sel)[0] : ''].filter(Boolean).join(' '))}</span>
+      <button type="button" class="iconbtn" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''} aria-label="前一天">‹</button><button type="button" class="iconbtn" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''} aria-label="後一天">›</button></div>
+    <div class="row">${line2}</div>
+  </div>`;
+}
+
+// 手機有地圖時：地圖鋪滿，行程放在底部面板。面板三段高度（收合、半展開、完整展開），只有頂端把手可以拖；
+// 點地圖標記時面板換成資訊卡（同一層，不疊第二張），關閉後回原本高度
+const SHEET_H = ['peek', 'half', 'full'];
+function planSheet(S, trip, days, sel) {
+  const card = infoCard(S, trip, sel);
+  const h = card ? 'half' : SHEET_H.includes(S.sheet) ? S.sheet : 'half';
+  const wish = S.mside === 'wish';
+  const seg = `<div class="mseg" role="group" aria-label="行程或想去清單"><button type="button" data-act="mside" data-v="plan" aria-pressed="${!wish}">行程</button><button type="button" data-act="mside" data-v="wish" aria-pressed="${wish}">想去清單 <span class="num">${S.wishDocs.length || ''}</span></button></div>`;
+  const n = stopCount(S, sel);
+  const list = wish
+    ? `<section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`
+    : `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+      <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
+      ${dayItems(S, trip, sel)}
+    </section>`;
+  const body = card || (h === 'peek' ? peekHtml(S, trip, days, sel) : `${seg}${wish ? '' : dayPills(S, trip, days, sel)}${list}`);
+  return `<div class="mplan" data-h="${h}">
+    <div class="mmap">${mapBox(S, sel, trip)}</div>
+    <section class="msheet" aria-label="行程面板">
+      <div class="mgrip" data-grip role="slider" aria-label="拖曳調整面板高度" aria-valuetext="${{ peek: '收合', half: '半展開', full: '完整展開' }[h]}" tabindex="0"><span></span></div>
+      <div class="mbody" id="mbody-${card ? 'card' : h + (wish ? 'w' : sel)}">${body}</div>
+    </section>
+    ${card ? '' : addFab(S, sel)}
+  </div>`;
+}
+
 // 手機：上面地圖（約半個畫面，固定在上方）、下面當天行程；想去清單從地圖上方的按鈕切換
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const idx = days.indexOf(sel), n = stopCount(S, sel);
   const full = S.mapFull && mapsKey && !S.offline;
+  if (sideMap(S) && !full) return planSheet(S, trip, days, sel);
   const top = !S.offline && !full ? `<div class="mtop">${mapBox(S, sel, trip)}</div>` : '';
   const wish = S.mside === 'wish' && !S.offline && !full;
   if (wish) return `${dayPills(S, trip, days, sel)}${top}
@@ -342,12 +387,76 @@ function planNarrow(S, trip) {
   ${full ? fullMap(S, sel) : addFab(S, sel)}`;
 }
 
+// 電腦版資訊卡：點地圖標記、行程或清單名稱時，蓋在左欄的位置。主要按鈕只放兩顆，依地點來源不同；其他放文字連結和「更多」
+// S.card：{ kind: 'day'|'wish'|'place', id（行程或收藏）, p（Google 地點）, canDel }
+const MENU = 'position:absolute;left:0;top:calc(100% + 6px);z-index:5;min-width:220px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--sh-pop)';
+const cardMore = btns => (btns.length ? `<div class="menulist" style="display:inline-block;padding:0;position:relative"><details><summary style="padding:0;color:var(--accent);font-size:13px">更多 ⋯</summary><div class="menulist" style="${MENU}">${btns.join('')}</div></details></div>` : '');
+const cardLinks = (links, more = '') => `<div class="row" style="gap:16px;flex-wrap:wrap">${links.filter(Boolean).join('')}${more}</div>`;
+const extLink = (href, text) => (href ? `<a class="linkbtn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
+const navTo = p => (hasXY(p) ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : '');
+const facts = rows => (rows.some(r => r[1]) ? `<details open><summary class="label" style="cursor:pointer">詳細資訊</summary><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0">${rows.filter(r => r[1]).map(([k, v]) => `<dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd>`).join('')}</dl></details>` : '');
+function infoCard(S, trip, d) {
+  const c = S.card;
+  if (!c || c.tid !== S.tripId) return '';
+  const top = `<div class="row" style="justify-content:space-between"><button type="button" class="linkbtn" data-act="cardClose">‹ 回${d ? `第 ${d} 天` : ''}行程</button><button type="button" class="iconbtn" data-act="cardClose" aria-label="關閉資訊卡">×</button></div>`;
+  const wrap = body => `<section class="day icard" id="icard" aria-label="地點資訊">${top}${body}</section>`;
+  if (c.kind === 'day') {
+    const it = S.items.find(x => x.id === c.id);
+    if (!it) return '';
+    const its = itemsOfDay(S.items, it.day), far = farOf(S);
+    const no = pinsOf(its).filter(x => !far.has(x.id)).findIndex(x => x.id === it.id) + 1;
+    const rows = it.day ? buildDay(its, dayEvents(dayIso(trip, it.day), { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : [];
+    const r = rows.find(x => x.kind === 'item' && x.it.id === it.id) || {};
+    const when = [whenOf(it, r).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
+    const id = esc(it.id), main = it.backupOf && S.items.find(x => x.id === it.backupOf);
+    const areaN = it.area ? its.filter(x => x.area === it.area).length : 0;
+    const more = [
+      main ? '' : `<button type="button" data-act="itemMenu" data-id="${id}">移到其他日期</button>`,
+      areaN >= 2 ? `<button type="button" data-act="areaMove" data-area="${esc(it.area)}" data-d="${it.day}">整個「${esc(it.area)}」移到別天或移除</button>` : '',
+      it.kind === 'area' ? '' : main ? `<button type="button" data-act="backupOff" data-id="${id}">改回正式行程</button>` : `<button type="button" data-act="itemMenu" data-id="${id}">改成別站的備案</button>`,
+      c.canDel ? `<button type="button" data-act="delItem" data-id="${id}" style="color:var(--bad)">刪除</button>` : '',
+    ].filter(Boolean);
+    const addr = it.address && !isMapLink(it.address) ? esc(it.address) : '';
+    const bk = backupsOf(S.items, it.id).map(b => esc(b.title)).join('、');
+    return wrap(`<div class="tags"><span class="tag accent">${it.day ? `第 ${it.day} 天${no ? `第 ${no} 站` : ''}` : '還沒排天數'}</span>${it.kind === 'area' ? '<span class="tag">區域</span>' : `<span class="tag">${ITEM_LABEL[it.type] || ''}</span>`}${it.area && it.kind !== 'area' ? `<span class="tag">${esc(it.area)}</span>` : ''}</div>
+      <h3 style="margin:0;flex:none">${esc(it.title)}</h3>
+      ${when ? `<p style="margin:0">${when}</p>` : ''}${it.tip ? `<p class="small muted" style="margin:0">一句提示：${esc(it.tip)}</p>` : ''}
+      <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}<button type="button" class="btn grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${id}"`}>編輯</button></div>
+      ${cardLinks([onMap(it) ? extLink(placeHref(it, trip.city), '在 Google 地圖開啟') : ''], cardMore(more))}
+      ${facts([['地址', addr], ['備註', esc(noteOf(it))], ['備案', bk]])}`);
+  }
+  if (c.kind === 'wish') {
+    const p = S.wishDocs.find(x => x.id === c.id);
+    if (!p) return '';
+    const days = usedDays(S).get(p.url), off = S.offline ? 'disabled' : '', id = esc(p.id);
+    return wrap(`<div class="tags"><span class="tag accent">收藏</span>${p.area ? `<span class="tag">${esc(p.area)}</span>` : ''}${days ? `<span class="tag">已排第 ${days.join('、')} 天</span>` : ''}</div>
+      <div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
+      <div class="row"><button type="button" class="btn primary grow" data-act="wishAdd" data-id="${id}" ${off}>${ICON.plus}加入行程</button>${navTo(p) ? `<a class="btn grow" href="${esc(navTo(p))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
+      ${cardLinks([extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
+      ${facts([['備註', esc(noteOf(p))]])}`);
+  }
+  const p = c.p;
+  if (!p) return '';
+  // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
+  const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
+  const today = p.hours?.[(local + 6) % 7];
+  const rate = Number.isFinite(p.rating) ? `★ ${p.rating.toFixed(1)}${p.ratingN ? `（${p.ratingN.toLocaleString()} 則評論）` : ''}` : '';
+  return wrap(`${p.photo ? `<img src="${esc(p.photo)}" alt="" onerror="this.remove()" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;display:block;flex:none">` : ''}
+    <div class="tags"><span class="tag accent">Google 地點</span>${ITEM_LABEL[p.type] ? `<span class="tag">${ITEM_LABEL[p.type]}</span>` : ''}</div>
+    <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
+    ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
+    <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placeAdd">${ICON.plus}加入行程</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button></div>
+    ${cardLinks([extLink(navTo(p), '導航'), extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
+    ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
+}
+
 // 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
 function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
   const n = stopCount(S, sel);
-  const day = `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
+  const card = sideMap(S) ? infoCard(S, trip, sel) : '';
+  const day = card || `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${sideMap(S) ? dayPills(S, trip, days, sel, true) : ''}
       <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
       ${dayItems(S, trip, sel)}
@@ -418,13 +527,14 @@ export function areaMoveSheet(S, trip, area, from) {
 }
 
 // 新增或編輯區域：取名字，再勾哪些想去清單的地點放在這區；已在這區的排最前面，其次是還沒分區域的
-export function areaSheet(S, area = '') {
-  const rank = p => (area && p.area === area ? 0 : p.area ? 2 : 1);
+// wid：從資訊卡「放進新的區域」打開時，先勾好那個收藏並排在最前面
+export function areaSheet(S, area = '', wid = '') {
+  const rank = p => (p.id === wid || (area && p.area === area) ? 0 : p.area ? 2 : 1);
   const list = S.wishDocs.map((p, i) => ({ p, i })).sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i).map(x => x.p);
   openSheet(`${head(area ? '編輯區域' : '新增區域')}
     <input class="namein lg" id="a-name" maxlength="20" placeholder="區域名稱，例如：尖沙咀" aria-label="區域名稱" value="${esc(area)}">
     <p class="label">勾選放在這區的地點</p>
-    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${area && p.area === area ? 'checked' : ''}>
+    <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${p.id === wid || (area && p.area === area) ? 'checked' : ''}>
       <span class="grow" style="flex:1">${esc(p.title)}${p.area && p.area !== area ? ` <small class="muted">（目前在「${esc(p.area)}」）</small>` : ''}</span></label>`).join('')}</div>
     <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
 }

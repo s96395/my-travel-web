@@ -80,7 +80,36 @@ const retries = new Map();
 let itin = { tripId: null, stops: [], tries: 0 }; // 目前開著的旅程資料監看
 
 /* ---------- 畫面 ---------- */
+// 電腦版資訊卡（views/plan.js infoCard）：開卡前記下左欄捲到哪裡，關卡時捲回去；地圖範圍由 ui/map.js 還原
+let cardBack = null;
+function openCard(c) {
+  if (S.offline) return;
+  // 晚到的 Google 詳細資料：卡片已關或換成別的地點，就不用了
+  if (c.p?.more && (S.card?.kind !== 'place' || S.card.p?.pid !== c.p.pid || S.card.p?.title !== c.p.title)) return;
+  if (!S.card) cardBack = { top: $('.two > .day, .msheet .mbody')?.scrollTop || 0 };
+  const t = curTrip(), it = c.kind === 'day' ? findItem(c.id) : null;
+  S.card = { ...c, tid: S.tripId, canDel: !!(t && it && canDelRecord(t, it)) };
+  render();
+}
+function closeCard() {
+  if (!S.card) return;
+  S.card = null; S.mapFocus = '';
+  render();
+  const el = $('.two > .day, .msheet .mbody');
+  if (el && cardBack) el.scrollTop = cardBack.top;
+  cardBack = null;
+  import('./ui/map.js').then(m => m.closeCard()).catch(console.error);
+}
+// 卡片上的地點被刪掉、換了旅程或分頁、改成手機版時，卡片直接收掉
+function cardGone() {
+  const c = S.card;
+  if (!c) return false;
+  return c.tid !== S.tripId || S.view !== 'trip' || S.tab !== 'plan' || S.offline
+    || (c.kind === 'day' && !findItem(c.id)) || (c.kind === 'wish' && !S.wishDocs.some(p => p.id === c.id));
+}
+
 function render() {
+  if (cardGone()) { S.card = null; cardBack = null; import('./ui/map.js').then(m => m.closeCard()).catch(console.error); }
   const device = $('#device');
   device.classList.toggle('wide', S.wide);
   const active = document.activeElement;
@@ -93,7 +122,7 @@ function render() {
   if (S.view === 'trip' && S.tab === 'more' && !S.localOnly) loadNames();
   syncItineraryWatch();
   // 電腦版三欄的行程欄、想去清單欄各自捲動，重畫後要停在原位（換天才回到最上面）
-  const keep = ['.two > .day', '.wishover .wishpane'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
+  const keep = ['.two > .day', '.wishover .wishpane', '.msheet .mbody'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
   $('#scroller').innerHTML = html + envTag();
   for (const k of keep) { const el = $(k.s); if (el && el.id === k.day) el.scrollTop = k.top; }
   const trip = curTrip();
@@ -110,7 +139,7 @@ function render() {
   fetchLegs();
   fetchHours();
   fillAreas();
-  if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el), placeAct); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
+  if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el), placeAct, openCard); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
 
 // 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
@@ -418,7 +447,7 @@ async function placeAct(kind, p, day) {
     const near = S.wishDocs.filter(w => w.area && Number.isFinite(w.lat)).map(w => ({ w, km: distanceKm(w, p) })).filter(x => x.km <= 1).sort((a, b) => a.km - b.km)[0];
     const area = near ? near.w.area : '';
     const tid = S.tripId;
-    try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已放進想去清單「${area}」` : '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
+    try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已加入想去清單「${area}」` : '已加入想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   // 還沒選天數：先問要加在哪一天
   if (!day) { const t = curTrip(); if (t) { S.pick = { kind: 'place', p }; daySheet(S, t, { ...p, area: nearArea(p, S.wishDocs) }, 'place'); } return false; }
@@ -888,6 +917,13 @@ const actions = {
   // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
   wishOpen() { S.wishOpen = !S.wishOpen; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
+  // 資訊卡：關閉；Google 地點的「加入行程」先問哪一天，「加入想去清單」直接加
+  cardClose() { closeCard(); },
+  async cardPlace(el) {
+    const c = S.card;
+    if (c?.kind !== 'place' || !c.p) return;
+    if (await placeAct(el.dataset.k, c.p, 0)) closeCard();
+  },
   timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
   // 設成某一站的備案，或修改什麼時候改去
   async backupSet(el) {
@@ -929,7 +965,7 @@ const actions = {
     if (S.mapArea) S.side = 'map';
     render(); if (!S.wide && S.mapArea) $('#mapslot')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   },
-  areaSheet(el) { if (!S.offline) areaSheet(S, el.dataset.area || ''); },
+  areaSheet(el) { if (!S.offline) areaSheet(S, el.dataset.area || '', el.dataset.wid || ''); },
   // 存區域：勾的地點放進這區，沒勾的移出；改名時，已排進行程的同區域行程也一起改
   async areaSave(el) {
     const old = el.dataset.area || '', drop = !!el.dataset.drop;
@@ -993,12 +1029,12 @@ const actions = {
     S.pick = null; closeSheet();
     if (k.kind === 'wish') await wishToDay(k.id, day);
     else if (k.kind === 'area') await areaToDay(k.area, day);
-    else if (k.kind === 'place' && await placeAct('placeAdd', k.p, day)) import('./ui/map.js').then(m => m.clearPlace()).catch(console.error);
+    else if (k.kind === 'place' && await placeAct('placeAdd', k.p, day)) { if (S.card?.kind === 'place') closeCard(); else import('./ui/map.js').then(m => m.clearPlace()).catch(console.error); }
   },
   async pickWish() {
     const k = S.pick;
     S.pick = null; closeSheet();
-    if (k?.kind === 'place' && await placeAct('placeWish', k.p)) import('./ui/map.js').then(m => m.clearPlace()).catch(console.error);
+    if (k?.kind === 'place' && await placeAct('placeWish', k.p)) { if (S.card?.kind === 'place') closeCard(); else import('./ui/map.js').then(m => m.clearPlace()).catch(console.error); }
   },
   // 我在附近：用手機定位，區域卡片裡的地點照離我多遠排；再按一次關閉
   nearMe(el) {
@@ -1062,7 +1098,11 @@ const actions = {
   side(el) { S.side = el.dataset.v; store.set('side', S.side); render(); },
   // 手機版地圖下面切換行程或想去清單：捲到地圖剛好貼在上方，下面就是清單
   mside(el) {
-    S.mside = el.dataset.v; render();
+    S.mside = el.dataset.v;
+    // 手機底部面板收合時，切換後打開到半展開才看得到清單
+    if ($('.mplan') && (S.sheet === 'peek' || S.card)) { S.sheet = 'half'; S.card = null; }
+    render();
+    if ($('.mplan')) return;
     const d = $('.dpills'); window.scrollTo(0, d ? d.getBoundingClientRect().bottom + scrollY - 58 : 0);
   },
   jump(el) {
@@ -1610,8 +1650,62 @@ document.addEventListener('submit', async ev => {
   if (!text) { input.focus(); return; }
   if (await addTodos([text], `已新增「${text}」`)) { const i = $('#todoNew'); if (i) { i.value = ''; i.focus(); } }
 });
+// 手機底部面板（views/plan.js planSheet）：只有頂端把手可以拖；放開時停在最近的一段，點一下在收合與半展開間切換。
+// 資訊卡只有一層，往下拖或在卡片頂端往下拉就關閉，回到原本的面板高度
+const SHEET_H = ['peek', 'half', 'full'];
+let grip = null, pull = null;
+document.addEventListener('pointerdown', e => {
+  const g = e.target.closest('[data-grip]');
+  if (!g) return;
+  const sh = g.closest('.msheet');
+  grip = { y: e.clientY, h: sh.getBoundingClientRect().height, sh, moved: false };
+  sh.classList.add('moving');
+  try { g.setPointerCapture(e.pointerId); } catch { /* 有些瀏覽器不支援 */ }
+});
+document.addEventListener('pointermove', e => {
+  if (!grip) return;
+  const dy = e.clientY - grip.y;
+  if (Math.abs(dy) > 6) grip.moved = true;
+  if (grip.moved) grip.sh.style.height = `${Math.max(80, grip.h - dy)}px`;
+});
+function gripEnd() {
+  if (!grip) return;
+  const { sh, moved, h: from } = grip;
+  grip = null;
+  const now = sh.getBoundingClientRect().height;
+  sh.classList.remove('moving'); sh.style.height = '';
+  if (S.card) { if (moved && now < from - 60) closeCard(); return; }
+  const cur = sh.closest('.mplan')?.dataset.h || 'half';
+  let to;
+  if (!moved) to = cur === 'peek' ? 'half' : 'peek';
+  else {
+    const full = ($('.mmap')?.getBoundingClientRect().height || innerHeight) - 64;
+    const hs = { peek: 120, half: innerHeight * 0.45, full };
+    to = SHEET_H.reduce((a, b) => (Math.abs(hs[b] - now) < Math.abs(hs[a] - now) ? b : a));
+  }
+  if (to !== cur) { S.sheet = to; render(); }
+}
+document.addEventListener('pointerup', gripEnd);
+document.addEventListener('pointercancel', gripEnd);
+// 列表已經捲到最上面還往下拉：面板往下收一段（拿起行程排序時不算）
+document.addEventListener('touchstart', e => {
+  const b = e.target.closest('.msheet .mbody');
+  pull = b && b.scrollTop <= 0 ? { y: e.touches[0].clientY } : null;
+}, { passive: true });
+document.addEventListener('touchmove', e => {
+  if (!pull || document.querySelector('.lifted')) return;
+  if (e.touches[0].clientY - pull.y < 70) return;
+  pull = null;
+  if (S.card) { closeCard(); return; }
+  const i = SHEET_H.indexOf(S.sheet || 'half');
+  if (i > 0) { S.sheet = SHEET_H[i - 1]; render(); }
+}, { passive: true });
 // 中文輸入法組字時按 Esc 是取消選字，不關閉視窗
-document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !ev.isComposing && ev.keyCode !== 229 && sheetOpen()) tryClose(); });
+document.addEventListener('keydown', ev => {
+  if (ev.key !== 'Escape' || ev.isComposing || ev.keyCode === 229) return;
+  if (sheetOpen()) tryClose();
+  else if (S.card && !ev.target.closest?.('input,textarea,select')) closeCard();
+});
 window.addEventListener('scroll', () => $('#appbar')?.classList.toggle('scrolled', window.scrollY > 4), { passive: true });
 window.addEventListener('hashchange', () => { tour?.stopTour(); readRoute(); render(); window.scrollTo(0, 0); });
 initDrag({
