@@ -408,8 +408,8 @@ const navTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title, true) : hasX
 // 給司機看的「在地圖開啟」：韓國改開 Naver 地圖（資訊卡上韓國只留導航，不放這個連結）
 const openTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title) : p.url || '');
 // 給司機看的入口：資訊卡放在文字連結列；離線時資訊卡打不開，改在時間軸那一站下面放一個標籤
-const drvBtn = (k, id) => drvLink(k, id, 'btn grow');
-const drvLink = (k, id, cls = 'linkbtn') => `<button type="button" class="${cls}" data-act="driver" data-k="${k}" data-id="${esc(id || '')}">給司機看</button>`;
+const drvBtn = (k, id) => drvLink(k, id, 'btn grow', '🚕 ');
+const drvLink = (k, id, cls = 'linkbtn', icon = '') => `<button type="button" class="${cls}" data-act="driver" data-k="${k}" data-id="${esc(id || '')}">${icon}給司機看</button>`;
 const facts = rows => (rows.some(r => r[1]) ? `<details open><summary class="label" style="cursor:pointer">詳細資訊</summary><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0">${rows.filter(r => r[1]).map(([k, v]) => `<dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd>`).join('')}</dl></details>` : '');
 // 手機面板收合時（mini）不把面板撐高，只放名稱和兩顆主要按鈕；要看更多就把面板往上拉
 const miniCard = (title, btns) => `<section class="day icard mini" id="icard" aria-label="地點資訊"><div class="row"><h3 class="grow">${esc(title)}</h3><button type="button" class="iconbtn" data-act="cardClose" aria-label="關閉資訊卡">×</button></div><div class="row">${btns}</div></section>`;
@@ -430,6 +430,7 @@ function infoCard(S, trip, d, mini = false) {
     const id = esc(it.id), main = it.backupOf && S.items.find(x => x.id === it.backupOf);
     const areaN = it.area ? its.filter(x => x.area === it.area).length : 0;
     const more = [
+      `<button type="button" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${id}"`}>編輯</button>`,
       main ? '' : `<button type="button" data-act="itemMenu" data-id="${id}">移到其他日期</button>`,
       areaN >= 2 ? `<button type="button" data-act="areaMove" data-area="${esc(it.area)}" data-d="${it.day}">整個「${esc(it.area)}」移到別天或移除</button>` : '',
       it.kind === 'area' ? '' : main ? `<button type="button" data-act="backupOff" data-id="${id}">改回正式行程</button>` : `<button type="button" data-act="itemMenu" data-id="${id}">改成別站的備案</button>`,
@@ -440,7 +441,7 @@ function infoCard(S, trip, d, mini = false) {
     return wrap(`<div class="tags"><span class="tag accent">${it.day ? `第 ${it.day} 天${no ? `第 ${no} 站` : ''}` : '還沒排天數'}</span>${it.kind === 'area' ? '<span class="tag">區域</span>' : `<span class="tag">${ITEM_LABEL[it.type] || ''}</span>`}${it.area && it.kind !== 'area' ? `<span class="tag">${esc(it.area)}</span>` : ''}</div>
       <h3 style="margin:0;flex:none">${esc(it.title)}</h3>
       ${when ? `<p style="margin:0">${when}</p>` : ''}${it.tip ? `<p class="small muted" style="margin:0">一句提示：${esc(it.tip)}</p>` : ''}
-      <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}${it.kind !== 'area' && onMap(it) ? drvBtn('day', it.id) : ''}<button type="button" class="btn grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${id}"`}>編輯</button></div>
+      <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}${it.kind !== 'area' && onMap(it) ? drvBtn('day', it.id) : ''}</div>
       ${cardLinks([onMap(it) && !inKorea(it, trip.country) ? extLink(placeHref(it, trip.city, trip.country), '在 Google 地圖開啟') : ''], cardMore(more))}
       ${facts([['地址', addr], ['備註', esc(noteOf(it))], ['備案', bk]])}`);
   }
