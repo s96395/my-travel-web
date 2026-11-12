@@ -100,7 +100,7 @@ function areaCard(it, S, trip, r) {
     return `<li class="aplace${done ? ' done' : ''}${p.visited ? ' seen' : ''}">
       <button type="button" class="seenbox" data-act="wishSeen" data-id="${esc(p.id)}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button>
       <span class="grow">${sideMap(S) && hasXY(p) ? `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>` : esc(p.title)}${info || OPEN_TAG[h] ? `<small class="muted">${info}${OPEN_TAG[h] ? ' ' + OPEN_TAG[h] : ''}</small>` : ''}</span>
-      ${!S.wide && k !== null ? `<a class="tag" href="${esc(inKorea(p) ? naverHref(p, p.title, true) : `https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${p.lat},${p.lng}`)}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}
+      ${!S.wide && k !== null ? `<a class="tag" href="${esc(inKorea(p) ? naverHref(p, p.title, 'walk') : `https://www.google.com/maps/dir/?api=1&travelmode=walking&destination=${p.lat},${p.lng}`)}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}
       ${done ? '<span class="tag accent">已加入</span>' : `<button type="button" class="tag" data-act="areaMust" data-id="${esc(it.id)}" data-wid="${esc(p.id)}" ${off}>${ICON.plus}加入</button>`}</li>`;
   };
   const nearBtn = S.offline || !places.some(hasXY) ? '' : `<button type="button" class="tag${here ? ' accent' : ''}" data-act="nearMe" aria-pressed="${!!here}">${ICON.pin}${here ? '附近模式（按一下關閉）' : '我在附近'}</button>`;
