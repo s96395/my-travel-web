@@ -63,6 +63,7 @@ const S = {
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
   wishOpen: false, // 電腦版想去清單蓋在地圖上，平常收著
+  wbox: null, wboxList: '', // 搜尋此區域：按下時的地圖範圍；想去清單只列範圍內（'in'）或沒有位置的（'noxy'）
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
   signingIn: false, loginError: '', busy: false,
@@ -304,7 +305,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -724,6 +725,8 @@ function onDrop(id, t) {
     const ref = t.kind === 'item' ? findItem(t.id) : null;
     const day = t.kind === 'day' ? t.d : ref?.day;
     if (!day) return;
+    // 拖到區域卡片上：加進那一區，放在區域卡片和它後面已排的同區地點之後（和卡片裡按「加入」一樣）
+    if (ref?.kind === 'area') { wishToDay(id.slice(2), day, afterArea(S.items, ref.id), { area: ref.area }); return; }
     const list = itemsOfDay(S.items, day);
     const beforeId = ref ? (t.before ? ref.id : list[list.findIndex(x => x.id === ref.id) + 1]?.id) : undefined;
     wishToDay(id.slice(2), day, beforeId);
@@ -915,7 +918,15 @@ const actions = {
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
-  wishOpen() { S.wishOpen = !S.wishOpen; render(); },
+  wishOpen() { S.wishOpen = !S.wishOpen; if (!S.wishOpen) S.wboxList = ''; render(); },
+  // 搜尋此區域：只篩已載入的收藏，不查 Google；行程欄和面板維持原樣，按「看清單」才打開想去清單
+  wboxRun(el) { const [s, w, n, e, z] = el.dataset.box.split(',').map(Number); S.wbox = { s, w, n, e, z }; S.wboxList = ''; render(); },
+  wboxList(el) {
+    S.wboxList = el.dataset.v || '';
+    if (S.wboxList) { if (S.wide) S.wishOpen = true; else { S.mside = 'wish'; if ($('.mplan') && (S.sheet === 'peek' || S.card)) { S.sheet = 'half'; S.card = null; } } }
+    render();
+  },
+  wboxClear() { S.wbox = null; S.wboxList = ''; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
   // 資訊卡：關閉；Google 地點的「加入行程」先問哪一天，「加入想去清單」直接加
   cardClose() { closeCard(); },
@@ -1099,6 +1110,7 @@ const actions = {
   // 手機版地圖下面切換行程或想去清單：捲到地圖剛好貼在上方，下面就是清單
   mside(el) {
     S.mside = el.dataset.v;
+    if (S.mside !== 'wish') S.wboxList = '';
     // 手機底部面板收合時，切換後打開到半展開才看得到清單
     if ($('.mplan') && (S.sheet === 'peek' || S.card)) { S.sheet = 'half'; S.card = null; }
     render();

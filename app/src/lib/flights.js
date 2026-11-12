@@ -23,7 +23,8 @@ export function airportTz(code, local) {
     const name = new Intl.DateTimeFormat('en-US', { timeZone: a[2], timeZoneName: 'longOffset' })
       .formatToParts(new Date(`${day}T12:00:00Z`)).find(p => p.type === 'timeZoneName').value;
     const m = name.match(/([+-])(\d{2}):00/);
-    return m ? m[1] + Number(m[2]) : '0';
+    // 有些環境冬天的倫敦會給「GMT+00:00」，零時差一律寫成 '0'，不要變成 '+0'
+    return m && Number(m[2]) ? m[1] + Number(m[2]) : '0';
   } catch { return a[1]; }
 }
 export const LEGS = ['去程', '回程', '轉機'];
