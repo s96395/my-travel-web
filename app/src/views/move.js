@@ -86,7 +86,60 @@ export function renderMove(S, trip) {
   <div class="sec-h"><h2>其他交通</h2>${addBtn(S, 'transitForm', '新增交通')}</div>
   <div class="list two">${transits.map(t => transitCard(S, t)).join('') || '<div class="empty">還沒有其他交通</div>'}</div>
   <div class="sec-h"><h2>住宿</h2>${addBtn(S, 'stayForm', '新增住宿')}</div>
-  <div class="list two">${stays.map(s => stayCard(S, s, trip)).join('') || '<div class="empty">還沒有住宿</div>'}</div>`;
+  <div class="list two">${stays.map(s => stayCard(S, s, trip)).join('') || '<div class="empty">還沒有住宿</div>'}</div>
+  <div class="sec-h"><h2>票券</h2>${addBtn(S, 'ticketForm', '新增票券')}</div>
+  ${ticketList(S)}`;
+}
+
+/* ---------- 票券：門票、交通票、QR Code 的截圖；照片壓小存在資料裡（不用 Storage），離線下載時一起存 ---------- */
+export const sortTickets = list => [...list].sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999') || (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+function ticketList(S) {
+  const list = sortTickets(S.ticketDocs || []);
+  if (!list.length) return `<div class="empty">還沒有票券。把門票、車票的 QR Code 截圖加進來，現場點一下就能放大給人看${S.offline ? '' : '，出發前記得下載離線'}</div>`;
+  return `<div class="list two">${list.map(t => `<article class="card" style="display:flex;gap:12px;align-items:center;padding:10px">
+    <button type="button" data-act="showTicket" data-id="${esc(t.id)}" style="flex:none;width:72px;height:72px;padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff" aria-label="放大 ${esc(t.title)}">${t.img ? `<img src="${esc(t.img)}" alt="" style="width:100%;height:100%;object-fit:cover">` : ''}</button>
+    <button type="button" data-act="showTicket" data-id="${esc(t.id)}" style="flex:1;min-width:0;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit">
+      <b style="display:block;overflow-wrap:anywhere">${esc(t.title)}</b>
+      <span class="small muted">${[t.date ? monthDay(t.date) : '', t.note].filter(Boolean).map(esc).join('・') || '點一下放大'}</span>
+    </button>
+    ${editBtn(S, 'ticketForm', t.id, '編輯票券')}
+  </article>`).join('')}</div>`;
+}
+
+// 現場出示：白底、圖放到最大；上一張、下一張（依日期排）
+export function ticketSheet(S, id) {
+  const list = sortTickets(S.ticketDocs || []), i = list.findIndex(t => t.id === id), t = list[i];
+  if (!t) return;
+  const nav = (j, text) => (list[j] ? `<button type="button" class="btn grow" data-act="showTicket" data-id="${esc(list[j].id)}">${text}</button>` : '');
+  openSheet(`<div class="head"><h2 style="overflow-wrap:anywhere">${esc(t.title)}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
+    ${t.date || t.note ? `<p class="muted" style="margin:0">${[t.date ? monthDay(t.date) : '', t.note].filter(Boolean).map(esc).join('・')}</p>` : ''}
+    ${list.length > 1 ? `<div class="row">${nav(i - 1, '上一張')}<span class="small muted" style="align-self:center">${i + 1} / ${list.length}</span>${nav(i + 1, '下一張')}</div>` : ''}
+    <div style="background:#fff;border-radius:12px;padding:8px;display:flex;justify-content:center">${t.img ? `<img src="${esc(t.img)}" alt="${esc(t.title)}" style="max-width:100%;max-height:70vh;object-fit:contain">` : '<p class="muted">沒有圖片</p>'}</div>`);
+}
+
+export function ticketFormSheet(trip, t, canDel, img) {
+  const v = t || { title: '', date: '', note: '' };
+  const src = img ?? t?.img ?? '';
+  openSheet(`${head(t ? '編輯票券' : '新增票券')}
+    ${fld('tk-title', '名稱', v.title, 'text', 'placeholder="例如：樂天世界門票、KTX 釜山→首爾" maxlength="60"')}
+    ${fld('tk-date', '使用日期（選填）', v.date, 'date', `${trip.start ? `min="${esc(trip.start)}"` : ''} ${trip.end ? `max="${esc(trip.end)}"` : ''}`)}
+    ${fld('tk-note', '備註（選填）', v.note, 'text', 'placeholder="例如：媽媽的票、第 2 張" maxlength="60"')}
+    <div class="field"><label>票券截圖</label>
+      ${src ? `<div style="background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;display:flex;justify-content:center"><img id="tk-img" src="${esc(src)}" alt="" style="max-width:100%;max-height:40vh;object-fit:contain"></div>` : ''}
+      <button type="button" class="btn" data-act="pickTicket">${src ? '換一張' : '選擇截圖或照片'}</button>
+    </div>
+    <p class="small muted" style="margin:0">一張票一筆；同一張票有好幾頁就分成好幾筆。照片會壓小存起來，同行的人都看得到。</p>
+    <div class="row">${delBtn(t, 'delTicket', canDel)}<button type="button" class="btn primary grow" data-act="saveTicket" data-id="${esc(t?.id || '')}">儲存</button></div>`);
+}
+
+export function readTicketForm(img) {
+  document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
+  const t = { title: val('tk-title'), date: val('tk-date'), note: val('tk-note'), img: img || '' };
+  if (!t.title) { $('#tk-title').classList.add('err'); $('#tk-title').focus(); return { error: '請填票券名稱' }; }
+  const d = $('#tk-date');
+  if (t.date && ((d.min && t.date < d.min) || (d.max && t.date > d.max))) { d.classList.add('err'); d.focus(); return { error: '日期要在旅程期間內' }; }
+  if (!t.img) return { error: '請選一張票券截圖' };
+  return { data: t };
 }
 
 /* ---------- 表單 ---------- */
