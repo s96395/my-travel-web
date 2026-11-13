@@ -149,15 +149,19 @@ let locating = false, placesOff = false;
 const RENEW_MS = 25 * 86400000;
 async function exactCoords(m) {
   if (locating || placesOff || S.offline || !S.tripId) return;
+  // 已經結束的旅程不自動查（使用者 11/13 決定）：每天清理掉座標後地圖上沒有針，清單和時間軸照常，地點代碼保留
+  const end = curTrip()?.end;
+  if (end && end < new Date().toLocaleDateString('sv')) return;
   // 離整趟旅程其他地點太遠的（連結換算錯），用旅程中心＋名稱＋城市重查一次
   const far = farOff([...S.wishDocs, ...S.items]);
-  const rough = x => !x.exact && Number.isFinite(x.lat) && !tried.has(x.id) && !far.has(x.id);
+  // 有地點代碼的交給下面的到期重查，用代碼查比較準
+  const rough = x => !x.exact && !x.placeId && Number.isFinite(x.lat) && !tried.has(x.id) && !far.has(x.id);
   // 自己打的行程（沒從想去清單加、沒貼連結）沒有座標，地圖上就沒有針、對不起來：用名稱或地址、城市請 Google 查，
   // 靠近這趟旅程其他地點的才用；先查正在看的那天
   const mid = list => { const xy = list.filter(x => Number.isFinite(x.lat) && Number.isFinite(x.lng) && !far.has(x.id)); return xy.length ? { lat: xy.reduce((a, x) => a + x.lat, 0) / xy.length, lng: xy.reduce((a, x) => a + x.lng, 0) / xy.length } : null; };
   const near = d => mid(itemsOfDay(S.items, d)) || mid([...S.items, ...S.wishDocs]) || {};
   const city = curTrip()?.city || '';
-  const bare = S.items.filter(it => it.day && !Number.isFinite(it.lat) && geoKey(it) && !tried.has(it.id + '|' + geoKey(it))).sort((a, b) => (b.day === S.pday) - (a.day === S.pday));
+  const bare = S.items.filter(it => it.day && !it.placeId && !Number.isFinite(it.lat) && geoKey(it) && !tried.has(it.id + '|' + geoKey(it))).sort((a, b) => (b.day === S.pday) - (a.day === S.pday));
   // 沒填地址、想去清單裡有同名地點的，直接用它的座標（不必再查）；其餘才請 Google 查，類型是交通、其他又沒填地址的不查
   const same = it => !it.address && S.wishDocs.find(p => p.exact && !far.has(p.id) && sameName(p.title, it.title)); // 自己填了地址的照地址查，不拿同名地點的座標
   for (const it of bare.filter(same)) {
@@ -168,7 +172,8 @@ async function exactCoords(m) {
   }
   const again = x => far.has(x.id) && !tried.has('far:' + x.id);
   const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, own: { lat: x.lat, lng: x.lng }, save });
-  const old = x => x.exact && Number.isFinite(x.lat) && !far.has(x.id) && !tried.has('old:' + x.id) && !(Date.now() - (x.geoAt || 0) < RENEW_MS);
+  // 要重查的：精確座標超過 25 天（或舊資料沒有查詢時間）；或有地點代碼但精確座標已被每天清理清掉
+  const old = x => !far.has(x.id) && !tried.has('old:' + x.id) && (x.exact && Number.isFinite(x.lat) ? !(Date.now() - (x.geoAt || 0) < RENEW_MS) : !!x.placeId && !x.exact);
   // 排隊等重查時有人改了地點（座標或代碼變了），就不寫回，免得舊地點蓋掉新選的
   const same0 = (x, now) => now && now.lat === x.lat && now.lng === x.lng && (now.placeId || '') === (x.placeId || '');
   const renew = (x, save) => ({ id: 'old:' + x.id, pid: x.placeId || '', title: x.title, lat: x.lat, lng: x.lng, maxKm: 2, save: c => (same0(x, [...S.items, ...S.wishDocs].find(y => y.id === x.id)) ? save(c) : Promise.resolve()) });
@@ -190,7 +195,8 @@ async function exactCoords(m) {
       tried.add(p.id);
       // 有地點代碼先用代碼查；代碼失效時改用名稱查
       const byId = p.pid ? await m.locateById(p.pid) : null;
-      const xy = byId === 'off' ? 'off' : byId || await m.locate(p);
+      // 代碼查不到又沒有原本位置可以對照時不改用名稱查，免得查到別處的同名地點
+      const xy = byId === 'off' ? 'off' : byId || (p.pid && !Number.isFinite(p.lat) ? null : await m.locate(p));
       if (xy === 'off') { placesOff = true; toast('要在 Google Cloud 啟用 Places API (New)，地圖上的位置才會準'); break; }
       if (xy) await p.save({ ...xy, exact: true, geoAt: Date.now() }).catch(console.error);
     }
