@@ -65,3 +65,20 @@ test('找出登入者對應的同行者', () => {
   assert.equal(myParticipantId(raw('a'), 'U9'), null);
   assert.equal(isSplit({ personalShares: [] }), false);
 });
+
+test('每年三類花費：各年相加等於全部，沒有的類型是 0', () => {
+  const trips = [
+    viewTrip(raw('a', { tripType: '潛旅', startDate: '2025-05-01', endDate: '2025-05-03' })),
+    viewTrip(raw('b', { tripType: '潛旅', startDate: '2026-04-01', endDate: '2026-04-03' })),
+    viewTrip(raw('c', { tripType: '自由行', startDate: '2026-08-01', endDate: '2026-08-03' })),
+  ];
+  const ex = new Map([
+    ['a', [{ amount: 8000, personalShares: { pMe: 8000 } }]],
+    ['b', [{ amount: 12000, personalShares: { pMe: 6000, pB: 6000 } }, { amount: 500 }]],
+    ['c', [{ amount: 3000, personalShares: { pMe: 1000, pB: 2000 } }]],
+  ]);
+  const s = computeStats(trips, ex, 'U1');
+  assert.deepEqual(s.yearTypes['2025'], { '自由行': 0, '潛旅': 8000, '跟團': 0 });
+  assert.deepEqual(s.yearTypes['2026'], { '自由行': 1000, '潛旅': 6000, '跟團': 0 });
+  for (const [t, v] of s.types) assert.equal(Object.values(s.yearTypes).reduce((a, m) => a + (m[t] || 0), 0), v);
+});
