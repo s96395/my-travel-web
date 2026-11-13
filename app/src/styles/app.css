@@ -86,6 +86,7 @@ h1,h2,h3{font-family:var(--font-display);font-weight:var(--display-weight);text-
 .btn[disabled]{opacity:.45;cursor:not-allowed}
 /* 做成按鈕或標籤的連結：不要瀏覽器預設的藍字和底線 */
 a.btn,a.tag{text-decoration:none}
+button.tag{border:0;font-family:inherit;cursor:pointer}
 a.btn:not(.primary){color:var(--fg)}
 .locked{opacity:.4;filter:grayscale(1)}
 .row{display:flex;align-items:center;gap:10px}
