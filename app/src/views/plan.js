@@ -646,7 +646,7 @@ export function itemFormSheet(day, it = null, near = null) {
   if (mapsKey && t) {
     import('../ui/map.js').then(m => m.attachSuggest(t, () => near, p => {
       t.value = p.title; t.classList.remove('err');
-      t.dataset.place = JSON.stringify({ url: p.url, lat: p.lat, lng: p.lng });
+      t.dataset.place = JSON.stringify({ url: p.url, lat: p.lat, lng: p.lng, pid: p.pid || '' });
       $('#n-addr').value = p.url;
       const r = document.querySelector(`input[name="n-type"][value="${p.type}"]`);
       if (r && !it) r.checked = true;
@@ -695,7 +695,7 @@ export function readItemForm() {
   if (isClock(tv) && normTime(tv) === null) { tm.classList.add('err'); tm.focus(); return null; }
   // 從候選地點選的：地址欄還是那個連結，就連同位置一起存
   let xy = {};
-  try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true }; } catch { /* 沒選過 */ }
+  try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true, placeId: p.pid || '', geoAt: Date.now() }; } catch { /* 沒選過 */ }
   return {
     ...xy,
     title: t.value.trim(),

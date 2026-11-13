@@ -606,6 +606,21 @@ export async function locate(p) {
   }
 }
 
+// 用地點代碼重查座標（Google 規定座標最多存 30 天）；代碼失效或查不到回傳 null，沒啟用 Places API 回傳 'off'
+export async function locateById(placeId) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    const pl = new Place({ id: placeId });
+    await pl.fetchFields({ fields: ['location'] });
+    const loc = pl.location;
+    return loc ? { lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), placeId } : null;
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : null;
+  }
+}
+
 // 兩站之間要花幾分鐘（Routes API）；要在 Google Cloud 啟用 Routes API，沒啟用時回傳 'off'
 export async function travelMin(a, b, mode) {
   await loadApi();
