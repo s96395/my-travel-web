@@ -169,7 +169,9 @@ async function exactCoords(m) {
   const again = x => far.has(x.id) && !tried.has('far:' + x.id);
   const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, own: { lat: x.lat, lng: x.lng }, save });
   const old = x => x.exact && Number.isFinite(x.lat) && !far.has(x.id) && !tried.has('old:' + x.id) && !(Date.now() - (x.geoAt || 0) < RENEW_MS);
-  const renew = (x, save) => ({ id: 'old:' + x.id, pid: x.placeId || '', title: x.title, lat: x.lat, lng: x.lng, maxKm: 2, save });
+  // 排隊等重查時有人改了地點（座標或代碼變了），就不寫回，免得舊地點蓋掉新選的
+  const same0 = (x, now) => now && now.lat === x.lat && now.lng === x.lng && (now.placeId || '') === (x.placeId || '');
+  const renew = (x, save) => ({ id: 'old:' + x.id, pid: x.placeId || '', title: x.title, lat: x.lat, lng: x.lng, maxKm: 2, save: c => (same0(x, [...S.items, ...S.wishDocs].find(y => y.id === x.id)) ? save(c) : Promise.resolve()) });
   const todo = [
     ...S.wishDocs.filter(again).map(p => fix(p, c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname))),
     ...S.items.filter(again).map(it => fix(it, c => updateItem(S.tripId, it.id, c, S.user, S.nickname))),
