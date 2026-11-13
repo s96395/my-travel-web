@@ -35,6 +35,9 @@ export function normalizeItem(raw) {
     createdByUid: raw.createdByUid || '', // 建立者，判斷能不能刪除
     // 座標：查過 Google 的精確位置（exact）優先；其次由地點連結算出大約位置，再來用存下來的
     exact: !stale && !!raw.exact && Number.isFinite(raw.lat),
+    // Google 地點代碼可以一直存；座標依 Google 規定最多存 30 天，geoAt 是查到座標的時間（毫秒），舊資料沒有
+    placeId: (!stale && raw.placeId) || '',
+    geoAt: (!stale && Number.isFinite(raw.geoAt) && raw.geoAt) || 0,
     ...((!raw.exact && coordsFromUrl(raw.address)) || (stale ? { lat: null, lng: null } : { lat: Number.isFinite(raw.lat) ? raw.lat : null, lng: Number.isFinite(raw.lng) ? raw.lng : null })),
   };
 }
