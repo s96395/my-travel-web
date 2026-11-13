@@ -146,6 +146,7 @@ function render() {
 // 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
 const tried = new Set();
 let locating = false, placesOff = false;
+const RENEW_MS = 25 * 86400000;
 async function exactCoords(m) {
   if (locating || placesOff || S.offline || !S.tripId) return;
   // 離整趟旅程其他地點太遠的（連結換算錯），用旅程中心＋名稱＋城市重查一次
@@ -167,11 +168,17 @@ async function exactCoords(m) {
   }
   const again = x => far.has(x.id) && !tried.has('far:' + x.id);
   const fix = (x, save) => ({ id: 'far:' + x.id, title: [x.title, city].filter(Boolean).join(' '), ...far.center, maxKm: 500, own: { lat: x.lat, lng: x.lng }, save });
+  const old = x => x.exact && Number.isFinite(x.lat) && !far.has(x.id) && !tried.has('old:' + x.id) && !(Date.now() - (x.geoAt || 0) < RENEW_MS);
+  const renew = (x, save) => ({ id: 'old:' + x.id, pid: x.placeId || '', title: x.title, lat: x.lat, lng: x.lng, maxKm: 2, save });
   const todo = [
     ...S.wishDocs.filter(again).map(p => fix(p, c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname))),
     ...S.items.filter(again).map(it => fix(it, c => updateItem(S.tripId, it.id, c, S.user, S.nickname))),
     ...S.wishDocs.filter(rough).map(p => ({ ...p, save: c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname) })),
     ...S.items.filter(it => rough(it) && coordsFromUrl(it.address)).map(it => ({ ...it, save: c => updateItem(S.tripId, it.id, c, S.user, S.nickname) })),
+    // 查到超過 25 天（或舊資料沒有查詢時間）的精確座標：有地點代碼就用代碼重查，沒有就用名稱在原本位置附近查，順便補代碼
+    // （Google 規定座標最多存 30 天，提早幾天重查，避免被每天的清理先清掉）
+    ...[...S.wishDocs.filter(old).map(p => renew(p, c => updateRecord(S.tripId, 'wishlist', p.id, c, S.user, S.nickname))),
+      ...S.items.filter(old).map(it => renew(it, c => updateItem(S.tripId, it.id, c, S.user, S.nickname)))],
     ...bare.filter(it => onMap(it) && !same(it)).map(it => ({ id: it.id + '|' + geoKey(it), title: [geoKey(it), city].filter(Boolean).join(' '), ...near(it.day), save: c => updateItem(S.tripId, it.id, { ...c, geoq: geoKey(it) }, S.user, S.nickname) })),
   ];
   if (!todo.length) return;
@@ -179,7 +186,9 @@ async function exactCoords(m) {
   try {
     for (const p of todo) {
       tried.add(p.id);
-      const xy = await m.locate(p);
+      // 有地點代碼先用代碼查；代碼失效時改用名稱查
+      const byId = p.pid ? await m.locateById(p.pid) : null;
+      const xy = byId === 'off' ? 'off' : byId || await m.locate(p);
       if (xy === 'off') { placesOff = true; toast('要在 Google Cloud 啟用 Places API (New)，地圖上的位置才會準'); break; }
       if (xy) await p.save({ ...xy, exact: true, geoAt: Date.now() }).catch(console.error);
     }
