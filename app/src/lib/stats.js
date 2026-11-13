@@ -2,7 +2,7 @@
 // - 去過的國家：只算已完成、已封存的旅程（照舊版）
 // - 我的支出：分攤給「登入者對應同行者」的金額；舊資料以帳號 UID 為鍵時也認得
 // - 未確認：只算還沒分攤的支出
-// - 依類型、年度旅程總支出：每趟只算分給自己的金額（不論是不是自己建立的）
+// - 依類型、年度旅程總支出：每趟只算分給自己的金額（不論是不是自己建立的），依旅程出發年歸年
 import { myParticipantId } from './trips.js';
 
 export const isSplit = e => !!e.personalShares && typeof e.personalShares === 'object' && !Array.isArray(e.personalShares);
@@ -34,6 +34,7 @@ export function computeStats(trips, expensesByTrip, uid) {
   const years = {};
   const typeTotals = { '自由行': 0, '潛旅': 0, '跟團': 0 };
   const yearTotals = {};
+  const yearTypes = {}; // 每年三類各花多少：{ '2025': { 自由行, 潛旅, 跟團 } }
   trips.forEach(t => {
     const y = t.start ? t.start.slice(0, 4) : '未知';
     const ex = expensesByTrip.get(t.id);
@@ -42,6 +43,8 @@ export function computeStats(trips, expensesByTrip, uid) {
     const total = (ex || []).reduce((a, e) => a + myShare(e, pid, uid), 0);
     yearTotals[y] = (yearTotals[y] || 0) + total;
     typeTotals[t.type] = (typeTotals[t.type] || 0) + total;
+    const yt = yearTypes[y] || (yearTypes[y] = { '自由行': 0, '潛旅': 0, '跟團': 0 });
+    yt[t.type] = (yt[t.type] || 0) + total;
     const row = years[y] || (years[y] = { year: y, mine: 0, unconfirmed: 0 });
     (ex || []).forEach(e => {
       if (!isSplit(e)) row.unconfirmed += 1;
@@ -65,6 +68,7 @@ export function computeStats(trips, expensesByTrip, uid) {
     types: Object.entries(typeTotals),
     typeTotal,
     yearTotals,
+    yearTypes,
     tanks,
     tankTotal: tanks.reduce((a, t) => a + t[1], 0),
   };

@@ -279,6 +279,14 @@ if (typeof document !== 'undefined') {
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
+    const ty = e.target.closest?.('[data-tyear]');
+    if (ty) {
+      typeYear = ty.dataset.tyear;
+      const card = ty.closest('.stat');
+      card.querySelectorAll('[data-tyear]').forEach(b => b.setAttribute('aria-pressed', b === ty));
+      card.querySelectorAll('[data-ty]').forEach(d => { d.hidden = d.dataset.ty !== typeYear; });
+      return;
+    }
     const hb = e.target.closest?.('[data-hero]');
     if (hb) { const box = hb.closest('.herobox'); if (box) setTab(box, hb.dataset.hero); return; }
     if (e.target.closest?.('[data-wplay]')) { const [steps, ids, total] = lastPlay; if (steps.length) startPlay(steps, ids, total); return; }
@@ -299,6 +307,37 @@ if (typeof document !== 'undefined') {
   });
 }
 
+// 依類型花費：三類金額與占比，可切換年份；下面一張表看每年三類各花多少
+const TYPES = ['自由行', '潛旅', '跟團'];
+const TYPE_CLR = { '自由行': '#3b82f6', '潛旅': '#10b981', '跟團': '#f59e0b' };
+let typeYear = ''; // 選的年份（all＝全部）；重畫畫面時保留
+const sumOf = m => TYPES.reduce((a, t) => a + (m[t] || 0), 0);
+function typeRows(m) {
+  const sum = sumOf(m), pct = v => (sum ? Math.round(v / sum * 100) : 0);
+  return TYPES.map(t => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_CLR[t]}">NT$ ${money(m[t] || 0)}</b> <span class="muted">${pct(m[t] || 0)}%</span></span><span class="bar"><i style="width:${pct(m[t] || 0)}%;background:${TYPE_CLR[t]}"></i></span></div>`).join('')
+    + `<div class="sr total"><span>合計</span><span class="num">NT$ ${money(sum)}</span></div>`;
+}
+function typeCard(S, st, thisYear) {
+  const years = Object.keys(st.yearTypes).sort((a, b) => (a === '未知') - (b === '未知') || b.localeCompare(a));
+  const all = Object.fromEntries(st.types);
+  const sel = typeYear && (typeYear === 'all' || years.includes(typeYear)) ? typeYear : years.includes(thisYear) ? thisYear : 'all';
+  const now = st.yearTypes[thisYear] || {};
+  const main = S.trips.some(t => t.type === '潛旅') ? '潛旅' : '自由行';
+  const yName = y => (y === 'all' ? '全部' : y === '未知' ? '沒填日期' : `${y} 年`);
+  const cell = 'style="padding:6px 0 6px 8px;text-align:right;white-space:nowrap"';
+  const detail = `<div class="chips" role="group" aria-label="選年份">${['all', ...years].map(y => `<button type="button" class="chip" data-tyear="${esc(y)}" aria-pressed="${y === sel}">${yName(y)}</button>`).join('')}</div>
+    ${['all', ...years].map(y => `<div data-ty="${esc(y)}"${y === sel ? '' : ' hidden'}>${typeRows(y === 'all' ? all : st.yearTypes[y])}</div>`).join('')}
+    ${years.length ? `<p class="small muted" style="margin:10px 0 0">每年比較</p>
+    <table class="num" style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr class="muted"><th style="text-align:left;font-weight:600">年份</th>${TYPES.map(t => `<th ${cell}>${ti(t)}</th>`).join('')}</tr>
+      ${years.map(y => `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 0">${yName(y)}</td>${TYPES.map(t => `<td ${cell}>${money(st.yearTypes[y][t] || 0)}</td>`).join('')}</tr>`).join('')}
+    </table>` : ''}
+    <p class="small muted" style="margin:8px 0 0">只算分給自己的金額，依旅程出發年份歸年；先不分攤的不算。</p>`;
+  // 收合時：大字只放主要類型（有潛旅就看潛旅），其他兩類寫在下面一行
+  return statCard(S, 'type', '', 'NT$ ' + money(now[main] || 0), `${thisYear} ${main}花費`,
+    TYPES.filter(t => t !== main).map(t => `${t} ${money(now[t] || 0)}`).join('・'), detail);
+}
+
 const line = (l, r, extra = '') => `<div class="sr"><span>${l}</span><span class="num">${r}</span>${extra}</div>`;
 
 function statsHtml(S, st) {
@@ -308,6 +347,7 @@ function statsHtml(S, st) {
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
+    ${typeCard(S, st, thisYear)}
     ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
       st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
   </section>
