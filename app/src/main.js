@@ -19,6 +19,7 @@ import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
 import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
+import { ticketFormSheet, readTicketForm, ticketSheet } from './views/move.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate, missingPack } from './lib/todos.js';
 import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
@@ -53,7 +54,7 @@ const S = {
   trips: [], expenses: new Map(), loadingTrips: true,
   view: 'home', tripId: null,
   tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
-  flightDocs: [], stayDocs: [], transitDocs: [], loadingMove: false, reveal: {},
+  flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], tkImg: '', loadingMove: false, reveal: {},
   todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', loadingTodo: false,
   diveDocs: [], loadingDive: false,
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
@@ -328,7 +329,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -342,7 +343,7 @@ function syncItineraryWatch() {
 
 function fillFromLocal(rec) {
   const x = rec?.subs || {};
-  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], todoDocs: x.todos || [], packDocs: x.packing || [], diveDocs: x.diveLogs || [], wishDocs: (x.wishlist || []).map(p => (p.exact ? p : { ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)), depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
+  Object.assign(S, { items: (x.itinerary || []).map(normalizeItem), flightDocs: x.flights || [], stayDocs: x.stays || [], transitDocs: x.transits || [], ticketDocs: x.tickets || [], todoDocs: x.todos || [], packDocs: x.packing || [], diveDocs: x.diveLogs || [], wishDocs: (x.wishlist || []).map(p => (p.exact ? p : { ...p, ...coordsFromUrl(p.url) })).sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)), depositDocs: x.fundDeposits || [], loadingItems: false, loadingMove: false, loadingTodo: false, loadingDive: false });
 }
 
 /* ---------- 下載供離線使用 ---------- */
@@ -412,6 +413,7 @@ function startTripWatch(tripId) {
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
+    watchRecords(tripId, 'tickets', ok(list => { S.ticketDocs = list; }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
     watchRecords(tripId, 'packing', ok(list => { S.packDocs = list; }), fail),
     watchRecords(tripId, 'fundDeposits', ok(list => { S.depositDocs = list; }), fail),
@@ -1292,6 +1294,39 @@ const actions = {
   saveStay: el => saveRecord(el, 'stays', readStayForm(), allStays, ['已新增住宿，會依入住日排序', '已更新住宿']),
   delFlight: el => removeRecord(el, 'flights', '已刪除航段'),
   delStay: el => removeRecord(el, 'stays', '已刪除住宿'),
+  // 票券：截圖壓小後存在資料裡；S.tkImg 是表單上目前選的圖
+  ticketForm(el) {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const t = S.ticketDocs.find(x => x.id === el.dataset.id);
+    S.tkImg = t?.img || '';
+    ticketFormSheet(trip, t, canDelRecord(trip, t));
+  },
+  pickTicket() {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      if (!f.type.startsWith('image/')) { toast('請選擇圖片檔，PDF 請先截圖'); return; }
+      // 重畫表單前先記下已經填的字
+      const id = $('#layer [data-act="saveTicket"]')?.dataset.id || '';
+      const typed = ['tk-title', 'tk-date', 'tk-note'].map(k => [k, $(`#${k}`)?.value || '']);
+      try {
+        S.tkImg = await shrinkImage(f);
+        if (!$('#tk-title')) return; // 選圖時表單已經關掉
+        const t = S.ticketDocs.find(x => x.id === id);
+        ticketFormSheet(trip, t, canDelRecord(trip, t), S.tkImg);
+        typed.forEach(([k, v]) => { if ($(`#${k}`)) $(`#${k}`).value = v; });
+      } catch { toast('這張圖讀不出來，請換一張'); }
+    };
+    inp.click();
+  },
+  saveTicket: el => saveRecord(el, 'tickets', readTicketForm(S.tkImg), () => S.ticketDocs, ['已新增票券', '已更新票券']),
+  delTicket: el => removeRecord(el, 'tickets', '已刪除票券'),
+  showTicket(el) { ticketSheet(S, el.dataset.id); },
   transitForm(el) {
     const trip = curTrip();
     if (!trip || S.offline) return;
