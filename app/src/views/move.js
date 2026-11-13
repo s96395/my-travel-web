@@ -136,6 +136,8 @@ export function readTicketForm(img) {
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
   const t = { title: val('tk-title'), date: val('tk-date'), note: val('tk-note'), img: img || '' };
   if (!t.title) { $('#tk-title').classList.add('err'); $('#tk-title').focus(); return { error: '請填票券名稱' }; }
+  const d = $('#tk-date');
+  if (t.date && ((d.min && t.date < d.min) || (d.max && t.date > d.max))) { d.classList.add('err'); d.focus(); return { error: '日期要在旅程期間內' }; }
   if (!t.img) return { error: '請選一張票券截圖' };
   return { data: t };
 }
