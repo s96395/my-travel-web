@@ -58,6 +58,7 @@ export function renderMore(S, trip) {
 export function quickSheet(S) {
   openSheet(`${head('快速選單')}
     <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
+    <div class="field"><span class="label">提醒還沒排的餐<span class="muted" style="font-weight:400">・某天還沒有早餐、午餐或晚餐時，在那天標題下面提醒</span></span><div class="row" style="gap:6px">${[['on', '開'], ['off', '關']].map(([v, t]) => `<button type="button" class="chip" data-act="mealHint" data-v="${v}" aria-pressed="${(S.mealHint ? 'on' : 'off') === v}">${t}</button>`).join('')}</div></div>
     <div class="menulist">
       <button type="button" data-act="exportIcs"><span>${ICON.cal}</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
       <details>

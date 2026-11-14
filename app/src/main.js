@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
@@ -70,6 +70,7 @@ const S = {
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
+  mealHint: store.get('mealHint') !== 'off', // 某天還沒排早餐、午餐、晚餐時提醒，可以在快速選單關掉
   covers: {}, crop: null, // covers：旅程 id → 封面照；crop：正在調整的封面
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
@@ -316,6 +317,15 @@ function go(hash) {
 
 /* ---------- 資料監看 ---------- */
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
+// 編輯畫面：用綁定的地點代碼查原本的名稱和地址（當地語言），只顯示不保存，看得出綁到哪一間
+async function showBound(it) {
+  const slot = $('#n-bound');
+  if (!slot || !it.placeId || S.offline || !mapsKey) { if (slot && it.placeId) slot.textContent = '已綁定地點'; return; }
+  let r = null, err = false;
+  try { r = await (await import('./ui/map.js')).localPlace({ pid: it.placeId }, localLang(it, curTrip()?.country)?.[1] || 'zh-TW'); } catch (e) { console.error(e); err = true; }
+  if (!slot.isConnected || slot.dataset.changed) return; // 查詢中已經關掉、換了別的畫面，或已經選了別的地點
+  slot.textContent = r ? [r.name, r.addr].filter(Boolean).join('・') : err ? '已綁定地點（暫時查不到名稱，請稍後再開一次）' : 'Google 查不到這個綁定地點，請在「更多設定」換地點重新選一次';
+}
 // 給司機看畫面：重畫時把小地圖放回去
 function showDriver(d) {
   driverSheet(d, S.offline);
@@ -857,6 +867,8 @@ const actions = {
   tourHome() { closeSheet(); startTour('Home'); },
   tourTrip() { closeSheet(); if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
   theme(el) { setTheme(el.dataset.v); },
+  // 還沒排的餐提醒：開或關（記在這台裝置）；從快速選單切換時重開選單讓按鈕狀態更新
+  mealHint(el) { S.mealHint = el.dataset.v === 'on'; store.set('mealHint', S.mealHint ? 'on' : 'off'); render(); if (el.closest('#layer')) quickSheet(S); else toast('已關掉提醒，可以在快速選單重新打開'); },
   // 標題列的切換鈕：照目前看到的外觀換成另一種
   toggleTheme() { setTheme((S.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'); },
   quick: () => quickSheet(S),
@@ -1210,7 +1222,7 @@ const actions = {
     const it = findItem(id), trip = curTrip();
     if ((how === 'up' || how === 'down') && it && trip) itemMenuSheet(S, trip, it, canDelRecord(trip, it)); else closeSheet();
   },
-  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear(), areaNames(), ticketNames()); },
+  editItem(el) { const it = findItem(el.dataset.id); if (it) { itemFormSheet(it.day || 1, it, tripNear(), areaNames(), ticketNames()); showBound(it); } },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear(), areaNames(), ticketNames()); },
   // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖
   mapSearch() {

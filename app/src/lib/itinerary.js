@@ -4,6 +4,21 @@ export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'tran
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
 export const PRIORITIES = ['must', 'want', 'optional'];
+// 餐別：顯示在名稱前面，例如「〔午餐〕五福豬肉湯飯」；名稱本身只放店名
+export const MEALS = ['breakfast', 'lunch', 'dinner', 'snack', 'night'];
+export const MEAL_LABEL = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心', night: '消夜' };
+const MEAL_WORD = { 早餐: 'breakfast', 早午餐: 'breakfast', 午餐: 'lunch', 午飯: 'lunch', 晚餐: 'dinner', 晚飯: 'dinner', 點心: 'snack', 下午茶: 'snack', 消夜: 'night', 宵夜: 'night' };
+// 「午餐」「晚飯」這類字換成餐別代碼，不是餐別就回傳空字串
+export const mealOf = w => MEAL_WORD[String(w || '').trim()] || '';
+// 導航、Naver、給司機看用的店名：拿掉 emoji、〔午餐〕、「晚餐｜」這類餐別、結尾的（有空再去）說明；「店名｜分店」保留兩段
+// 結尾括號只拿掉像說明的（有空再去、晚餐備選…），「一蘭（新宿中央東口店）」這種分店名保留
+const NOTE_TAIL = /\s*[（(][^）)]*(有空|再去|備選|備案|候補|必去|想去|看情況|早餐|午餐|晚餐|點心|消夜|宵夜|下午茶)[^）)]*[）)]\s*$/u;
+// first：只取第一段（Naver 地圖上的標籤用，「店名｜備註」只留店名）
+export function storeName(s, first = false) {
+  const t = String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/^\s*[〔［\[【][^〕］\]】]*[〕］\]】]\s*/u, '');
+  const parts = t.split(/[｜|]/).map(x => x.replace(NOTE_TAIL, '').trim()).filter(x => x && !mealOf(x));
+  return (parts.length ? (first ? parts[0] : parts.join(' ')) : t.replace(/[｜|]/g, ' ')).replace(/\s+/g, ' ').trim();
+}
 export const PRIORITY_LABEL = { must: '必去', want: '想去', optional: '有空再去' };
 // 訂位：要預約、要排隊、已預約；bookUrl 是訂位或排隊的網址（例如 CatchTable）
 export const BOOK_LABEL = { need: '要預約', queue: '要排隊', done: '已預約' };
@@ -28,6 +43,7 @@ export function normalizeItem(raw) {
     address: raw.address || '',
     type: ITEM_TYPES.includes(raw.type) ? raw.type : 'other',
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : '',
+    meal: MEALS.includes(raw.meal) ? raw.meal : '',
     time: raw.reservationTime || '',
     stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
@@ -146,7 +162,7 @@ const bareName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F
 export const sameName = (a, b) => !!bareName(a) && bareName(a) === bareName(b);
 // 自己打的行程沒有座標時，用地址（沒有就用名稱）請 Google 查位置；區域名稱像「○○一帶」會讓 Google 找錯，不放進去
 export const geoKey = it => (it.address && !isMapLink(it.address) ? String(it.address).trim() : cleanName(it.title));
-export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [cleanName(it.title), it.area, city].filter(Boolean).join(' '));
+export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [storeName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 // 有座標（從想去清單加進來的）就用座標，位置最準
@@ -164,7 +180,7 @@ export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURICompon
 // 韓國地點手機、電腦都開 Naver 地圖：有座標就照座標開，名稱只當標籤，名稱改成中文說明也不會找錯；沒有座標才用名稱搜尋
 // 手機開 Naver 地圖 App（nmap://），電腦開 Naver 地圖網頁的路線頁，終點放這個座標（網頁的座標是 Web Mercator 公尺）
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-const naverName = (p, query) => cleanName(String(p?.title || query || '').split(/[｜|]/)[0]).replace(/[,/]/g, ' ').trim() || '目的地';
+const naverName = (p, query) => storeName(p?.title || query || '', true).replace(/[,/]/g, ' ').trim() || '目的地';
 const hasLL = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
 const R = 20037508.34;
 const merc = p => [(p.lng * R) / 180, ((Math.log(Math.tan(((90 + p.lat) * Math.PI) / 360)) / (Math.PI / 180)) * R) / 180].map(v => v.toFixed(2));
@@ -301,4 +317,64 @@ export function centerOf(list) {
   const xs = list.filter(hasXY);
   if (!xs.length) return {};
   return { lat: xs.reduce((s, p) => s + p.lat, 0) / xs.length, lng: xs.reduce((s, p) => s + p.lng, 0) / xs.length };
+}
+
+// 舊資料轉換（一次性）：名稱開頭的 emoji、「午餐｜」「〔晚餐〕」拿掉轉成餐別；結尾（有空再去）轉成優先度，其他說明（晚餐備選）移到備註
+// 時間欄只寫「午餐」「晚餐」的也轉成餐別。回傳要改的欄位，沒有要改就回傳 null
+// 名稱改了，自動查座標用的 geoq 也要跟著改，不然座標和地點代碼會被當成過期丟掉
+const LEAD_EMOJI = /^[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+/u;
+const SEP = /[｜|]/;
+// 結尾括號是在做什麼的說明（買伴手禮、看無人機秀、100 樓夜景、鮑魚粥），不是地名或分店：移到一句提示
+const DESC_TAIL = /\s*[（(]([^）)]*(買|看|逛|吃|喝|拍|夜景|粥|樓)[^）)]*)[）)]\s*$/u;
+export function tidyItem(raw) {
+  const old = String(raw.title || '');
+  let t = old.replace(LEAD_EMOJI, '').trim();
+  let meal = MEALS.includes(raw.meal) ? raw.meal : '';
+  let priority = raw.priority || '';
+  const notes = [], descs = [];
+  const takeMeal = m => { if (m && !meal) meal = m; };
+  // 開頭的〔午餐〕【晚餐】[早餐]
+  const br = t.match(/^[〔［[【]\s*([^〕］\]】]+?)\s*[〕］\]】]\s*/u);
+  if (br && mealOf(br[1])) { takeMeal(mealOf(br[1])); t = t.slice(br[0].length).replace(LEAD_EMOJI, '').trim(); }
+  // 「午餐｜店名」「店名｜晚餐」：餐別那一段拿掉，「有空再去」那一段轉優先度
+  // 第二段以後是「廣安里店」這類分店名就保留，其他（土耳其 Kaymak 奶油麵包）當成說明移到一句提示
+  if (SEP.test(t)) {
+    const keep = [];
+    for (const part of t.split(SEP).map(x => x.replace(LEAD_EMOJI, '').trim()).filter(Boolean)) {
+      if (mealOf(part)) { takeMeal(mealOf(part)); continue; }
+      if (/^有空(再去)?$/.test(part)) { if (!priority) priority = 'optional'; continue; }
+      // 判斷是不是分店名時先不看結尾括號，「廣安里店（有空再去）」仍算分店，括號留給後面處理
+      if (keep.length && !/店$/.test(part.replace(/\s*[（(][^）)]*[）)]\s*$/u, ''))) { descs.push(part); continue; }
+      keep.push(part);
+    }
+    if (keep.length) t = keep.join('｜');
+  }
+  // 結尾括號說明：（有空再去）→ 優先度；（午餐）→ 餐別；（晚餐備選）→ 備註，裡面有餐別字也標上餐別
+  const tail = t.match(NOTE_TAIL);
+  if (tail) {
+    const word = tail[0].trim().slice(1, -1).trim();
+    if (/有空/.test(word)) { if (!priority) priority = 'optional'; } else if (mealOf(word)) takeMeal(mealOf(word));
+    else { takeMeal(MEALS.find(k => word.includes(MEAL_LABEL[k])) || ''); notes.push(word); }
+    const rest = t.slice(0, tail.index).trim();
+    if (rest) t = rest; else notes.length = 0;
+  }
+  const desc = t.match(DESC_TAIL);
+  if (desc && t.slice(0, desc.index).trim()) { descs.unshift(desc[1].trim()); t = t.slice(0, desc.index).trim(); }
+  // 說明放一句提示（顯示在卡片上，20 字內）；原本已有提示或太長就放備註
+  const dtext = descs.join('、');
+  let tip = '';
+  if (dtext && !raw.tip && dtext.length <= 20) tip = dtext; else if (dtext) notes.push(dtext);
+  const patch = {};
+  if (t && t !== old) patch.title = t;
+  if (meal && meal !== (raw.meal || '')) patch.meal = meal;
+  // 時間欄只寫餐別（沒有幾點）：轉成餐別、時間欄清空；已經有其他餐別就不動
+  if (!raw.reservationTime && mealOf(raw.timeText)) {
+    if (!patch.meal && !meal) patch.meal = mealOf(raw.timeText);
+    if ((patch.meal || meal) === mealOf(raw.timeText)) patch.timeText = '';
+  }
+  if (priority !== (raw.priority || '')) patch.priority = priority;
+  if (tip) patch.tip = tip;
+  if (notes.length) patch.note = [notes.join('、'), raw.note || ''].filter(Boolean).join('\n');
+  if (patch.title && raw.geoq && raw.geoq === geoKey({ title: old, address: raw.address })) patch.geoq = geoKey({ title: patch.title, address: raw.address });
+  return Object.keys(patch).length ? patch : null;
 }

@@ -206,3 +206,45 @@ test('韓國導航手機電腦都開 Naver：有座標照座標開，名稱改�
     assert.match(naverRoute({ title: '出發', lat: 35.1, lng: 129 }, it), /^nmap:\/\/route\/public\?slat=35\.1&slng=129&/);
   } finally { delete globalThis.matchMedia; }
 });
+
+test('storeName：導航和給司機看只用店名', async () => {
+  const { storeName, mealOf, normalizeItem } = await import('../src/lib/itinerary.js');
+  assert.equal(storeName('晚餐｜83 Haechi'), '83 Haechi');
+  assert.equal(storeName('🍜 五福豬肉湯飯'), '五福豬肉湯飯');
+  assert.equal(storeName('〔午餐〕濟州家'), '濟州家');
+  assert.equal(storeName('Liberta（有空再去）'), 'Liberta');
+  assert.equal(storeName('海雲台市場'), '海雲台市場');
+  assert.equal(storeName('濟州家（晚餐備選）'), '濟州家');
+  assert.equal(storeName('一蘭（新宿中央東口店）'), '一蘭（新宿中央東口店）');
+  assert.ok(naverHref({ title: '晚餐｜83 Haechi', lat: 35, lng: 129 }, '').includes('83%20Haechi'));
+  assert.equal(mealOf('晚飯'), 'dinner');
+  assert.equal(mealOf('下午'), '');
+  assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).meal, 'lunch');
+  assert.equal(normalizeItem({ id: 'a', meal: 'xx' }).meal, '');
+});
+
+test('tidyItem：舊名稱轉成餐別、優先度、備註，geoq 跟著改', async () => {
+  const { tidyItem } = await import('../src/lib/itinerary.js');
+  assert.deepEqual(tidyItem({ title: '晚餐｜83 Haechi' }), { title: '83 Haechi', meal: 'dinner' });
+  assert.deepEqual(tidyItem({ title: '🍜 五福豬肉湯飯' }), { title: '五福豬肉湯飯' });
+  assert.deepEqual(tidyItem({ title: '〔午餐〕濟州家' }), { title: '濟州家', meal: 'lunch' });
+  assert.deepEqual(tidyItem({ title: 'Liberta（有空再去）' }), { title: 'Liberta', priority: 'optional' });
+  assert.deepEqual(tidyItem({ title: '濟州家（晚餐備選）', note: '好吃' }), { title: '濟州家', meal: 'dinner', note: '晚餐備選\n好吃' });
+  assert.deepEqual(tidyItem({ title: 'Liberta', timeText: '晚餐' }), { meal: 'dinner', timeText: '' });
+  assert.deepEqual(tidyItem({ title: '🍖 午餐｜五福', geoq: '午餐 五福' }), { title: '五福', meal: 'lunch', geoq: '五福' });
+  assert.equal(tidyItem({ title: '海雲台市場' }), null);
+  assert.equal(tidyItem({ title: '東大門獵奇辣炒年糕｜廣安里店' }), null);
+  assert.equal(tidyItem({ title: '一蘭（新宿中央東口店）' }), null);
+  assert.equal(tidyItem({ title: '午餐' }), null);
+});
+
+test('tidyItem：做什麼的說明移到一句提示，分店和地名保留', async () => {
+  const { tidyItem } = await import('../src/lib/itinerary.js');
+  assert.deepEqual(tidyItem({ title: '🐰 Miffy 專門店（買水手服米菲）' }), { title: 'Miffy 專門店', tip: '買水手服米菲' });
+  assert.deepEqual(tidyItem({ title: '🍯 DIART coffee｜土耳其 Kaymak 奶油麵包' }), { title: 'DIART coffee', tip: '土耳其 Kaymak 奶油麵包' });
+  assert.deepEqual(tidyItem({ title: '🍲 午餐｜濟州家 西面店（鮑魚粥）' }), { title: '濟州家 西面店', meal: 'lunch', tip: '鮑魚粥' });
+  assert.deepEqual(tidyItem({ title: 'X the Sky 展望台（100 樓夜景）', tip: '先買票' }), { title: 'X the Sky 展望台', note: '100 樓夜景' });
+  assert.deepEqual(tidyItem({ title: '☕ Liberta 海景咖啡（青沙浦）' }), { title: 'Liberta 海景咖啡（青沙浦）' });
+  assert.deepEqual(tidyItem({ title: '東大門獵奇辣炒年糕｜廣安里店（有空再去）' }), { title: '東大門獵奇辣炒年糕｜廣安里店', priority: 'optional' });
+  assert.deepEqual(tidyItem({ title: '豚笑｜廣安店（晚餐）' }), { title: '豚笑｜廣安店', meal: 'dinner' });
+});
