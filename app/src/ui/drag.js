@@ -33,7 +33,8 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
     DR.el.style.transform = `translate(${e.clientX - DR.sx}px, ${e.clientY - DR.sy}px) scale(1.02)`;
     const under = document.elementFromPoint(e.clientX, e.clientY);
     if (!under) return;
-    document.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
+    // 正在停留的日期按鈕保留提示，其他的清掉
+    document.querySelectorAll('.drop').forEach(x => { if (x !== DR.pill) x.classList.remove('drop'); });
     const dl = under.closest('.dli[data-dropd], .dpill[data-dropd]');
     if (dl) { DR.line.remove(); waitPill(dl); return; }
     clearPill();

@@ -14,7 +14,7 @@ import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
+import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
@@ -1181,15 +1181,6 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
-  // ⋯ 選單調整順序；上移、下移後選單留著（更新目前第幾站），可以連按
-  stepMove(el) {
-    const id = el.dataset.id, how = el.dataset.how;
-    const t = stepTarget(S.items, id, how, how === 'after' ? $('#mv-after')?.value : '');
-    if (!t) { toast('已經在這個位置了'); return; }
-    moveItem(id, t);
-    const it = findItem(id), trip = curTrip();
-    if ((how === 'up' || how === 'down') && it && trip) itemMenuSheet(S, trip, it, canDelRecord(trip, it)); else closeSheet();
-  },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear()); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear()); },
   // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖

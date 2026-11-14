@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf, stepTarget } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -185,19 +185,4 @@ test('時間可以寫文字；有幾點時以幾點為準', () => {
   assert.equal(normalizeItem({ id: 'a', timeText: '看完夕陽後' }).timeText, '看完夕陽後');
   assert.equal(normalizeItem({ id: 'a', reservationTime: '18:00', timeText: '晚餐' }).timeText, '');
   assert.equal(normalizeItem({ id: 'a', tip: '先抽號碼牌' }).tip, '先抽號碼牌');
-});
-
-test('⋯ 選單調整順序：上移、下移、最前、最後、排在某站後面', () => {
-  const items = ['a', 'b', 'c', 'd'].map((id, i) => mk(id, 1, i + 1));
-  const order = t => { const byId = new Map(planMove(items, 'b', t).map(u => [u.id, u])); return sortItems(items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x))).map(x => x.id).join(''); };
-  assert.equal(order(stepTarget(items, 'b', 'up')), 'bacd');
-  assert.equal(order(stepTarget(items, 'b', 'down')), 'acbd');
-  assert.equal(order(stepTarget(items, 'b', 'first')), 'bacd');
-  assert.equal(order(stepTarget(items, 'b', 'last')), 'acdb');
-  assert.equal(order(stepTarget(items, 'b', 'after', 'c')), 'acbd');
-  assert.equal(order(stepTarget(items, 'b', 'after', 'd')), 'acdb');
-  assert.equal(stepTarget(items, 'a', 'up'), null);
-  assert.equal(stepTarget(items, 'd', 'down'), null);
-  assert.equal(stepTarget(items, 'b', 'after', 'a'), null);
-  assert.equal(order(stepTarget(items, 'c', 'down') && stepTarget(items, 'b', 'down')), 'acbd');
 });
