@@ -6,7 +6,7 @@ import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, mapName, nq, stayPlace, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, PRIORITIES, PRIORITY_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, kakaoRoute, mapName, stayPlace, groupByArea, sameName, STAY_MINS, stayText, rankDays, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -182,11 +182,11 @@ function legHtml(r) {
   const l = r.leg;
   if (!l?.min) return '';
   const walk = l.mode === 'WALKING', xy = p => `${p.lat},${p.lng}`;
-  const kr = inKorea(r.it), naver = kr && naverHref(r.it, r.it.title, true);
-  // 韓國：手機開 Naver 地圖 App 的兩站路線，電腦開 Naver 地圖網頁
+  const kr = inKorea(r.it);
+  // 韓國：手機、電腦都開 Kakao 地圖的兩站路線
   const href = !kr ? `https://www.google.com/maps/dir/?api=1&origin=${xy(l.from)}&destination=${xy(r.it)}&travelmode=${walk ? 'walking' : 'transit'}`
-    : naver.startsWith('nmap:') ? `nmap://route/${walk ? 'walk' : 'public'}?${nq({ slat: l.from.lat, slng: l.from.lng, sname: l.from.title || '出發', dlat: r.it.lat, dlng: r.it.lng, dname: r.it.title || '', appname: location.origin })}` : naver;
-  return `<a class="legline" href="${esc(href)}" target="_blank" rel="noopener" title="開 ${kr ? 'Naver' : 'Google'} 地圖看路線">${walk ? '步行' : '搭車'} ${stayText(l.min)}</a>`;
+    : kakaoRoute({ title: l.from.title || '出發', lat: l.from.lat, lng: l.from.lng }, r.it);
+  return `<a class="legline" href="${esc(href)}" target="_blank" rel="noopener" title="開 ${kr ? 'Kakao' : 'Google'} 地圖看路線">${walk ? '步行' : '搭車'} ${stayText(l.min)}</a>`;
 }
 const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
 
@@ -405,7 +405,7 @@ const cardMore = btns => (btns.length ? `<div class="menulist" style="flex-basis
 const cardLinks = (links, more = '') => `<div class="row" style="gap:16px;flex-wrap:wrap">${links.filter(Boolean).join('')}${more}</div>`;
 const extLink = (href, text) => (href ? `<a class="linkbtn" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
 const navTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title, true) : hasXY(p) ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}` : '');
-// 給司機看的「在地圖開啟」：韓國改開 Naver 地圖（資訊卡上韓國只留導航，不放這個連結）
+// 給司機看的「在地圖開啟」：韓國改開 Kakao 地圖（資訊卡上韓國只留導航，不放這個連結）
 const openTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title) : p.url || '');
 // 給司機看的入口：資訊卡放在文字連結列；離線時資訊卡打不開，改在時間軸那一站下面放一個標籤
 const drvBtn = (k, id) => drvLink(k, id, 'btn grow', '🚕 ');
@@ -507,8 +507,8 @@ export const driverText = d => (d.local ? [d.local.name, d.local.addr] : [d.name
 // d.local：按「顯示韓文」等按鈕查到的當地語言名稱、地址（Google 回傳，只顯示不保存）；d.busy 查詢中；d.miss 找不到可以確定的地點
 export function driverSheet(d, offline) {
   const map = hasXY(d) && !offline && mapsKey;
-  // 韓國：導航已經開 Naver 地點頁，不再另外放「在 Naver 地圖開啟」；查到韓文名稱就用韓文名稱搜尋 Naver，比較找得到
-  if (d.map === 'Naver' && d.nav) d = { ...d, open: '', nav: d.local?.name ? naverHref({ title: d.local.name, lat: d.lat, lng: d.lng }, d.local.name, true) : d.nav };
+  // 韓國：導航已經開 Kakao 地圖照座標標點，不再另外放「在地圖開啟」；查到韓文名稱就拿來當標籤
+  if (d.map === 'Kakao' && d.nav) d = { ...d, open: '', nav: d.local?.name ? naverHref({ title: d.local.name, lat: d.lat, lng: d.lng }, d.local.name, true) : d.nav };
   const go = (href, text, cls) => (href && !offline ? `<a class="${cls}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>` : '');
   const big = 'margin:0;font-size:clamp(30px,8.5vw,44px);font-weight:800;line-height:1.25;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';
   const mid = 'margin:0;font-size:clamp(18px,5vw,22px);line-height:1.45;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';

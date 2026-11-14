@@ -144,7 +144,7 @@ export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.addres
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 // 有座標（從想去清單加進來的）就用座標，位置最準
 export const routeStops = (items, city) => items.filter(onMap).map(it => (Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, city)));
-// 韓國的地點改開 Naver 地圖（Google 地圖在韓國不能開車、步行導航）
+// 韓國的地點改開 Kakao 地圖（Google 地圖在韓國不能開車、步行導航）
 // 有座標就看座標在不在南韓範圍（大致的多邊形，避開對馬、福岡）；沒有座標就看旅程國家
 const KR = [[124, 38.7], [132, 38.7], [132, 36.5], [129.6, 35.2], [129.2, 34.9], [127.8, 33.9], [126.8, 33], [125.8, 33], [124, 34.5]];
 const inPoly = (x, y, poly) => poly.reduce((inside, [x1, y1], i) => {
@@ -154,36 +154,24 @@ const inPoly = (x, y, poly) => poly.reduce((inside, [x1, y1], i) => {
 export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.isFinite(p?.lng) ? inPoly(p.lng, p.lat, KR) : /韓國|南韓|大韓民國|濟州/.test(country || ''));
 // Naver 地圖 App 不把 + 當空格，所以不用 URLSearchParams（它把空格編成 +），改用 %20
 export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
-const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-// 手機直接開 Naver 地圖 App；電腦沒有 App，開 Naver 地圖網頁搜尋
-// nav（導航）：用名稱搜尋，打開 Naver 的地點頁（有評分、照片、出發／到達），不直接進導航，人不在當地也打得開；中文名稱改用座標
-// 不是 nav（在地圖開啟）：有座標就照座標標出那一點
-export function naverHref(p, query, nav = false) {
-  const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
-  const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
-  if (coarse()) {
-    const key = cleanName(String(p?.title || '').split(/[｜|]/)[0]);
-    // 中文名稱（有漢字、沒有韓文）在 Naver 常查不到，有座標就直接照座標開，位置一定對
-    const zh = /\p{Script=Han}/u.test(key) && !/\p{Script=Hangul}/u.test(key);
-    if (nav && zh && xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
-    // 中韓並列（例如「海雲台 해운대」）只拿韓文那段去搜尋
-    const kr = /\p{Script=Hangul}/u.test(key) ? key.split(' ').filter(w => !/\p{Script=Han}/u.test(w)).join(' ') : key;
-    if (nav) return `nmap://search?${nq({ query: kr || query || name, appname: app })}`;
-    if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
-    return `nmap://search?${nq({ query: query || name, appname: app })}`;
-  }
-  // 電腦：有座標就照座標標出那一點（Naver 網頁沒有用座標標點的網址，改用 Kakao 地圖的公開連結格式）；
-  // 名稱改成中文說明後 Naver 搜不到，不能只靠名稱搜尋；沒有座標才用名稱搜尋
-  if (xy) return `https://map.kakao.com/link/map/${encodeURIComponent(cleanName(name).replace(/,/g, ' ') || '目的地')},${p.lat},${p.lng}`;
-  return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
+// 韓國地點手機、電腦都開 Kakao 地圖的公開連結（同一個網址，手機有裝 Kakao Map 會跳 App，沒裝就開網頁）：
+// 有座標就照座標標出那一點，名稱只當標籤，名稱改成中文說明也不會找錯；沒有座標才用名稱搜尋。
+// Naver 網頁沒有照座標標點的網址，電腦只能用名稱搜尋，所以不用 Naver
+const kakaoName = (p, query) => cleanName(String(p?.title || query || '').split(/[｜|]/)[0]).replace(/[,/]/g, ' ').trim() || '目的地';
+export const kakaoSpot = p => `${encodeURIComponent(kakaoName(p))},${p.lat},${p.lng}`;
+export function naverHref(p, query) {
+  if (Number.isFinite(p?.lat) && Number.isFinite(p?.lng)) return `https://map.kakao.com/link/map/${kakaoSpot(p)}`;
+  return `https://map.kakao.com/link/search/${encodeURIComponent(query || kakaoName(p))}`;
 }
-// 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Naver 常查不到，改用地址搜尋
+// 兩站之間的路線（韓國）
+export const kakaoRoute = (from, to) => `https://map.kakao.com/link/from/${kakaoSpot(from)}/to/${kakaoSpot(to)}`;
+// 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Kakao 常查不到，改用地址搜尋
 export const stayPlace = st => {
   const name = String(st?.name || ''), addr = st?.address && !isMapLink(st.address) ? String(st.address).trim() : '';
   const zh = /\p{Script=Han}/u.test(name) && !/\p{Script=Hangul}/u.test(name);
   return { title: zh && addr ? addr : name, address: st?.address || '', type: 'stay' };
 };
-export const mapName = (p, country = '') => (inKorea(p, country) ? 'Naver' : 'Google');
+export const mapName = (p, country = '') => (inKorea(p, country) ? 'Kakao' : 'Google');
 export const placeUrl = q => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
 // 單一行程的「地圖」：貼了連結就直接開那個地點，不然用搜尋
 export const placeHref = (it, city = '', country = '') => (inKorea(it, country) ? naverHref(it, placeQuery(it, city)) : isMapLink(it.address) ? it.address : placeUrl(placeQuery(it, city)));
