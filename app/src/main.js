@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
@@ -316,6 +316,15 @@ function go(hash) {
 
 /* ---------- 資料監看 ---------- */
 const curTrip = () => S.trips.find(t => t.id === S.tripId);
+// 編輯畫面：用綁定的地點代碼查原本的名稱和地址（當地語言），只顯示不保存，看得出綁到哪一間
+async function showBound(it) {
+  const slot = $('#n-bound');
+  if (!slot || !it.placeId || S.offline || !mapsKey) { if (slot && it.placeId) slot.textContent = '已綁定地點'; return; }
+  let r = null, err = false;
+  try { r = await (await import('./ui/map.js')).localPlace({ pid: it.placeId }, localLang(it, curTrip()?.country)?.[1] || 'zh-TW'); } catch (e) { console.error(e); err = true; }
+  if (!slot.isConnected) return; // 查詢中已經關掉或換了別的畫面
+  slot.textContent = r ? [r.name, r.addr].filter(Boolean).join('・') : err ? '已綁定地點（暫時查不到名稱，請稍後再開一次）' : 'Google 查不到這個綁定地點，請在「更多設定」換地點重新選一次';
+}
 // 給司機看畫面：重畫時把小地圖放回去
 function showDriver(d) {
   driverSheet(d, S.offline);
@@ -1210,7 +1219,7 @@ const actions = {
     const it = findItem(id), trip = curTrip();
     if ((how === 'up' || how === 'down') && it && trip) itemMenuSheet(S, trip, it, canDelRecord(trip, it)); else closeSheet();
   },
-  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear(), areaNames(), ticketNames()); },
+  editItem(el) { const it = findItem(el.dataset.id); if (it) { itemFormSheet(it.day || 1, it, tripNear(), areaNames(), ticketNames()); showBound(it); } },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear(), areaNames(), ticketNames()); },
   // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖
   mapSearch() {
