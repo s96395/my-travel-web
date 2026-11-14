@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
@@ -430,6 +430,14 @@ function undoable(tid, msg, fn) {
   undoFn = async () => { if (S.tripId === tid) await fn(tid); };
   toast(msg, ['復原', 'undo']);
 }
+// 自動加到某天後的提示：按「改到別天」可以換天，換天的選單裡也能「不加了」復原
+function addedToast(tid, id, msg) {
+  undoFn = async () => { if (S.tripId === tid) await deleteItem(tid, id); };
+  S.added = { tid, id };
+  toast(msg, ['改\u2060到\u2060別\u2060天', 'addedMove']); // 字中間放不斷行字元，按鈕不會被擠成兩行
+}
+const nowDay = () => { const t = curTrip(); return t ? addDay(S, t) : 1; };
+
 // 移動前的天數與順序，復原時寫回去
 const posOf = ids => S.items.filter(x => ids.includes(x.id)).map(x => ({ id: x.id, day: x.day, order: x.order }));
 const undoMoves = before => tid => saveMoves(tid, before, S.user, S.nickname);
@@ -450,7 +458,8 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
     S.busy = false;
     const to = spot ? spot.beforeId : beforeId;
     if (to) await moveItem(ref.id, { day, beforeId: to }, true);
-    undoable(tid, spot ? spotMsg(day, spot) : `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
+    if (spot) addedToast(tid, ref.id, spotMsg(day, spot));
+    else undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
@@ -486,7 +495,7 @@ async function placeAct(kind, p, day) {
     const ref = await addItem(tid, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
     if (spot.beforeId) await moveItem(ref.id, { day, beforeId: spot.beforeId }, true);
-    undoable(tid, spotMsg(day, spot), t => deleteItem(t, ref.id));
+    addedToast(tid, ref.id, spotMsg(day, spot));
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
 }
@@ -987,7 +996,9 @@ const actions = {
   async cardPlace(el) {
     const c = S.card;
     if (c?.kind !== 'place' || !c.p) return;
-    if (await placeAct(el.dataset.k, c.p, 0)) closeCard();
+    // 「加入第 N 天」直接加到目前看的那天；「加到別天」先問哪一天
+    if (el.dataset.k === 'placePick') { await placeAct('placeAdd', c.p, 0); return; }
+    if (await placeAct(el.dataset.k, c.p, el.dataset.k === 'placeAdd' ? nowDay() : 0)) closeCard();
   },
   timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
   // 設成某一站的備案，或修改什麼時候改去
@@ -1092,7 +1103,12 @@ const actions = {
     const k = S.pick, day = +el.dataset.d;
     if (!k || !day) return;
     S.pick = null; closeSheet();
-    if (k.kind === 'wish') await wishToDay(k.id, day);
+    if (k.kind === 'moveNew') {
+      const it = findItem(k.id);
+      if (it) moveItem(k.id, { day, beforeId: bestSpot(itemsOfDay(S.items, day).filter(x => x.id !== k.id), it).beforeId });
+      return;
+    }
+    if (k.kind === 'wish') { if (await wishToDay(k.id, day) && S.card?.kind === 'wish') closeCard(); }
     else if (k.kind === 'area') await areaToDay(k.area, day);
     else if (k.kind === 'place' && await placeAct('placeAdd', k.p, day)) { if (S.card?.kind === 'place') closeCard(); else import('./ui/map.js').then(m => m.clearPlace()).catch(console.error); }
   },
@@ -1230,12 +1246,29 @@ const actions = {
   },
   // 地圖上想去地點的彈出框：直接加到目前看的那天
   async wishDay(el) { const d = +el.dataset.d; if (d && !S.offline) await wishToDay(el.dataset.id, d); },
-  wishAdd(el) {
+  // 「加入第 N 天」：直接加到目前看的那天，加完收掉資訊卡；提示列可以「改到別天」
+  async wishAdd(el) {
+    if (S.offline || !S.wishDocs.some(x => x.id === el.dataset.id)) return;
+    el.disabled = true;
+    const ok = await wishToDay(el.dataset.id, nowDay());
+    if (ok && S.card) closeCard(); else el.disabled = false;
+  },
+  // 「加到別天」：先問要加在哪一天
+  wishPick(el) {
     const t = curTrip(), p = S.wishDocs.find(x => x.id === el.dataset.id);
     if (!t || !p || S.offline) return;
     S.pick = { kind: 'wish', id: p.id };
     daySheet(S, t, p, 'wish');
   },
+  // 剛自動加好的地點：換到別天
+  addedMove() {
+    const t = curTrip(), it = S.added && S.added.tid === S.tripId ? findItem(S.added.id) : null;
+    $('#toastSlot').innerHTML = '';
+    if (!t || !it || S.offline) return;
+    S.pick = { kind: 'moveNew', id: it.id };
+    daySheet(S, t, it, 'moved');
+  },
+  addedUndo() { closeSheet(); S.pick = null; actions.undo(); },
   async wishDel(el) {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.classList.add('sure'); el.textContent = '確定移除'; return; }
     if (S.busy) return;
