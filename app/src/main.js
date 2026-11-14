@@ -11,10 +11,10 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
+import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
@@ -430,6 +430,14 @@ function undoable(tid, msg, fn) {
   undoFn = async () => { if (S.tripId === tid) await fn(tid); };
   toast(msg, ['復原', 'undo']);
 }
+// 自動加到某天後的提示：按「改到別天」可以換天，換天的選單裡也能「不加了」復原
+function addedToast(tid, id, msg) {
+  undoFn = async () => { if (S.tripId === tid) await deleteItem(tid, id); };
+  S.added = { tid, id };
+  toast(msg, ['改\u2060到\u2060別\u2060天', 'addedMove']); // 字中間放不斷行字元，按鈕不會被擠成兩行
+}
+const nowDay = () => { const t = curTrip(); return t ? addDay(S, t) : 1; };
+
 // 移動前的天數與順序，復原時寫回去
 const posOf = ids => S.items.filter(x => ids.includes(x.id)).map(x => ({ id: x.id, day: x.day, order: x.order }));
 const undoMoves = before => tid => saveMoves(tid, before, S.user, S.nickname);
@@ -450,7 +458,8 @@ async function wishToDay(wid, day, beforeId, extra = {}) {
     S.busy = false;
     const to = spot ? spot.beforeId : beforeId;
     if (to) await moveItem(ref.id, { day, beforeId: to }, true);
-    undoable(tid, spot ? spotMsg(day, spot) : `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
+    if (spot) addedToast(tid, ref.id, spotMsg(day, spot));
+    else undoable(tid, `已加到第 ${day} 天`, t => deleteItem(t, ref.id));
     return true;
   } catch (err) { console.error(err); S.busy = false; toast('沒有加成功，請稍後再試'); return false; }
 }
@@ -486,7 +495,7 @@ async function placeAct(kind, p, day) {
     const ref = await addItem(tid, { title: p.title, type: p.type, priority: '', reservationTime: '', area: nearArea(p, S.wishDocs), address: p.url, note: '', ...xy, day, order: nextOrder(S.items, day) }, S.user, S.nickname);
     S.busy = false;
     if (spot.beforeId) await moveItem(ref.id, { day, beforeId: spot.beforeId }, true);
-    undoable(tid, spotMsg(day, spot), t => deleteItem(t, ref.id));
+    addedToast(tid, ref.id, spotMsg(day, spot));
     return true;
   } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
 }
@@ -601,7 +610,9 @@ async function moveItem(id, target, quiet = false) {
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
   render();
-  if (!quiet) undoable(S.tripId, from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`, undoMoves(before));
+  // 提示寫出站名和移到哪裡，放錯了馬上看得出來，可以按「復原」
+  const name = `「${it.title}」`, at = itemsOfDay(S.items, target.day).findIndex(x => x.id === id) + 1;
+  if (!quiet) undoable(S.tripId, from === target.day ? `${name}已移到第 ${at} 站` : from ? `${name}已從第 ${from} 天移到第 ${target.day} 天第 ${at} 站` : `${name}已排到第 ${target.day} 天`, undoMoves(before));
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
@@ -746,6 +757,7 @@ function syncTanks() {
 }
 
 function onDrop(id, t) {
+  if (!t) { toast('沒有放在行程裡，順序沒有改變'); return; }
   // 從想去清單拖過來的地點：拖到日期或某天就排在最後，拖到行程上就插在那個位置
   if (id.startsWith('w:')) {
     const ref = t.kind === 'item' ? findItem(t.id) : null;
@@ -984,7 +996,9 @@ const actions = {
   async cardPlace(el) {
     const c = S.card;
     if (c?.kind !== 'place' || !c.p) return;
-    if (await placeAct(el.dataset.k, c.p, 0)) closeCard();
+    // 「加入第 N 天」直接加到目前看的那天；「加到別天」先問哪一天
+    if (el.dataset.k === 'placePick') { await placeAct('placeAdd', c.p, 0); return; }
+    if (await placeAct(el.dataset.k, c.p, el.dataset.k === 'placeAdd' ? nowDay() : 0)) closeCard();
   },
   timeWord(el) { const t = $('#n-time'); if (t) { t.value = el.dataset.v; t.classList.remove('err'); } },
   // 設成某一站的備案，或修改什麼時候改去
@@ -1089,7 +1103,12 @@ const actions = {
     const k = S.pick, day = +el.dataset.d;
     if (!k || !day) return;
     S.pick = null; closeSheet();
-    if (k.kind === 'wish') await wishToDay(k.id, day);
+    if (k.kind === 'moveNew') {
+      const it = findItem(k.id);
+      if (it) moveItem(k.id, { day, beforeId: bestSpot(itemsOfDay(S.items, day).filter(x => x.id !== k.id), it).beforeId });
+      return;
+    }
+    if (k.kind === 'wish') { if (await wishToDay(k.id, day) && S.card?.kind === 'wish') closeCard(); }
     else if (k.kind === 'area') await areaToDay(k.area, day);
     else if (k.kind === 'place' && await placeAct('placeAdd', k.p, day)) { if (S.card?.kind === 'place') closeCard(); else import('./ui/map.js').then(m => m.clearPlace()).catch(console.error); }
   },
@@ -1178,6 +1197,15 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
+  // ⋯ 選單調整順序；上移、下移後選單留著（更新目前第幾站），可以連按
+  stepMove(el) {
+    const id = el.dataset.id, how = el.dataset.how;
+    const t = stepTarget(S.items, id, how, how === 'after' ? $('#mv-after')?.value : '');
+    if (!t) { toast('已經在這個位置了'); return; }
+    moveItem(id, t);
+    const it = findItem(id), trip = curTrip();
+    if ((how === 'up' || how === 'down') && it && trip) itemMenuSheet(S, trip, it, canDelRecord(trip, it)); else closeSheet();
+  },
   editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear()); },
   addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear()); },
   // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖
@@ -1218,12 +1246,29 @@ const actions = {
   },
   // 地圖上想去地點的彈出框：直接加到目前看的那天
   async wishDay(el) { const d = +el.dataset.d; if (d && !S.offline) await wishToDay(el.dataset.id, d); },
-  wishAdd(el) {
+  // 「加入第 N 天」：直接加到目前看的那天，加完收掉資訊卡；提示列可以「改到別天」
+  async wishAdd(el) {
+    if (S.offline || !S.wishDocs.some(x => x.id === el.dataset.id)) return;
+    el.disabled = true;
+    const ok = await wishToDay(el.dataset.id, nowDay());
+    if (ok && S.card) closeCard(); else el.disabled = false;
+  },
+  // 「加到別天」：先問要加在哪一天
+  wishPick(el) {
     const t = curTrip(), p = S.wishDocs.find(x => x.id === el.dataset.id);
     if (!t || !p || S.offline) return;
     S.pick = { kind: 'wish', id: p.id };
     daySheet(S, t, p, 'wish');
   },
+  // 剛自動加好的地點：換到別天
+  addedMove() {
+    const t = curTrip(), it = S.added && S.added.tid === S.tripId ? findItem(S.added.id) : null;
+    $('#toastSlot').innerHTML = '';
+    if (!t || !it || S.offline) return;
+    S.pick = { kind: 'moveNew', id: it.id };
+    daySheet(S, t, it, 'moved');
+  },
+  addedUndo() { closeSheet(); S.pick = null; actions.undo(); },
   async wishDel(el) {
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.classList.add('sure'); el.textContent = '確定移除'; return; }
     if (S.busy) return;
@@ -1267,13 +1312,42 @@ const actions = {
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
+  // 永久刪除：行程拿掉，想去清單裡同一個地點也一起刪（別天還排著就留著）
   async delItem(el) {
     // 第一次按只換成確認文字，再按一次才真的刪除
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
     if (S.busy) return;
     S.busy = true;
-    const id = el.dataset.id, data = raw.get(id), tid = S.tripId;
-    try { await deleteItem(tid, id); closeSheet(); if (data) undoable(tid, '已刪除', t => restoreItem(t, id, data)); else toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    const id = el.dataset.id, data = raw.get(id), tid = S.tripId, it = findItem(id);
+    const url = it && it.kind !== 'area' && isMapLink(it.address) ? it.address : '';
+    const wish = url && !S.items.some(x => x.id !== id && x.address === url) ? S.wishDocs.filter(w => w.url === url) : [];
+    try {
+      await deleteItem(tid, id);
+      await Promise.all(wish.map(w => deleteRecord(tid, 'wishlist', w.id)));
+      closeSheet(); if (S.card?.id === id) closeCard();
+      const msg = wish.length ? '已刪除，想去清單裡的也一起刪了' : '已刪除';
+      if (data) undoable(tid, msg, async t => { await restoreItem(t, id, data); await Promise.all(wish.map(({ id: _, ...w }) => addRecord(t, 'wishlist', w, S.user, S.nickname))); });
+      else toast(msg);
+    } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 移回想去清單：從行程拿掉，地點留在想去清單；原本不在清單的先加進去
+  async backToWish(el) {
+    const id = el.dataset.id, it = findItem(id), data = raw.get(id), tid = S.tripId;
+    if (S.busy || S.offline || !it) return;
+    S.busy = true;
+    const url = isMapLink(it.address) ? it.address : '';
+    try {
+      let wid = '';
+      if (!url || !S.wishDocs.some(w => w.url === url)) {
+        // 座標照原本查到的時間存，30 天到期一樣會重查
+        const xy = Number.isFinite(it.lat) && Number.isFinite(it.lng) ? { lat: it.lat, lng: it.lng, ...(it.exact ? { exact: true, placeId: it.placeId || '', geoAt: it.geoAt || Date.now() } : {}) } : {};
+        wid = (await addRecord(tid, 'wishlist', { title: it.title, note: it.note || '', url, list: '', area: it.area || '', ...xy }, S.user, S.nickname)).id;
+      }
+      await deleteItem(tid, id);
+      closeSheet(); if (S.card?.id === id) closeCard();
+      undoable(tid, `「${it.title}」已移回想去清單`, async t => { if (data) await restoreItem(t, id, data); if (wid) await deleteRecord(t, 'wishlist', wid); });
+    } catch (err) { console.error(err); toast('沒有移成功，請稍後再試'); }
     S.busy = false;
   },
   reveal(el) { S.reveal[el.dataset.k] = !S.reveal[el.dataset.k]; render(); },
@@ -1399,6 +1473,15 @@ const actions = {
     }
     expSheet();
   },
+  payWay(el) {
+    const d = S.draft;
+    if (!d) return;
+    d.payWay = el.dataset.v; d.dirty = true;
+    // 改回填金額時，都沒填就把全額先帶給自己
+    if (d.payWay === 'people' && !d.autoPay && !Object.values(d.paid).some(v => Number(v) > 0)) d.autoPay = ctxOf(S, curTrip()).me || '';
+    expSheet();
+  },
+  payAll() { if (S.draft) { S.draft.payAll = true; expSheet(); } },
   async saveExp(el) {
     const d = S.draft, trip = curTrip();
     if (!d || !trip || S.busy || S.offline || el.disabled) return;
@@ -1674,11 +1757,16 @@ function onDraftInput(t) {
     if (['amt', 'rate'].includes(f) && t.value !== v) t.value = v;
     if (f === 'rate') d.rateState = 'manual';
     if (f === 'cur') { d.rate = ''; d.rateDate = ''; d.rateState = ''; loadRate(d); }
-    if (['amt', 'rate', 'cur', 'payer', 'cat', 'pay'].includes(f)) expSheet();
+    if (['amt', 'rate', 'cur', 'cat', 'pay'].includes(f)) expSheet();
     else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
   }
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }
-  if (t.dataset.paid) { d.paid[t.dataset.paid] = cleanAmt(t.value); d.dirty = true; expSheet(); }
+  if (t.dataset.paid) {
+    // 自己動了「其餘自動算」那格，就不再自動算
+    const id = t.dataset.paid, v = cleanAmt(t.value);
+    if (id === d.autoPay) d.autoPay = '';
+    d.paid[id] = v; d.dirty = true; expSheet();
+  }
 }
 // 24 小時制時間欄：打字時補冒號；日期＋時間兩格合成到同名隱藏欄位，下面照舊用隱藏欄位的 id 判斷
 function onTimeInput(ev) {

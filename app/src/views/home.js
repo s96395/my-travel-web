@@ -279,12 +279,15 @@ if (typeof document !== 'undefined') {
     zoomAt(svg, Math.exp(-e.deltaY * 0.002), e.clientX, e.clientY);
   }, { passive: false });
   document.addEventListener('click', e => {
-    const ty = e.target.closest?.('[data-tyear]');
-    if (ty) {
-      typeYear = ty.dataset.tyear;
-      const card = ty.closest('.stat');
-      card.querySelectorAll('[data-tyear]').forEach(b => b.setAttribute('aria-pressed', b === ty));
-      card.querySelectorAll('[data-ty]').forEach(d => { d.hidden = d.dataset.ty !== typeYear; });
+    const ts = e.target.closest?.('[data-tystep]');
+    if (ts) {
+      const card = ts.closest('.typecard'), years = card.dataset.years.split(',');
+      const cur = card.querySelector('[data-ty]:not([hidden])')?.dataset.ty;
+      const y = years[Math.min(years.length - 1, Math.max(0, years.indexOf(cur) + Number(ts.dataset.tystep)))];
+      typeYear = y;
+      card.querySelectorAll('[data-ty]').forEach(d => { d.hidden = d.dataset.ty !== y; });
+      card.querySelector('[data-tylabel]').textContent = `${y} 年`;
+      card.querySelectorAll('[data-tystep]').forEach(b => { b.disabled = y === (b.dataset.tystep < 0 ? years[0] : years[years.length - 1]); b.style.opacity = b.disabled ? '.35' : ''; });
       return;
     }
     const hb = e.target.closest?.('[data-hero]');
@@ -307,35 +310,23 @@ if (typeof document !== 'undefined') {
   });
 }
 
-// 依類型花費：三類金額與占比，可切換年份；下面一張表看每年三類各花多少
+// 各類旅行花費：整列一張卡，並排看某一年三類各花多少；左右箭頭換年份（不展開，不會越來越長）
 const TYPES = ['自由行', '潛旅', '跟團'];
-const TYPE_CLR = { '自由行': '#3b82f6', '潛旅': '#10b981', '跟團': '#f59e0b' };
-let typeYear = ''; // 選的年份（all＝全部）；重畫畫面時保留
-const sumOf = m => TYPES.reduce((a, t) => a + (m[t] || 0), 0);
-function typeRows(m) {
-  const sum = sumOf(m), pct = v => (sum ? Math.round(v / sum * 100) : 0);
-  return TYPES.map(t => `<div class="sr"><span>${ti(t)}</span><span class="num"><b style="color:${TYPE_CLR[t]}">NT$ ${money(m[t] || 0)}</b> <span class="muted">${pct(m[t] || 0)}%</span></span><span class="bar"><i style="width:${pct(m[t] || 0)}%;background:${TYPE_CLR[t]}"></i></span></div>`).join('')
-    + `<div class="sr total"><span>合計</span><span class="num">NT$ ${money(sum)}</span></div>`;
-}
-function typeCard(S, st, thisYear) {
-  const years = Object.keys(st.yearTypes).sort((a, b) => (a === '未知') - (b === '未知') || b.localeCompare(a));
-  const all = Object.fromEntries(st.types);
-  const sel = typeYear && (typeYear === 'all' || years.includes(typeYear)) ? typeYear : years.includes(thisYear) ? thisYear : 'all';
-  const now = st.yearTypes[thisYear] || {};
-  const main = S.trips.some(t => t.type === '潛旅') ? '潛旅' : '自由行';
-  const yName = y => (y === 'all' ? '全部' : y === '未知' ? '沒填日期' : `${y} 年`);
-  const cell = 'style="padding:6px 0 6px 8px;text-align:right;white-space:nowrap"';
-  const detail = `<div class="chips" role="group" aria-label="選年份">${['all', ...years].map(y => `<button type="button" class="chip" data-tyear="${esc(y)}" aria-pressed="${y === sel}">${yName(y)}</button>`).join('')}</div>
-    ${['all', ...years].map(y => `<div data-ty="${esc(y)}"${y === sel ? '' : ' hidden'}>${typeRows(y === 'all' ? all : st.yearTypes[y])}</div>`).join('')}
-    ${years.length ? `<p class="small muted" style="margin:10px 0 0">每年比較</p>
-    <table class="num" style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr class="muted"><th style="text-align:left;font-weight:600">年份</th>${TYPES.map(t => `<th ${cell}>${ti(t)}</th>`).join('')}</tr>
-      ${years.map(y => `<tr style="border-top:1px solid var(--line)"><td style="padding:6px 0">${yName(y)}</td>${TYPES.map(t => `<td ${cell}>${money(st.yearTypes[y][t] || 0)}</td>`).join('')}</tr>`).join('')}
-    </table>` : ''}
-    <p class="small muted" style="margin:8px 0 0">只算分給自己的金額，依旅程出發年份歸年；先不分攤的不算。</p>`;
-  // 收合時：大字只放主要類型（有潛旅就看潛旅），其他兩類寫在下面一行
-  return statCard(S, 'type', '', 'NT$ ' + money(now[main] || 0), `${thisYear} ${main}花費`,
-    TYPES.filter(t => t !== main).map(t => `${t} ${money(now[t] || 0)}`).join('・'), detail);
+let typeYear = ''; // 正在看的年份；重畫畫面時保留
+function typeCard(st, thisYear) {
+  const years = Object.keys(st.yearTypes).filter(y => y !== '未知').sort();
+  if (!years.includes(thisYear)) years.push(thisYear), years.sort();
+  const sel = years.includes(typeYear) ? typeYear : thisYear;
+  const end = d => (d < 0 ? sel === years[0] : sel === years[years.length - 1]);
+  const arrow = (d, label, ch) => `<button type="button" class="iconbtn" data-tystep="${d}" aria-label="${label}" style="width:32px;height:32px;font-size:18px${end(d) ? ';opacity:.35' : ''}"${end(d) ? ' disabled' : ''}>${ch}</button>`;
+  return `<div class="stat typecard" data-open="true" style="grid-column:span 2;grid-template-rows:none" data-years="${esc(years.join(','))}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span class="label" style="font-size:15px;font-weight:600;color:var(--fg)">各類旅行花費</span>
+      <span style="display:flex;align-items:center;gap:6px">${arrow(-1, '前一年', '‹')}<b class="num" data-tylabel>${sel} 年</b>${arrow(1, '下一年', '›')}</span>
+    </div>
+    ${years.map(y => `<div data-ty="${y}"${y === sel ? '' : ' hidden'} style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${TYPES.map(t => `<span style="display:grid;gap:2px;justify-items:center"><span class="small muted">${ti(t)}</span><b class="num" style="font-size:18px">${money((st.yearTypes[y] || {})[t] || 0)}</b></span>`).join('')}</div>`).join('')}
+    <p class="small muted" style="margin:0;text-align:center">新台幣・只算自己分攤的部分・依出發年份</p>
+  </div>`;
 }
 
 const line = (l, r, extra = '') => `<div class="sr"><span>${l}</span><span class="num">${r}</span>${extra}</div>`;
@@ -347,15 +338,15 @@ function statsHtml(S, st) {
     ${statCard(S, 'year', '', 'NT$ ' + money(y0.mine), `${thisYear} 我的旅行支出`, y0.unconfirmed ? `尚有 ${y0.unconfirmed} 筆費用未確認` : '',
       st.yearly.map(y => line(`${esc(y.year)} 年`, 'NT$ ' + money(y.mine), y.unconfirmed ? `<span class="note">尚有 ${y.unconfirmed} 筆費用未確認</span>` : '')).join('')
       + `<div class="sr total"><span>全部合計</span><span class="num">NT$ ${money(st.mineTotal)}</span></div>`)}
-    ${typeCard(S, st, thisYear)}
     ${!S.trips.some(t => t.type === '潛旅') ? '' : statCard(S, 'tank', '🤿', st.tankTotal, '累計氣瓶數', '',
       st.tanks.length ? st.tanks.map(t => line('📍 ' + esc(t[0]), '🫧 ' + t[1] + ' 瓶')).join('') + `<div class="sr total"><span>累計總瓶數</span><span class="num">🤿 ${st.tankTotal} 瓶</span></div>` : '<p class="small muted" style="margin:6px 0">還沒有潛旅紀錄</p>')}
+    ${typeCard(st, thisYear)}
   </section>
 `;
 }
 
 function tripCard(t, S) {
-  return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}">
+  return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}"${t.status === '已封存' ? ' style="opacity:.55"' : ''}>
     ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
       <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${esc(slashDate(t.start))} – ${esc(slashDate(t.end))}</span>
@@ -382,7 +373,7 @@ export function renderHome(S) {
   </header>
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
-    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips))}
+    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips.filter(t => t.status !== '已封存')))}
     ${loading ? '' : statsHtml(S, st)}
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
@@ -390,7 +381,8 @@ export function renderHome(S) {
     ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載鈕（離線行程）。</div>' : ''}
     ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，或先看一趟填好的示範旅程。<br><button type="button" class="btn sm" data-act="demoTrip" style="margin-top:8px" ${S.offline ? 'disabled' : ''}>載入示範旅程</button></div>` : ''}
     ${years.map(y => {
-      const ts = list.filter(t => (t.start || '未知').startsWith(y));
+      // 已封存的旅程排在那年最後面，名稱很像的新舊旅程比較不會點錯
+      const ts = list.filter(t => (t.start || '未知').startsWith(y)).sort((a, b) => (a.status === '已封存') - (b.status === '已封存'));
       const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (S.wide || y === years[0]));
       const ytot = st.yearTotals[y] || 0;
       return `<section class="year" data-open="${open}">

@@ -100,6 +100,25 @@ export function planMove(items, id, target) {
   return updates;
 }
 
+// ⋯ 選單的「上移、下移、移到最前、移到最後、排在某站後面」換成 planMove 的 target；已經在那個位置就回傳 null
+export function stepTarget(items, id, how, afterId) {
+  const it = items.find(x => x.id === id);
+  if (!it || !it.day) return null;
+  const list = itemsOfDay(items, it.day), i = list.findIndex(x => x.id === id);
+  if (i < 0) return null;
+  const rest = list.filter(x => x.id !== id), day = it.day;
+  if (how === 'first') return i === 0 ? null : { day, beforeId: rest[0].id };
+  if (how === 'last') return i === list.length - 1 ? null : { day };
+  if (how === 'up') return i === 0 ? null : { day, beforeId: list[i - 1].id };
+  if (how === 'down') return i === list.length - 1 ? null : list[i + 2] ? { day, beforeId: list[i + 2].id } : { day };
+  if (how === 'after') {
+    const j = rest.findIndex(x => x.id === afterId);
+    if (j < 0 || list[i - 1]?.id === afterId) return null;
+    return rest[j + 1] ? { day, beforeId: rest[j + 1].id } : { day };
+  }
+  return null;
+}
+
 /* ---------- 地圖（規格書 F23）：每個行程可開 Google 地圖，每天串成一條路線 ---------- */
 // 地址欄也可以貼 Google 地圖的分享連結（含 maps.app.goo.gl 短網址）
 const GOOGLE_HOST = /^((www|maps)\.)?google\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/;
@@ -135,25 +154,28 @@ const inPoly = (x, y, poly) => poly.reduce((inside, [x1, y1], i) => {
 export const inKorea = (p, country = '') => (Number.isFinite(p?.lat) && Number.isFinite(p?.lng) ? inPoly(p.lng, p.lat, KR) : /韓國|南韓|大韓民國|濟州/.test(country || ''));
 // Naver 地圖 App 不把 + 當空格，所以不用 URLSearchParams（它把空格編成 +），改用 %20
 export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+// 韓國地點手機、電腦都開 Naver 地圖：有座標就照座標開，名稱只當標籤，名稱改成中文說明也不會找錯；沒有座標才用名稱搜尋
+// 手機開 Naver 地圖 App（nmap://），電腦開 Naver 地圖網頁的路線頁，終點放這個座標（網頁的座標是 Web Mercator 公尺）
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-// 手機直接開 Naver 地圖 App；電腦沒有 App，開 Naver 地圖網頁搜尋
-// nav（導航）：用名稱搜尋，打開 Naver 的地點頁（有評分、照片、出發／到達），不直接進導航，人不在當地也打得開；中文名稱改用座標
-// 不是 nav（在地圖開啟）：有座標就照座標標出那一點
-export function naverHref(p, query, nav = false) {
-  const name = p?.title || query || '', app = typeof location === 'object' ? location.origin : '';
-  const xy = Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
+const naverName = (p, query) => cleanName(String(p?.title || query || '').split(/[｜|]/)[0]).replace(/[,/]/g, ' ').trim() || '目的地';
+const hasLL = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
+const R = 20037508.34;
+const merc = p => [(p.lng * R) / 180, ((Math.log(Math.tan(((90 + p.lat) * Math.PI) / 360)) / (Math.PI / 180)) * R) / 180].map(v => v.toFixed(2));
+const webSpot = p => `${merc(p).join(',')},${encodeURIComponent(naverName(p))},,`;
+const app = () => (typeof location === 'object' ? location.origin : '');
+export function naverHref(p, query, walk = false) {
+  const xy = hasLL(p);
   if (coarse()) {
-    const key = cleanName(String(p?.title || '').split(/[｜|]/)[0]);
-    // 中文名稱（有漢字、沒有韓文）在 Naver 常查不到，有座標就直接照座標開，位置一定對
-    const zh = /\p{Script=Han}/u.test(key) && !/\p{Script=Hangul}/u.test(key);
-    if (nav && zh && xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
-    // 中韓並列（例如「海雲台 해운대」）只拿韓文那段去搜尋
-    const kr = /\p{Script=Hangul}/u.test(key) ? key.split(' ').filter(w => !/\p{Script=Han}/u.test(w)).join(' ') : key;
-    if (nav) return `nmap://search?${nq({ query: kr || query || name, appname: app })}`;
-    if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
-    return `nmap://search?${nq({ query: query || name, appname: app })}`;
+    if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name: naverName(p, query), appname: app() })}`;
+    return `nmap://search?${nq({ query: query || naverName(p), appname: app() })}`;
   }
-  return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
+  if (xy) return `https://map.naver.com/p/directions/-/${webSpot(p)}/-/${walk === 'walk' ? 'walk' : 'transit'}`;
+  return `https://map.naver.com/p/search/${encodeURIComponent(query || naverName(p))}`;
+}
+// 兩站之間的路線（韓國）：walk 步行，否則大眾運輸
+export function naverRoute(from, to, walk = false) {
+  if (coarse()) return `nmap://route/${walk ? 'walk' : 'public'}?${nq({ slat: from.lat, slng: from.lng, sname: naverName(from), dlat: to.lat, dlng: to.lng, dname: naverName(to), appname: app() })}`;
+  return `https://map.naver.com/p/directions/${webSpot(from)}/${webSpot(to)}/-/${walk ? 'walk' : 'transit'}`;
 }
 // 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Naver 常查不到，改用地址搜尋
 export const stayPlace = st => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf, naverHref, navHref, naverRoute } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -185,4 +185,24 @@ test('時間可以寫文字；有幾點時以幾點為準', () => {
   assert.equal(normalizeItem({ id: 'a', timeText: '看完夕陽後' }).timeText, '看完夕陽後');
   assert.equal(normalizeItem({ id: 'a', reservationTime: '18:00', timeText: '晚餐' }).timeText, '');
   assert.equal(normalizeItem({ id: 'a', tip: '先抽號碼牌' }).tip, '先抽號碼牌');
+});
+
+test('韓國導航手機電腦都開 Naver：有座標照座標開，名稱改成中文說明也找得到；沒座標才用名稱搜尋', () => {
+  const it = { title: '青沙浦平交道拍膠囊列車', area: '靑沙浦', address: '', type: 'attraction', lat: 35.1606, lng: 129.1912 };
+  // 電腦（測試環境沒有 matchMedia，當成電腦）：路線頁終點放 Web Mercator 座標
+  const url = navHref(it, '釜山', '韓國');
+  const m = /^https:\/\/map\.naver\.com\/p\/directions\/-\/([\d.]+),([\d.]+),([^,]+),,\/-\/transit$/.exec(url);
+  assert.ok(m, url);
+  assert.ok(Math.abs(+m[1] - 14381498.6) < 1 && Math.abs(+m[2] - 4185727.5) < 1, url);
+  assert.equal(decodeURIComponent(m[3]), '青沙浦平交道拍膠囊列車');
+  assert.ok(naverHref({ title: 'A, B｜備註', lat: 35, lng: 129 }, 'A').includes(',A%20%20B,,/'));
+  const bare = { ...it, lat: null, lng: null };
+  assert.equal(navHref(bare, '釜山', '韓國'), 'https://map.naver.com/p/search/' + encodeURIComponent('青沙浦平交道拍膠囊列車 靑沙浦 釜山'));
+  assert.match(naverRoute({ title: '出發', lat: 35.1, lng: 129 }, it, true), /^https:\/\/map\.naver\.com\/p\/directions\/[\d.]+,[\d.]+,%E5%87%BA%E7%99%BC,,\/[\d.]+,[\d.]+,[^/]+,,\/-\/walk$/);
+  // 手機：照座標開 Naver 地圖 App
+  globalThis.matchMedia = () => ({ matches: true });
+  try {
+    assert.equal(navHref(it, '釜山', '韓國'), 'nmap://place?lat=35.1606&lng=129.1912&name=' + encodeURIComponent('青沙浦平交道拍膠囊列車') + '&appname=');
+    assert.match(naverRoute({ title: '出發', lat: 35.1, lng: 129 }, it), /^nmap:\/\/route\/public\?slat=35\.1&slng=129&/);
+  } finally { delete globalThis.matchMedia; }
 });

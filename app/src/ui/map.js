@@ -42,25 +42,27 @@ function popup(p, onAct) {
   // 一行放「第幾天＋加入」，其他動作放下面一行小字連結
   el.innerHTML = `${p.sub ? `<span class="mpopsub">${esc(p.sub)}</span>` : ''}
     ${p.kind === 'wish' ? `<div class="mpoprow">${p.d ? `<button type="button" class="btn sm primary" data-act="wishDay" data-id="${esc(p.id.slice(2))}" data-d="${p.d}">加入第 ${p.d} 天</button>` : `<button type="button" class="btn sm primary" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加入行程</button>`}</div>` : ''}
-    <div class="mpoplinks">${p.kind === 'wish' && p.d ? `<button type="button" data-act="wishAdd" data-id="${esc(p.id.slice(2))}">加到別天</button>` : ''}${navLink(p)}${gmapLink(p)}</div>`;
+    <div class="mpoplinks">${p.kind === 'wish' && p.d ? `<button type="button" data-act="wishPick" data-id="${esc(p.id.slice(2))}">加到別天</button>` : ''}${navLink(p)}${gmapLink(p)}</div>`;
   el.querySelectorAll('[data-act]').forEach(b => b.addEventListener('click', () => { if (!b.disabled) { info.close(); onAct(b); } }));
   return el;
 }
 
 // 搜尋到或在地圖上點到的地點：先插一根紅色大頭針，彈出框可以直接加入行程，或加入想去清單
+// 目前看的那天（天數選單裡選中的那個）
+const curDay = () => +(/value="(\d+)" selected/.exec(dayOptsHtml)?.[1] || 1);
 function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
   el.innerHTML = `${p.addr ? `<span class="mpopsub">${esc(p.addr)}</span>` : ''}
-    ${dayOptsHtml ? '<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placeAdd">加入行程</button></div>' : ''}
-    <div class="mpoplinks"><button type="button" data-pact="placeWish">加入想去清單</button>${navLink(p)}${gmapLink(p)}</div>`;
+    ${dayOptsHtml ? `<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placeAdd" data-d="${curDay()}">加入第 ${curDay()} 天</button></div>` : ''}
+    <div class="mpoplinks">${dayOptsHtml ? '<button type="button" data-pact="placeAdd" data-d="0">加到別天</button>' : ''}<button type="button" data-pact="placeWish">加入想去清單</button>${navLink(p)}${gmapLink(p)}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
   el.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', ev => {
     ev.stopPropagation();
     if (b.disabled) return;
     b.disabled = true;
-    // 「加入行程」會先跳出要加在哪一天，選好後再收掉這根針
-    Promise.resolve(act?.(b.dataset.pact, p, 0)).then(ok => { if (ok) clearPlace(); else b.disabled = false; });
+    // 「加入第 N 天」直接加到目前看的那天；「加到別天」先跳出要加在哪一天，選好後再收掉這根針
+    Promise.resolve(act?.(b.dataset.pact, p, +(b.dataset.d || 0))).then(ok => { if (ok) clearPlace(); else b.disabled = false; });
   }));
   return el;
 }

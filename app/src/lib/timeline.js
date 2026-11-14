@@ -7,8 +7,23 @@ export const hmOf = m => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${
 
 const has = (text, s) => !!s && text.includes(String(s).toLowerCase());
 
+// 沒填停留多久時，依類型抓一個時間來推算下一站幾點到（交通、住宿不停留）
+export const DEFAULT_STAY = { attraction: 90, restaurant: 60, cafe: 60, shopping: 60, other: 60, transport: 0, stay: 0 };
+// 班機落地後抓多久出關、拿行李、到市區
+export const LAND_MIN = 90;
+
+// 住宿的位置：行程裡排過的同名住宿（自己加的、或從 Google 加的）；只有一間住宿時，行程裡唯一的住宿就是它
+const bare = s => String(s || '').toLowerCase().replace(/[\s・·\-–—()（）]/g, '');
+function stayPlace(s, spots, one) {
+  const n = bare(s.name);
+  const hit = n && spots.find(p => { const t = bare(p.title); return t && (t.includes(n) || n.includes(t)); });
+  return hit || (one && spots.length === 1 ? spots[0] : null);
+}
+
 // 交通住宿分頁的資料 → 這一天的事件；行程裡已經自己記過的（備註寫了班次、或已有住宿行程）就不重複
-export function dayEvents(date, { flights = [], transits = [], stays = [] }, items = []) {
+// 住在同一間的日子，頭尾自動加「從飯店出發」「回到飯店」；那天第一站或最後一站已經是住宿就不加
+// spots：整趟行程裡有位置的住宿站，用來推算幾點回到飯店
+export function dayEvents(date, { flights = [], transits = [], stays = [] }, items = [], spots = []) {
   if (!date) return [];
   const text = items.map(it => `${it.title} ${it.note}`).join(' ').toLowerCase();
   const ev = [];
@@ -16,14 +31,23 @@ export function dayEvents(date, { flights = [], transits = [], stays = [] }, ite
     const dep = r.dep?.slice(0, 10) === date, arr = r.arr?.slice(0, 10) === date;
     if ((!dep && !arr) || has(text, no)) return;
     const at = s => toMin(s.slice(11));
-    ev.push({ kind, id: r.id, t: dep ? at(r.dep) : at(r.arr), end: arr ? at(r.arr) : null, title, sub: [no, dep ? `${r.dep.slice(11)} 出發` : '', arr ? `${r.arr.slice(11)} 抵達` : ''].filter(Boolean).join('・') });
+    // 班機落地當天，下一站從出關後開始算
+    const land = kind === 'flight' && arr && at(r.arr) !== null;
+    ev.push({ kind, id: r.id, t: dep ? at(r.dep) : at(r.arr), end: arr ? at(r.arr) : null, ...(land ? { ready: at(r.arr) + LAND_MIN } : {}), title, sub: [no, dep ? `${r.dep.slice(11)} 出發` : '', arr ? `${r.arr.slice(11)} 抵達` : '', land ? '落地後抓 1 小時 30 分出關' : ''].filter(Boolean).join('・') });
   };
   flights.forEach(f => move('flight', f, `${f.from || '?'} → ${f.to || '?'}`, f.flightNo));
   transits.forEach(t => move('transit', t, `${t.from || '?'} → ${t.to || '?'}`, t.number || ''));
   const stayIn = items.some(it => it.type === 'stay');
+  const real = items.filter(it => it.kind !== 'area' && !it.backupOf);
+  const firstStay = real[0]?.type === 'stay', lastStay = real.length > 0 && real[real.length - 1].type === 'stay';
   stays.forEach(s => {
-    if (s.checkOutDate === date && !has(text, '退房')) ev.push({ kind: 'out', id: s.id, pos: 'start', title: `退房・${s.name}` });
-    if (s.checkInDate === date && !stayIn && !has(text, s.name)) ev.push({ kind: 'in', id: s.id, pos: 'end', title: `入住・${s.name}` });
+    const place = stayPlace(s, spots, stays.length === 1);
+    if (s.checkOutDate === date && !has(text, '退房')) ev.push({ kind: 'out', id: s.id, pos: 'start', title: `退房・${s.name}`, place });
+    if (s.checkInDate === date && !stayIn && !has(text, s.name)) ev.push({ kind: 'in', id: s.id, pos: 'end', title: `入住・${s.name}`, place });
+    if (real.length && s.checkInDate < date && date < s.checkOutDate) { // 還沒排行程的日子不加
+      if (!firstStay) ev.push({ kind: 'home', id: s.id, pos: 'start', title: `從 ${s.name} 出發`, place });
+      if (!lastStay) ev.push({ kind: 'home', id: s.id, pos: 'end', title: `回到 ${s.name}`, place });
+    }
   });
   return ev;
 }
@@ -34,6 +58,13 @@ export function legOf(a, b) {
   if (!hasXY(a) || !hasXY(b)) return null;
   const mode = distanceKm(a, b) < 1 ? 'WALKING' : 'TRANSIT';
   return { mode, key: [a.lat, a.lng, b.lat, b.lng].map(v => v.toFixed(5)).join(',') + ',' + mode };
+}
+
+// 沒查到交通時間時的粗估：1 公里內走路（每公里 15 分），其他搭車（等車 15 分＋每公里 3 分），以 5 分為單位
+export function roughMin(a, b) {
+  const km = distanceKm(a, b);
+  const m = km < 1 ? km * 15 : 15 + km * 3;
+  return Math.max(5, Math.ceil(m / 5) * 5);
 }
 
 // 合併行程與事件，算出每一列的時間 at（est＝推算的）、late＝前面排太滿趕不上這站填的時間
@@ -65,11 +96,21 @@ export function buildDay(items, events, legs = new Map()) {
       r.at = r.fixed ?? clock;
       r.est = r.fixed === null && r.at !== null;
       r.late = r.fixed !== null && clock !== null && clock > r.fixed;
-      clock = r.at !== null && r.it.stay ? r.at + r.it.stay : null;
+      // 沒填停留多久就依類型抓時間；住宿、交通不停留，時間接著往下算
+      const st = r.it.stay || DEFAULT_STAY[r.it.type] || 0;
+      clock = r.at !== null ? r.at + st : null;
+    } else if (r.pos === 'end' && hasXY(r.place)) {
+      // 回到飯店：最後一站的推算時間加上路上的時間
+      const leg = prev && legOf(prev, r.place);
+      const min = leg ? legs.get(leg.key) ?? roughMin(prev, r.place) : null;
+      r.at = clock !== null && min !== null ? clock + min : null;
+      r.est = r.at !== null;
+      if (r.est) r.sub = [r.sub, `${leg.mode === 'WALKING' ? '步行' : '搭車'}約 ${min} 分`].filter(Boolean).join('・');
     } else {
       r.at = r.t ?? null;
-      clock = r.end ?? null;
-      prev = null;
+      clock = r.ready ?? r.end ?? null;
+      // 從飯店出發：第一站的交通從飯店算起
+      prev = r.pos === 'start' && hasXY(r.place) ? r.place : null;
     }
   }
   return rows;
