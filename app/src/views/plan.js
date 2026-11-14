@@ -1,6 +1,6 @@
 // 行程分頁：上面一排日期一次看一天，電腦版右邊是想去清單和地圖（規格書 F20–F22、U06）
 import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
-import { normTime } from '../lib/time24.js';
+import { clockOf } from '../lib/time24.js';
 import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
 import { amountOf } from '../lib/expenses.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
@@ -641,7 +641,6 @@ export function areaSheet(S, area = '', wid = '') {
 
 // 時間欄可以直接填幾點，也可以寫時段
 const TIME_WORDS = ['早上', '午餐', '下午', '晚餐', '看完夕陽後', '有空再去'];
-const isClock = v => /^[\d:：.\s]+$/.test(v);
 
 // near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null
 export function itemFormSheet(day, it = null, near = null) {
@@ -654,6 +653,7 @@ export function itemFormSheet(day, it = null, near = null) {
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
     <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="14:30 或 午餐" value="${esc(v.time || v.timeText || '')}"></div>
       <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">不設定</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
+    <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30、下午2點，或選下面的時段</p>
     <div class="chips twords" style="flex-wrap:wrap" aria-label="常用時段">${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
     <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
@@ -710,7 +710,10 @@ export function readItemForm() {
   const t = $('#n-title');
   if (!t.value.trim()) { t.classList.add('err'); t.focus(); return null; }
   const tm = $('#n-time'), tv = tm.value.trim();
-  if (isClock(tv) && normTime(tv) === null) { tm.classList.add('err'); tm.focus(); return null; }
+  // 1430、下午2點這類寫法換成 14:30；有數字卻看不懂的（10點前到、3點）先提醒，不要存成文字
+  const hm = clockOf(tv);
+  $('#n-time-err').hidden = hm !== null;
+  if (hm === null) { tm.classList.add('err'); tm.focus(); return null; }
   // 從候選地點選的：地址欄還是那個連結，就連同位置一起存
   let xy = {};
   try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true, placeId: p.pid || '', geoAt: Date.now() }; } catch { /* 沒選過 */ }
@@ -719,8 +722,8 @@ export function readItemForm() {
     title: t.value.trim(),
     type: $('input[name="n-type"]:checked')?.value || 'other',
     priority: $('input[name="n-pri"]:checked')?.value || '',
-    reservationTime: isClock(tv) ? normTime(tv) : '',
-    timeText: isClock(tv) ? '' : tv,
+    reservationTime: hm,
+    timeText: hm ? '' : tv,
     tip: $('#n-tip').value.trim(),
     stay: +$('#n-stay').value || 0,
     area: $('#n-area').value.trim(),
