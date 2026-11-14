@@ -437,6 +437,8 @@ function addedToast(tid, id, msg) {
   toast(msg, ['改\u2060到\u2060別\u2060天', 'addedMove']); // 字中間放不斷行字元，按鈕不會被擠成兩行
 }
 // 這趟已有的區域名稱（行程與想去清單），編輯時區域欄可以直接選，避免「青沙浦」「靑沙浦」各一個
+// 這趟用過的票券標記，編輯行程時可以直接點選
+const ticketNames = () => [...new Set(S.items.flatMap(x => x.tickets || []))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
 const areaNames = () => [...new Set([...S.items, ...S.wishDocs].map(x => x.area).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'zh-Hant'));
 const nowDay = () => { const t = curTrip(); return t ? addDay(S, t) : 1; };
 
@@ -471,7 +473,7 @@ async function placeAct(kind, p, day) {
   if (S.busy || S.offline || !S.tripId) return false;
   // 搜尋找不到：開自己輸入的表單，名稱先帶進去
   if (kind === 'placeSelf') {
-    itemFormSheet(S.pday || 1, null, tripNear(), areaNames());
+    itemFormSheet(S.pday || 1, null, tripNear(), areaNames(), ticketNames());
     const t = $('#n-title');
     if (t) t.value = p.title || '';
     return false;
@@ -1208,8 +1210,8 @@ const actions = {
     const it = findItem(id), trip = curTrip();
     if ((how === 'up' || how === 'down') && it && trip) itemMenuSheet(S, trip, it, canDelRecord(trip, it)); else closeSheet();
   },
-  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear(), areaNames()); },
-  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear(), areaNames()); },
+  editItem(el) { const it = findItem(el.dataset.id); if (it) itemFormSheet(it.day || 1, it, tripNear(), areaNames(), ticketNames()); },
+  addItem(el) { if (!S.offline) itemFormSheet(+el.dataset.d, null, tripNear(), areaNames(), ticketNames()); },
   // 右下角「＋」：電腦切到右邊的地圖並捲過去，手機打開全螢幕地圖
   mapSearch() {
     if (S.offline) return;

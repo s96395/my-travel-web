@@ -5,6 +5,10 @@ export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '�
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
 export const PRIORITIES = ['must', 'want', 'optional'];
 export const PRIORITY_LABEL = { must: '必去', want: '想去', optional: '有空再去' };
+// 訂位：要預約、要排隊、已預約；bookUrl 是訂位或排隊的網址（例如 CatchTable）
+export const BOOK_LABEL = { need: '要預約', queue: '要排隊', done: '已預約' };
+// 票券標記：每站最多 5 個，例如「釜山 Pass 可用」
+export const ticketList = v => [...new Set((Array.isArray(v) ? v : String(v || '').split(/[,，、]/)).map(t => String(t).trim().slice(0, 20)).filter(Boolean))].slice(0, 5);
 
 const num = v => (v === '' || v === null || v === undefined ? null : Number.isFinite(Number(v)) ? Number(v) : null);
 
@@ -27,6 +31,9 @@ export function normalizeItem(raw) {
     time: raw.reservationTime || '',
     stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
+    book: BOOK_LABEL[raw.book] ? raw.book : '',
+    bookUrl: /^https?:\/\/\S+$/i.test(raw.bookUrl || '') ? raw.bookUrl : '',
+    tickets: ticketList(raw.tickets),
     tip: raw.tip || '', // 一句提示：常駐顯示在名稱下面，20 字內
     timeText: raw.reservationTime ? '' : raw.timeText || '', // 沒有幾點時可以寫「午餐」「看完夕陽後」
     backupOf: raw.backupOf || '', // 是哪一站的備案；備案不排進時間軸，掛在那一站下面
