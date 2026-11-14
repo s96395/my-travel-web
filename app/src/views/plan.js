@@ -711,6 +711,9 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
       t.value = p.title; t.classList.remove('err');
       t.dataset.place = JSON.stringify({ url: p.url, lat: p.lat, lng: p.lng, pid: p.pid || '' });
       $('#n-addr').value = p.url;
+      // 換了地點：📍 那行改成新選的地點，原本還在查的結果不再寫回來（main.js showBound 看 dataset.changed）
+      const b = $('#n-bound');
+      if (b) { b.dataset.changed = '1'; b.textContent = `換成：${[p.title, p.addr].filter(Boolean).join('・')}（儲存後生效）`; }
       const r = document.querySelector(`input[name="n-type"][value="${p.type}"]`);
       if (r && !it) r.checked = true;
     })).catch(console.error);

@@ -322,7 +322,7 @@ async function showBound(it) {
   if (!slot || !it.placeId || S.offline || !mapsKey) { if (slot && it.placeId) slot.textContent = '已綁定地點'; return; }
   let r = null, err = false;
   try { r = await (await import('./ui/map.js')).localPlace({ pid: it.placeId }, localLang(it, curTrip()?.country)?.[1] || 'zh-TW'); } catch (e) { console.error(e); err = true; }
-  if (!slot.isConnected) return; // 查詢中已經關掉或換了別的畫面
+  if (!slot.isConnected || slot.dataset.changed) return; // 查詢中已經關掉、換了別的畫面，或已經選了別的地點
   slot.textContent = r ? [r.name, r.addr].filter(Boolean).join('・') : err ? '已綁定地點（暫時查不到名稱，請稍後再開一次）' : 'Google 查不到這個綁定地點，請在「更多設定」換地點重新選一次';
 }
 // 給司機看畫面：重畫時把小地圖放回去
