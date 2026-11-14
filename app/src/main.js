@@ -1081,13 +1081,16 @@ const actions = {
     if (S.busy || S.offline || !mapsKey) return;
     S.busy = true; el.disabled = true;
     const tid = S.tripId;
-    const pts = [
-      ...S.wishDocs.map(p => ({ src: 'wish', p })),
-      ...S.items.filter(it => it.kind !== 'area' && it.type !== 'transport').map(it => ({ src: 'item', p: it })),
-    ].filter(x => x.p.placeId || (Number.isFinite(x.p.lat) && Number.isFinite(x.p.lng)));
     const memo = new Map(), list = [];
     let off = false;
     try {
+      // 匯入時從網址抓的大約位置不準，先查準再判斷在哪一區；查不準的地點不改
+      const xy = await exactNow(S.wishDocs.filter(p => !p.exact && !p.placeId).map(p => p.id));
+      const sure = p => !!p.placeId || (!!p.exact && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      const pts = [
+        ...S.wishDocs.map(p => ({ src: 'wish', p: xy.has(p.id) ? { ...p, ...xy.get(p.id), exact: true } : p })),
+        ...S.items.filter(it => it.kind !== 'area' && it.type !== 'transport').map(it => ({ src: 'item', p: it })),
+      ].filter(x => sure(x.p));
       const m = await import('./ui/map.js');
       const look = async x => {
         const k = x.p.placeId || `${x.p.lat},${x.p.lng}`;
