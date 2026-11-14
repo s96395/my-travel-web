@@ -722,6 +722,8 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .dpill{flex:none;min-width:56px;border:2px solid transparent;border-radius:16px;background:var(--surface);color:var(--muted);padding:6px 8px;display:grid;justify-items:center;line-height:1.25;font-size:11px;box-shadow:var(--sh-card)}
 .dpill b{font-size:20px;color:var(--fg);font-weight:800}
 .dpill span:last-child{max-width:5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 日期列的區域名稱：最多兩行，不截成「海雲…」 */
+.dpill span.dparea{max-width:6.5em;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-align:center;line-height:1.2}
 .dpill[aria-current="true"]{background:var(--warm);color:#fff}
 .dpill[aria-current="true"] b{color:#fff}
 .dpill.drop{border-color:var(--warm);border-style:dashed}
