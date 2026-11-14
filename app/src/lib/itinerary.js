@@ -100,6 +100,25 @@ export function planMove(items, id, target) {
   return updates;
 }
 
+// ⋯ 選單的「上移、下移、移到最前、移到最後、排在某站後面」換成 planMove 的 target；已經在那個位置就回傳 null
+export function stepTarget(items, id, how, afterId) {
+  const it = items.find(x => x.id === id);
+  if (!it || !it.day) return null;
+  const list = itemsOfDay(items, it.day), i = list.findIndex(x => x.id === id);
+  if (i < 0) return null;
+  const rest = list.filter(x => x.id !== id), day = it.day;
+  if (how === 'first') return i === 0 ? null : { day, beforeId: rest[0].id };
+  if (how === 'last') return i === list.length - 1 ? null : { day };
+  if (how === 'up') return i === 0 ? null : { day, beforeId: list[i - 1].id };
+  if (how === 'down') return i === list.length - 1 ? null : list[i + 2] ? { day, beforeId: list[i + 2].id } : { day };
+  if (how === 'after') {
+    const j = rest.findIndex(x => x.id === afterId);
+    if (j < 0 || list[i - 1]?.id === afterId) return null;
+    return rest[j + 1] ? { day, beforeId: rest[j + 1].id } : { day };
+  }
+  return null;
+}
+
 /* ---------- 地圖（規格書 F23）：每個行程可開 Google 地圖，每天串成一條路線 ---------- */
 // 地址欄也可以貼 Google 地圖的分享連結（含 maps.app.goo.gl 短網址）
 const GOOGLE_HOST = /^((www|maps)\.)?google\.(com|[a-z]{2}|co\.[a-z]{2}|com\.[a-z]{2})$/;

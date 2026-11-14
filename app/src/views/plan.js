@@ -563,11 +563,24 @@ export function itemMenuSheet(S, trip, it, canDel) {
   const days = dayList(S, trip).filter(Boolean);
   const main = it.backupOf && S.items.find(x => x.id === it.backupOf);
   openSheet(`${head(esc(it.title))}
-    ${main ? '' : `<p class="label">移到第幾天</p>
+    ${main ? '' : `${orderPart(S, it)}
+    <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     ${areaChips(S, days, it)}`}
     ${backupPart(S, it, main)}
     <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}${it.kind === 'area' ? `<button type="button" class="btn grow" data-act="areaSheet" data-area="${esc(it.area)}">編輯區域</button>` : `<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button>`}</div>`);
+}
+
+// 調整順序：不用拖曳也能移動；上移、下移按完選單不關，可以連按
+function orderPart(S, it) {
+  if (!it.day) return '';
+  const list = itemsOfDay(S.items, it.day), i = list.findIndex(x => x.id === it.id);
+  if (i < 0 || list.length < 2) return '';
+  const id = esc(it.id), b = (how, text, off) => `<button type="button" class="chip" data-act="stepMove" data-id="${id}" data-how="${how}" ${off ? 'disabled' : ''}>${text}</button>`;
+  const others = list.filter(x => x.id !== it.id);
+  return `<p class="label">調整順序<span class="muted" style="font-weight:400">・目前第 ${i + 1} 站，共 ${list.length} 站</span></p>
+    <div class="chips" style="flex-wrap:wrap">${b('first', '移到最前', i === 0)}${b('up', '上移', i === 0)}${b('down', '下移', i === list.length - 1)}${b('last', '移到最後', i === list.length - 1)}</div>
+    <div class="row"><select class="input grow" id="mv-after" aria-label="排在哪一站後面">${others.map(x => `<option value="${esc(x.id)}" ${x.id === list[i - 1]?.id ? 'selected' : ''}>排在「${esc(x.title)}」後面</option>`).join('')}</select><button type="button" class="btn" data-act="stepMove" data-id="${id}" data-how="after">移過去</button></div>`;
 }
 
 // 備案：掛在同一天的另一站下面，寫什麼時候改去；已經是備案的可以改條件或改回正式行程

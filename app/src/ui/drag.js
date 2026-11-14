@@ -1,11 +1,15 @@
 // 行程長按拖曳：按住約 0.4 秒後可拖曳，放開時回報放在哪裡（規格書 F21）
-// onDrop(id, target)：target = { kind: 'item', id, before } 或 { kind: 'day', d }
-const DR = { timer: null, el: null, id: null, sx: 0, sy: 0, active: false, line: null, target: null, raf: null, px: 0, py: 0 };
+// onDrop(id, target)：target = { kind: 'item', id, before } 或 { kind: 'day', d }；放在不能放的地方是 null（不移動）
+const DR = { timer: null, el: null, id: null, sx: 0, sy: 0, active: false, line: null, target: null, raf: null, px: 0, py: 0, pill: null, pillTimer: null };
+// 長按時不能開始拖的地方：⋯ 選單、連結、輸入欄位（站名、號碼這些按鈕可以長按拖，短按還是照常打開）
+const NO_DRAG = '.more, a, input, select, textarea, summary, label';
+// 拖到日期按鈕上要停一下才算換天，避免往上找位置時經過就被搬到別天
+const PILL_WAIT = 600;
 
 export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('pointerdown', e => {
     const it = e.target.closest('.item[data-iid]');
-    if (!it || e.target.closest('button') || (e.button && e.button !== 0)) return;
+    if (!it || e.target.closest(NO_DRAG) || (e.button && e.button !== 0)) return;
     DR.el = it; DR.id = it.dataset.iid; DR.sx = e.clientX; DR.sy = e.clientY; DR.py = e.clientY;
     it.classList.add('pressing');
     DR.timer = setTimeout(() => {
@@ -30,18 +34,17 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
     const under = document.elementFromPoint(e.clientX, e.clientY);
     if (!under) return;
     document.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
-    const tItem = under.closest('.item[data-iid]');
-    if (tItem && tItem !== DR.el) {
-      const r = tItem.getBoundingClientRect(), before = e.clientY < r.top + r.height / 2;
-      tItem.parentNode.insertBefore(DR.line, before ? tItem : tItem.nextSibling);
-      DR.target = { kind: 'item', id: tItem.dataset.iid, before };
-      return;
-    }
     const dl = under.closest('.dli[data-dropd], .dpill[data-dropd]');
-    if (dl) { DR.line.remove(); dl.classList.add('drop'); DR.target = { kind: 'day', d: +dl.dataset.dropd }; return; }
+    if (dl) { DR.line.remove(); waitPill(dl); return; }
+    clearPill();
+    const tItem = under.closest('.item[data-iid]');
+    if (tItem && tItem !== DR.el) { lineAt(tItem, e.clientY); return; }
     const day = under.closest('.day[data-dropd]');
     if (day) {
-      const box = day.querySelector('.items');
+      // 在兩站中間的空隙、或剛好壓在橘線上：排到最近的那一站旁邊，不會跑到這天最後
+      const box = day.querySelector('.items'), near = box && nearest(box, e.clientY);
+      if (near) { lineAt(near, e.clientY); return; }
+      // 這天還沒有行程：放進去
       if (box) box.insertBefore(DR.line, box.querySelector(':scope > .btn'));
       else day.appendChild(DR.line);
       DR.target = { kind: 'day', d: +day.dataset.dropd };
@@ -54,6 +57,8 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('touchmove', e => { if (DR.active) e.preventDefault(); }, { passive: false });
   document.addEventListener('pointerup', () => endDrag(onDrop));
   document.addEventListener('pointercancel', () => endDrag(null));
+  // 長按拖曳後放開，不要再觸發站名按鈕的點擊
+  document.addEventListener('click', e => { if (DR.eat && e.target.closest('.item[data-iid]')) { e.preventDefault(); e.stopPropagation(); } DR.eat = false; }, true);
   document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid]')) e.preventDefault(); });
 }
 
@@ -73,6 +78,40 @@ function autoScroll() {
   DR.raf = requestAnimationFrame(autoScroll);
 }
 
+// 橘線放在某一站的上面或下面
+function lineAt(tItem, y) {
+  const r = tItem.getBoundingClientRect(), before = y < r.top + r.height / 2;
+  tItem.parentNode.insertBefore(DR.line, before ? tItem : tItem.nextSibling);
+  DR.target = { kind: 'item', id: tItem.dataset.iid, before };
+}
+
+// 同一個清單裡離手指最近的一站（不算正在拖的那站）
+function nearest(box, y) {
+  let best = null, bd = Infinity;
+  box.querySelectorAll(':scope > .item[data-iid]').forEach(x => {
+    if (x === DR.el) return;
+    const r = x.getBoundingClientRect(), d = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    if (d < bd) { bd = d; best = x; }
+  });
+  return best;
+}
+
+function waitPill(dl) {
+  if (DR.pill === dl) return;
+  clearPill();
+  DR.pill = dl; DR.target = null; dl.classList.add('drophint');
+  DR.pillTimer = setTimeout(() => {
+    if (DR.pill !== dl || !DR.active) return;
+    dl.classList.remove('drophint'); dl.classList.add('drop');
+    DR.target = { kind: 'day', d: +dl.dataset.dropd };
+  }, PILL_WAIT);
+}
+function clearPill() {
+  clearTimeout(DR.pillTimer);
+  DR.pill?.classList.remove('drophint', 'drop');
+  DR.pill = null;
+}
+
 function endDrag(onDrop) {
   clearTimeout(DR.timer);
   if (DR.el) DR.el.classList.remove('pressing');
@@ -80,7 +119,9 @@ function endDrag(onDrop) {
   cancelAnimationFrame(DR.raf);
   const { id, target, el } = DR;
   DR.active = false; DR.el = null; DR.target = null; DR.line?.remove();
+  DR.eat = true; setTimeout(() => { DR.eat = false; }, 400);
+  clearPill();
   el.classList.remove('lifted'); el.style.transform = '';
   document.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
-  if (onDrop && target) onDrop(id, target);
+  if (onDrop) onDrop(id, target);
 }

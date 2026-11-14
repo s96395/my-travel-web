@@ -377,10 +377,11 @@ textarea.input{resize:vertical;font-family:inherit}
 .item[data-iid]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;transition:box-shadow .15s,background .15s}
 .item.pressing{background:var(--surface2)}
 .item.lifted{position:relative;z-index:15;box-shadow:var(--sh-pop);border-color:var(--warm);pointer-events:none;transition:none}
-.dropline{height:4px;border-radius:4px;background:var(--warm);margin:-2px 0}
+.dropline{height:4px;border-radius:4px;background:var(--warm);margin:-2px 0;pointer-events:none}
+.dpill.drophint,.dli.drophint{outline:2px dashed var(--warm);outline-offset:-2px}
 .item h4{margin:0;font-size:15px;font-weight:700}
 /* 拖曳把手：看到就知道可以拖 */
-.item .grip{color:var(--muted);opacity:.6;display:grid;place-items:center;width:20px;height:28px;flex:none;cursor:grab}
+.item .grip{color:var(--muted);opacity:.6;display:grid;place-items:center;width:32px;height:40px;margin:-6px -4px -6px -6px;flex:none;cursor:grab}
 /* 第一次出現一次的小提示 */
 .tip{display:flex;align-items:center;gap:10px;font-size:13px;background:var(--accent-soft);color:var(--fg);border-radius:var(--r);padding:10px 12px}
 .tip span{flex:1;min-width:0}
