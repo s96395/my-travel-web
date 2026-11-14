@@ -658,10 +658,10 @@ export function areaSheet(S, area = '', wid = '') {
 }
 
 // 時間欄可以直接填幾點，也可以寫時段
-const TIME_WORDS = ['早上', '午餐', '下午', '晚餐', '看完夕陽後', '有空再去'];
+const TIME_WORDS = ['早上', '午餐', '下午', '晚餐', '看完夕陽後']; // 「有空再去」放在優先度，這裡不重複
 
-// near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null
-export function itemFormSheet(day, it = null, near = null) {
+// near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null；areas：這趟已有的區域名稱，區域欄可以直接選
+export function itemFormSheet(day, it = null, near = null, areas = []) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', time: '', timeText: '', stay: 0, note: '', tip: '' };
   // 已經綁定地點（從 Google 或收藏加的、有地點代碼或地圖連結）：名稱可以隨意改，地址欄收起來，要換地點再打開
   const bound = !!it && (!!it.placeId || isMapLink(it.address) || !!it.exact);
@@ -669,7 +669,7 @@ export function itemFormSheet(day, it = null, near = null) {
     <label for="n-title" class="small muted" style="text-align:center;margin-bottom:-8px">✎ 名稱${bound ? '（可以改成好認的中文，不影響導航）' : ''}</label>
     <div class="suggwrap"><input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}"></div>
     ${bound ? `<p class="small muted" style="margin:-4px 0 0;text-align:center">📍 已綁定地點，導航和給司機看都照這個位置・${onMap(it) ? `<a href="${esc(placeHref(it))}" target="_blank" rel="noopener" style="color:var(--accent)">在地圖上看</a>` : ''}</p>` : ''}
-    <input class="input" id="n-tip" maxlength="20" placeholder="一句提示（20 字內），例如：先抽號碼牌再去逛" aria-label="一句提示" value="${esc(v.tip || '')}">
+    <div class="field"><label for="n-tip">一句提示<span class="muted" style="font-weight:400">・顯示在行程卡片上，20 字內</span></label><input class="input" id="n-tip" maxlength="20" placeholder="例如：先抽號碼牌再去逛" value="${esc(v.tip || '')}"></div>
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
@@ -677,10 +677,12 @@ export function itemFormSheet(day, it = null, near = null) {
       <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
     <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30、下午2點，或選下面的時段</p>
     <div class="chips twords" style="flex-wrap:wrap" aria-label="常用時段">${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
-    <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
+    <details class="field moreset"><summary class="linkbtn" style="justify-self:start">更多設定（區域、地址、備註）${(x => x ? `<span class="muted" style="font-weight:400">・${esc(x)}</span>` : '')([v.area, v.note ? '有備註' : ''].filter(Boolean).join('・'))}</summary>
+    <div class="field"><label for="n-area">區域<span class="muted" style="font-weight:400">・可以選現有的，也可以打新的</span></label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" list="n-areas" autocomplete="off" value="${esc(v.area)}"><datalist id="n-areas">${areas.map(a => `<option value="${esc(a)}">`).join('')}</datalist></div>
     ${(f => bound ? `<details class="field"><summary class="linkbtn" style="justify-self:start">換地點</summary><p class="small muted" style="margin:4px 0">在上面的名稱欄打字，從跳出的候選地點選新的；或在這裡貼 Google 地圖連結。</p>${f}</details>` : f)(`<div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>`)}
-    <div class="field"><label for="n-note">備註<span class="muted" style="font-weight:400">・最多 1000 字，可以換行</span></label><textarea class="input" id="n-note" rows="5" maxlength="1000">${esc(v.note)}</textarea></div>
-    <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
+    <div class="field"><label for="n-note">備註<span class="muted" style="font-weight:400">・點開這站才看得到，最多 1000 字，可以換行</span></label><textarea class="input" id="n-note" rows="5" maxlength="1000">${esc(v.note)}</textarea></div>
+    </details>
+    <div style="position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 -4px calc(-20px - env(safe-area-inset-bottom,0px));padding:8px 4px calc(20px + env(safe-area-inset-bottom,0px));background:var(--surface);display:grid"><button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button></div>`);
   // 打名稱時跳出 Google 候選地點，選了自動帶入名稱、類型、地圖連結和位置
   const t = $('#n-title');
   if (mapsKey && t) {
