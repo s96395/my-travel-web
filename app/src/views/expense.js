@@ -280,7 +280,9 @@ const pick = (f, i, v, on, dis, icon, text) => `<label class="pick"><input type=
 // 列出全部同行者，每人一格金額，留空＝沒付；人多時先列前幾位
 const PAY_SHOW = 5;
 export function payerList(c, d) {
-  const list = [...c.active, ...Object.keys(d.paid).filter(k => !c.active.some(p => p.id === k))
+  // 原本付過錢、但已停用或已離開的人也要列出（只有一人付的舊資料，那人只記在 autoPay）
+  const extra = [...new Set([...Object.keys(d.paid), d.autoPay].filter(Boolean))];
+  const list = [...c.active, ...extra.filter(k => !c.active.some(p => p.id === k))
     .map(id => c.people.find(p => p.id === id) || { id, name: c.name(id), uid: 'gone', status: 'gone' })];
   const me = list.findIndex(p => p.id === c.me);
   if (me > 0) list.unshift(...list.splice(me, 1)); // 自己排第一個

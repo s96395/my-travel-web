@@ -1,7 +1,7 @@
 // 記帳表單「誰付的錢」：列出全部人填金額，預設全額帶給自己
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { expDraft, paidNow, payerCheck, draftFields } from '../src/views/expense.js';
+import { expDraft, paidNow, payerCheck, draftFields, payerList, ctxOf } from '../src/views/expense.js';
 
 const trip = { id: 't1', raw: { country: '台灣', participants: { me: { name: '我', uid: 'u1', order: 0 }, mom: { name: '媽媽', order: 1 }, bro: { name: '弟弟', uid: 'u2', order: 2 } } } };
 const S = { user: { uid: 'u1' }, expenses: new Map([['t1', []]]), depositDocs: [], offline: false };
@@ -52,4 +52,11 @@ test('舊資料：單一付款人跟著總金額走、多人付帶出原本金�
   const none = expDraft(S, trip, { id: 'd', name: 'x', amount: 900, payerId: '' });
   assert.equal(none.payWay, 'none');
   assert.equal(draftFields(S, trip, none).payerId, '');
+});
+
+test('舊資料只有一位已離開的人付錢：付款名單仍列出那個人', () => {
+  const d = expDraft(S, trip, { id: 'e', name: 'x', amount: 700, payerId: 'gone1' });
+  const ids = payerList(ctxOf(S, trip), d).map(p => p.id);
+  assert.ok(ids.includes('gone1'));
+  assert.deepEqual(paidNow(d), { gone1: 700 });
 });
