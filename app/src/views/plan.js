@@ -70,7 +70,8 @@ function bookTag(it, cls = 'tag') {
 function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
   const when = whenOf(it, r), note = noteOf(it);
-  const sub = it.stay ? `停留 ${stayText(it.stay)}` : '';
+  // 「有空再去」不算進後面的時間，標出來免得以為後面會被往後推
+  const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', r.skip ? '有空再去，不算進後面的時間' : ''].filter(Boolean).join('・');
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1">
@@ -188,7 +189,7 @@ export function mapData(S, trip) {
 // 住宿的位置從行程裡排過的住宿站找，用來推算幾點回到飯店
 const evOf = (S, trip, date, its) => dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its,
   S.items.filter(x => x.type === 'stay' && Number.isFinite(x.lat) && Number.isFinite(x.lng)));
-const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed };
+const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed, airport: ICON.plane };
 const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${['in', 'out', 'home'].includes(r.kind) ? 'stay' : 'transport'}">
     <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
     <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
