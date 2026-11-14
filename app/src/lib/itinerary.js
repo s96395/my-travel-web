@@ -11,10 +11,12 @@ const MEAL_WORD = { 早餐: 'breakfast', 早午餐: 'breakfast', 午餐: 'lunch'
 // 「午餐」「晚飯」這類字換成餐別代碼，不是餐別就回傳空字串
 export const mealOf = w => MEAL_WORD[String(w || '').trim()] || '';
 // 導航、Naver、給司機看用的店名：拿掉 emoji、〔午餐〕、「晚餐｜」這類餐別、結尾的（有空再去）說明；「店名｜分店」保留兩段
+// 結尾括號只拿掉像說明的（有空再去、晚餐備選…），「一蘭（新宿中央東口店）」這種分店名保留
+const NOTE_TAIL = /\s*[（(][^）)]*(有空|再去|備選|備案|候補|必去|想去|看情況|早餐|午餐|晚餐|點心|消夜|宵夜|下午茶)[^）)]*[）)]\s*$/u;
 // first：只取第一段（Naver 地圖上的標籤用，「店名｜備註」只留店名）
 export function storeName(s, first = false) {
   const t = String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/^\s*[〔［\[【][^〕］\]】]*[〕］\]】]\s*/u, '');
-  const parts = t.split(/[｜|]/).map(x => x.replace(/\s*[（(][^）)]*[）)]\s*$/u, '').trim()).filter(x => x && !mealOf(x));
+  const parts = t.split(/[｜|]/).map(x => x.replace(NOTE_TAIL, '').trim()).filter(x => x && !mealOf(x));
   return (parts.length ? (first ? parts[0] : parts.join(' ')) : t.replace(/[｜|]/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 export const PRIORITY_LABEL = { must: '必去', want: '想去', optional: '有空再去' };
