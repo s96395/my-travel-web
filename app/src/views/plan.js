@@ -227,7 +227,7 @@ function dayItems(S, trip, d) {
 // 這天還沒排的正餐（早餐、午餐、晚餐）：看餐別標籤，舊資料時間欄寫「午餐」也算；這天沒有行程就不提醒
 const MAIN_MEALS = ['breakfast', 'lunch', 'dinner'];
 function mealLeft(S, d, n) {
-  if (!S.mealHint || !n) return '';
+  if (!S.mealHint || !n || !d) return ''; // d 為 0 是「還沒排天數」，不是某一天，不提醒
   const have = new Set(itemsOfDay(S.items, d).map(it => it.meal || (!it.time && mealOf(it.timeText))).filter(Boolean));
   const left = MAIN_MEALS.filter(m => !have.has(m));
   return left.length ? `<span class="mealleft">・還沒排${left.map(m => MEAL_LABEL[m]).join('、')}<button type="button" class="linkbtn" style="margin-left:6px" data-act="mealHint" data-v="off" aria-label="不要提醒還沒排的餐" title="不要提醒">×</button></span>` : '';
