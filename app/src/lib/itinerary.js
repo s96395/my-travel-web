@@ -172,6 +172,9 @@ export function naverHref(p, query, nav = false) {
     if (xy) return `nmap://place?${nq({ lat: p.lat, lng: p.lng, name, appname: app })}`;
     return `nmap://search?${nq({ query: query || name, appname: app })}`;
   }
+  // 電腦：有座標就照座標標出那一點（Naver 網頁沒有用座標標點的網址，改用 Kakao 地圖的公開連結格式）；
+  // 名稱改成中文說明後 Naver 搜不到，不能只靠名稱搜尋；沒有座標才用名稱搜尋
+  if (xy) return `https://map.kakao.com/link/map/${encodeURIComponent(cleanName(name).replace(/,/g, ' ') || '目的地')},${p.lat},${p.lng}`;
   return `https://map.naver.com/p/search/${encodeURIComponent(query || name)}`;
 }
 // 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Naver 常查不到，改用地址搜尋
