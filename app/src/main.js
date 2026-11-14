@@ -1312,13 +1312,42 @@ const actions = {
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
+  // 永久刪除：行程拿掉，想去清單裡同一個地點也一起刪（別天還排著就留著）
   async delItem(el) {
     // 第一次按只換成確認文字，再按一次才真的刪除
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '再按一次確定刪除'; return; }
     if (S.busy) return;
     S.busy = true;
-    const id = el.dataset.id, data = raw.get(id), tid = S.tripId;
-    try { await deleteItem(tid, id); closeSheet(); if (data) undoable(tid, '已刪除', t => restoreItem(t, id, data)); else toast('已刪除'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    const id = el.dataset.id, data = raw.get(id), tid = S.tripId, it = findItem(id);
+    const url = it && it.kind !== 'area' && isMapLink(it.address) ? it.address : '';
+    const wish = url && !S.items.some(x => x.id !== id && x.address === url) ? S.wishDocs.filter(w => w.url === url) : [];
+    try {
+      await deleteItem(tid, id);
+      await Promise.all(wish.map(w => deleteRecord(tid, 'wishlist', w.id)));
+      closeSheet(); if (S.card?.id === id) closeCard();
+      const msg = wish.length ? '已刪除，想去清單裡的也一起刪了' : '已刪除';
+      if (data) undoable(tid, msg, async t => { await restoreItem(t, id, data); await Promise.all(wish.map(({ id: _, ...w }) => addRecord(t, 'wishlist', w, S.user, S.nickname))); });
+      else toast(msg);
+    } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 移回想去清單：從行程拿掉，地點留在想去清單；原本不在清單的先加進去
+  async backToWish(el) {
+    const id = el.dataset.id, it = findItem(id), data = raw.get(id), tid = S.tripId;
+    if (S.busy || S.offline || !it) return;
+    S.busy = true;
+    const url = isMapLink(it.address) ? it.address : '';
+    try {
+      let wid = '';
+      if (!url || !S.wishDocs.some(w => w.url === url)) {
+        // 座標照原本查到的時間存，30 天到期一樣會重查
+        const xy = Number.isFinite(it.lat) && Number.isFinite(it.lng) ? { lat: it.lat, lng: it.lng, ...(it.exact ? { exact: true, placeId: it.placeId || '', geoAt: it.geoAt || Date.now() } : {}) } : {};
+        wid = (await addRecord(tid, 'wishlist', { title: it.title, note: it.note || '', url, list: '', area: it.area || '', ...xy }, S.user, S.nickname)).id;
+      }
+      await deleteItem(tid, id);
+      closeSheet(); if (S.card?.id === id) closeCard();
+      undoable(tid, `「${it.title}」已移回想去清單`, async t => { if (data) await restoreItem(t, id, data); if (wid) await deleteRecord(t, 'wishlist', wid); });
+    } catch (err) { console.error(err); toast('沒有移成功，請稍後再試'); }
     S.busy = false;
   },
   reveal(el) { S.reveal[el.dataset.k] = !S.reveal[el.dataset.k]; render(); },
