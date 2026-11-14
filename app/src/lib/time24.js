@@ -69,7 +69,8 @@ export function clockOf(raw) {
   const w = m[1] || '';
   if (!w && h >= 1 && h <= 6) return null; // 只寫「3點」分不出是凌晨還是下午，請對方寫清楚
   if (h <= 12) {
-    if (['下午', '傍晚', '晚上'].includes(w) && h < 12) h += 12;
+    if (w === '晚上' && h === 12) h = 0; // 晚上12點是半夜
+    else if (['下午', '傍晚', '晚上'].includes(w) && h < 12) h += 12;
     else if (w === '中午' && h <= 2) h = h === 12 ? 12 : h + 12;
     else if (['凌晨', '清晨', '早上', '上午'].includes(w) && h === 12) h = 0;
   } else if (w && !['下午', '傍晚', '晚上'].includes(w)) return null;
