@@ -171,10 +171,13 @@ export function mapData(S, trip) {
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
-const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed };
-const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${r.kind === 'in' || r.kind === 'out' ? 'stay' : 'transport'}">
+// 住宿的位置從行程裡排過的住宿站找，用來推算幾點回到飯店
+const evOf = (S, trip, date, its) => dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its,
+  S.items.filter(x => x.type === 'stay' && Number.isFinite(x.lat) && Number.isFinite(x.lng)));
+const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed };
+const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${['in', 'out', 'home'].includes(r.kind) ? 'stay' : 'transport'}">
     <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
-    <div class="grow" style="flex:1"><h4>${r.at !== null ? `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> ` : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
+    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
     <span class="tag">交通住宿</span>
   </button>`;
 // 站與站之間的交通時間畫在虛線上，點了開 Google 地圖路線
@@ -192,7 +195,7 @@ const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMin
 
 function dayItems(S, trip, d) {
   const its = itemsOfDay(S.items, d), date = dayIso(trip, d);
-  const rows = d ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
+  const rows = d ? buildDay(its, evOf(S, trip, date, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
   // 旅途中看今天：在時間已經過了的最後一站後面畫一條「現在」
   const now = date && date === todayString() ? nowIndex(rows, nowMin()) : -1;
   const nowLine = `<div class="nowline" role="note"><span class="data">現在 ${hmOf(nowMin())}</span></div>`;
@@ -339,7 +342,7 @@ function peekHtml(S, trip, days, sel) {
   const idx = days.indexOf(sel), n = stopCount(S, sel), date = dayIso(trip, sel);
   const today = !!date && date === todayString();
   const its = itemsOfDay(S.items, sel);
-  const rows = sel ? buildDay(its, dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
+  const rows = sel ? buildDay(its, evOf(S, trip, date, its), S.legs) : its.map(it => ({ kind: 'item', it, at: null }));
   const at = today ? Math.max(nowIndex(rows, nowMin()), 0) : 0;
   const next = rows.slice(at).find(r => r.kind === 'item' && r.it.kind !== 'area' && !r.it.backupOf);
   const it = next?.it;
@@ -427,7 +430,7 @@ function infoCard(S, trip, d, mini = false) {
     if (mini) return miniCard(it.title, `${onMap(it) ? `<a class="btn sm primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}<button type="button" class="btn sm grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${esc(it.id)}"`}>編輯</button>`);
     const its = itemsOfDay(S.items, it.day), far = farOf(S);
     const no = pinsOf(its).filter(x => !far.has(x.id)).findIndex(x => x.id === it.id) + 1;
-    const rows = it.day ? buildDay(its, dayEvents(dayIso(trip, it.day), { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its), S.legs) : [];
+    const rows = it.day ? buildDay(its, evOf(S, trip, dayIso(trip, it.day), its), S.legs) : [];
     const r = rows.find(x => x.kind === 'item' && x.it.id === it.id) || {};
     const when = [whenOf(it, r).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
     const id = esc(it.id), main = it.backupOf && S.items.find(x => x.id === it.backupOf);
@@ -652,7 +655,7 @@ export function itemFormSheet(day, it = null, near = null) {
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
     <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="14:30 或 午餐" value="${esc(v.time || v.timeText || '')}"></div>
-      <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">不設定</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
+      <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
     <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30、下午2點，或選下面的時段</p>
     <div class="chips twords" style="flex-wrap:wrap" aria-label="常用時段">${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
     <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
