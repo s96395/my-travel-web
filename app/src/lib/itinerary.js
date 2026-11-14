@@ -343,7 +343,8 @@ export function tidyItem(raw) {
     for (const part of t.split(SEP).map(x => x.replace(LEAD_EMOJI, '').trim()).filter(Boolean)) {
       if (mealOf(part)) { takeMeal(mealOf(part)); continue; }
       if (/^有空(再去)?$/.test(part)) { if (!priority) priority = 'optional'; continue; }
-      if (keep.length && !/店$/.test(part)) { descs.push(part); continue; }
+      // 判斷是不是分店名時先不看結尾括號，「廣安里店（有空再去）」仍算分店，括號留給後面處理
+      if (keep.length && !/店$/.test(part.replace(/\s*[（(][^）)]*[）)]\s*$/u, ''))) { descs.push(part); continue; }
       keep.push(part);
     }
     if (keep.length) t = keep.join('｜');

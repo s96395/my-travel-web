@@ -245,4 +245,6 @@ test('tidyItem：做什麼的說明移到一句提示，分店和地名保留', 
   assert.deepEqual(tidyItem({ title: '🍲 午餐｜濟州家 西面店（鮑魚粥）' }), { title: '濟州家 西面店', meal: 'lunch', tip: '鮑魚粥' });
   assert.deepEqual(tidyItem({ title: 'X the Sky 展望台（100 樓夜景）', tip: '先買票' }), { title: 'X the Sky 展望台', note: '100 樓夜景' });
   assert.deepEqual(tidyItem({ title: '☕ Liberta 海景咖啡（青沙浦）' }), { title: 'Liberta 海景咖啡（青沙浦）' });
+  assert.deepEqual(tidyItem({ title: '東大門獵奇辣炒年糕｜廣安里店（有空再去）' }), { title: '東大門獵奇辣炒年糕｜廣安里店', priority: 'optional' });
+  assert.deepEqual(tidyItem({ title: '豚笑｜廣安店（晚餐）' }), { title: '豚笑｜廣安店', meal: 'dinner' });
 });
