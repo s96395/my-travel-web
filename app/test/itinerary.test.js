@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf, naverHref, navHref } from '../src/lib/itinerary.js';
+import { normalizeItem, stayText, sortItems, planMove, planDays, nextOrder, routeStops, routeUrl, embedUrl, isMapLink, placeHref, groupByArea, planAreaMove, geoKey, sameName, afterArea, itemsOfDay, backupsOf, naverHref, navHref, kakaoRoute } from '../src/lib/itinerary.js';
 
 const mk = (id, day, order) => normalizeItem({ id, day, order, title: id });
 
@@ -187,10 +187,13 @@ test('時間可以寫文字；有幾點時以幾點為準', () => {
   assert.equal(normalizeItem({ id: 'a', tip: '先抽號碼牌' }).tip, '先抽號碼牌');
 });
 
-test('電腦版韓國導航：有座標照座標開，名稱改成中文說明也找得到；沒座標才用名稱搜尋', () => {
+test('韓國導航手機電腦都開 Kakao：有座標照座標標點，名稱改成中文說明也找得到；沒座標才用名稱搜尋', () => {
   const it = { title: '青沙浦平交道拍膠囊列車', area: '靑沙浦', address: '', type: 'attraction', lat: 35.1606, lng: 129.1912 };
   assert.equal(navHref(it, '釜山', '韓國'), 'https://map.kakao.com/link/map/' + encodeURIComponent('青沙浦平交道拍膠囊列車') + ',35.1606,129.1912');
-  assert.equal(naverHref({ title: 'A, B', lat: 35, lng: 129 }, 'A', true), 'https://map.kakao.com/link/map/A%20%20B,35,129');
+  assert.equal(naverHref({ title: 'A, B｜備註', lat: 35, lng: 129 }, 'A'), 'https://map.kakao.com/link/map/A%20%20B,35,129');
   const bare = { ...it, lat: null, lng: null };
-  assert.equal(navHref(bare, '釜山', '韓國'), 'https://map.naver.com/p/search/' + encodeURIComponent('青沙浦平交道拍膠囊列車 靑沙浦 釜山'));
+  assert.equal(navHref(bare, '釜山', '韓國'), 'https://map.kakao.com/link/search/' + encodeURIComponent('青沙浦平交道拍膠囊列車 靑沙浦 釜山'));
+  const leg = encodeURIComponent('出發') + ',35.1,129/' + encodeURIComponent('青沙浦平交道拍膠囊列車') + ',35.1606,129.1912';
+  assert.equal(kakaoRoute({ title: '出發', lat: 35.1, lng: 129 }, it, true), 'https://map.kakao.com/link/by/walk/' + leg);
+  assert.equal(kakaoRoute({ title: '出發', lat: 35.1, lng: 129 }, it), 'https://map.kakao.com/link/by/traffic/' + leg);
 });
