@@ -630,6 +630,8 @@ textarea.input{resize:vertical;font-family:inherit}
 @media (min-width:1000px){
   .device.wide .stats:has(.typecard){grid-template-columns:none;grid-auto-columns:1fr}
   .device.wide .stat.typecard{grid-column:auto;grid-row:1;grid-template-rows:none}
+  .device.wide .stats:has(.typecard) .stat:not(.typecard){display:flex;flex-direction:column;justify-content:center} /* 卡片變高後文字上下置中 */
+  .device.wide .stat.typecard{align-content:center}
 }
 /* 有底部分頁列時，環境標籤往上移，不要蓋住分頁 */
 body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
