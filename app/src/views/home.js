@@ -319,7 +319,7 @@ function typeCard(st, thisYear) {
   const sel = years.includes(typeYear) ? typeYear : thisYear;
   const end = d => (d < 0 ? sel === years[0] : sel === years[years.length - 1]);
   const arrow = (d, label, ch) => `<button type="button" class="iconbtn" data-tystep="${d}" aria-label="${label}" style="width:32px;height:32px;font-size:18px${end(d) ? ';opacity:.35' : ''}"${end(d) ? ' disabled' : ''}>${ch}</button>`;
-  return `<div class="stat typecard" data-open="true" data-years="${esc(years.join(','))}">
+  return `<div class="stat typecard" data-open="true" style="grid-column:span 2;grid-template-rows:none" data-years="${esc(years.join(','))}">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <span class="label" style="font-size:15px;font-weight:600;color:var(--fg)">各類旅行花費</span>
       <span style="display:flex;align-items:center;gap:6px">${arrow(-1, '前一年', '‹')}<b class="num" data-tylabel>${sel} 年</b>${arrow(1, '下一年', '›')}</span>
