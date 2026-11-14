@@ -340,7 +340,10 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
   const p = dayPill(trip, d);
   const cur = d === sel ? 'aria-current="true"' : '';
   if (short) return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><b>${d ? `第 ${d} 天` : '未排'}</b><span class="num">${d && p.w ? `${p.n} 日（${p.w}）` : ''}</span></button>`;
-  return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><span>${p.w}</span><b class="num">${p.n}</b><span>${esc(d ? dayAreas(S.items, d)[0] || `第 ${d} 天` : '天數')}</span></button>`;
+  // 區域名稱最多放兩個、最多兩行；「新區域 2」這種沒意義的名字不放，完整名稱放在 title
+  const areas = d ? dayAreas(S.items, d).filter(a => !/^新區域( \d+)?$/.test(a)) : [];
+  const label = d ? areas.slice(0, 2).join('、') || `第 ${d} 天` : '天數';
+  return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur} title="${esc(areas.length ? `第 ${d} 天：${areas.join('、')}` : '')}"><span>${p.w}</span><b class="num">${p.n}</b><span class="dparea">${esc(label)}</span></button>`;
 }).join('')}</div>`;
 
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
