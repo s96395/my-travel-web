@@ -237,3 +237,12 @@ test('tidyItem：舊名稱轉成餐別、優先度、備註，geoq 跟著改', a
   assert.equal(tidyItem({ title: '一蘭（新宿中央東口店）' }), null);
   assert.equal(tidyItem({ title: '午餐' }), null);
 });
+
+test('tidyItem：做什麼的說明移到一句提示，分店和地名保留', async () => {
+  const { tidyItem } = await import('../src/lib/itinerary.js');
+  assert.deepEqual(tidyItem({ title: '🐰 Miffy 專門店（買水手服米菲）' }), { title: 'Miffy 專門店', tip: '買水手服米菲' });
+  assert.deepEqual(tidyItem({ title: '🍯 DIART coffee｜土耳其 Kaymak 奶油麵包' }), { title: 'DIART coffee', tip: '土耳其 Kaymak 奶油麵包' });
+  assert.deepEqual(tidyItem({ title: '🍲 午餐｜濟州家 西面店（鮑魚粥）' }), { title: '濟州家 西面店', meal: 'lunch', tip: '鮑魚粥' });
+  assert.deepEqual(tidyItem({ title: 'X the Sky 展望台（100 樓夜景）', tip: '先買票' }), { title: 'X the Sky 展望台', note: '100 樓夜景' });
+  assert.deepEqual(tidyItem({ title: '☕ Liberta 海景咖啡（青沙浦）' }), { title: 'Liberta 海景咖啡（青沙浦）' });
+});

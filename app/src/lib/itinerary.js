@@ -324,22 +324,26 @@ export function centerOf(list) {
 // 名稱改了，自動查座標用的 geoq 也要跟著改，不然座標和地點代碼會被當成過期丟掉
 const LEAD_EMOJI = /^[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+/u;
 const SEP = /[｜|]/;
+// 結尾括號是在做什麼的說明（買伴手禮、看無人機秀、100 樓夜景、鮑魚粥），不是地名或分店：移到一句提示
+const DESC_TAIL = /\s*[（(]([^）)]*(買|看|逛|吃|喝|拍|夜景|粥|樓)[^）)]*)[）)]\s*$/u;
 export function tidyItem(raw) {
   const old = String(raw.title || '');
   let t = old.replace(LEAD_EMOJI, '').trim();
   let meal = MEALS.includes(raw.meal) ? raw.meal : '';
   let priority = raw.priority || '';
-  const notes = [];
+  const notes = [], descs = [];
   const takeMeal = m => { if (m && !meal) meal = m; };
   // 開頭的〔午餐〕【晚餐】[早餐]
   const br = t.match(/^[〔［[【]\s*([^〕］\]】]+?)\s*[〕］\]】]\s*/u);
   if (br && mealOf(br[1])) { takeMeal(mealOf(br[1])); t = t.slice(br[0].length).replace(LEAD_EMOJI, '').trim(); }
-  // 「午餐｜店名」「店名｜晚餐」：餐別那一段拿掉，「有空再去」那一段轉優先度，其餘段落保留
+  // 「午餐｜店名」「店名｜晚餐」：餐別那一段拿掉，「有空再去」那一段轉優先度
+  // 第二段以後是「廣安里店」這類分店名就保留，其他（土耳其 Kaymak 奶油麵包）當成說明移到一句提示
   if (SEP.test(t)) {
     const keep = [];
     for (const part of t.split(SEP).map(x => x.replace(LEAD_EMOJI, '').trim()).filter(Boolean)) {
       if (mealOf(part)) { takeMeal(mealOf(part)); continue; }
       if (/^有空(再去)?$/.test(part)) { if (!priority) priority = 'optional'; continue; }
+      if (keep.length && !/店$/.test(part)) { descs.push(part); continue; }
       keep.push(part);
     }
     if (keep.length) t = keep.join('｜');
@@ -353,6 +357,12 @@ export function tidyItem(raw) {
     const rest = t.slice(0, tail.index).trim();
     if (rest) t = rest; else notes.length = 0;
   }
+  const desc = t.match(DESC_TAIL);
+  if (desc && t.slice(0, desc.index).trim()) { descs.unshift(desc[1].trim()); t = t.slice(0, desc.index).trim(); }
+  // 說明放一句提示（顯示在卡片上，20 字內）；原本已有提示或太長就放備註
+  const dtext = descs.join('、');
+  let tip = '';
+  if (dtext && !raw.tip && dtext.length <= 20) tip = dtext; else if (dtext) notes.push(dtext);
   const patch = {};
   if (t && t !== old) patch.title = t;
   if (meal && meal !== (raw.meal || '')) patch.meal = meal;
@@ -362,6 +372,7 @@ export function tidyItem(raw) {
     if ((patch.meal || meal) === mealOf(raw.timeText)) patch.timeText = '';
   }
   if (priority !== (raw.priority || '')) patch.priority = priority;
+  if (tip) patch.tip = tip;
   if (notes.length) patch.note = [notes.join('、'), raw.note || ''].filter(Boolean).join('\n');
   if (patch.title && raw.geoq && raw.geoq === geoKey({ title: old, address: raw.address })) patch.geoq = geoKey({ title: patch.title, address: raw.address });
   return Object.keys(patch).length ? patch : null;
