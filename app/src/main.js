@@ -70,6 +70,7 @@ const S = {
   signingIn: false, loginError: '', busy: false,
   userNames: {}, join: null,
   theme: store.get('theme') || '', // 外觀：''＝跟著系統
+  mealHint: store.get('mealHint') !== 'off', // 某天還沒排早餐、午餐、晚餐時提醒，可以在快速選單關掉
   covers: {}, crop: null, // covers：旅程 id → 封面照；crop：正在調整的封面
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
@@ -866,6 +867,8 @@ const actions = {
   tourHome() { closeSheet(); startTour('Home'); },
   tourTrip() { closeSheet(); if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
   theme(el) { setTheme(el.dataset.v); },
+  // 還沒排的餐提醒：開或關（記在這台裝置）；從快速選單切換時重開選單讓按鈕狀態更新
+  mealHint(el) { S.mealHint = el.dataset.v === 'on'; store.set('mealHint', S.mealHint ? 'on' : 'off'); render(); if (el.closest('#layer')) quickSheet(S); else toast('已關掉提醒，可以在快速選單重新打開'); },
   // 標題列的切換鈕：照目前看到的外觀換成另一種
   toggleTheme() { setTheme((S.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'); },
   quick: () => quickSheet(S),

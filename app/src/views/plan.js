@@ -224,13 +224,22 @@ function dayItems(S, trip, d) {
   </div>${d ? '' : moveToWish(S)}`;
 }
 
+// 這天還沒排的正餐（早餐、午餐、晚餐）：看餐別標籤，舊資料時間欄寫「午餐」也算；這天沒有行程就不提醒
+const MAIN_MEALS = ['breakfast', 'lunch', 'dinner'];
+function mealLeft(S, d, n) {
+  if (!S.mealHint || !n) return '';
+  const have = new Set(itemsOfDay(S.items, d).map(it => it.meal || (!it.time && mealOf(it.timeText))).filter(Boolean));
+  const left = MAIN_MEALS.filter(m => !have.has(m));
+  return left.length ? `<span class="mealleft">・還沒排${left.map(m => MEAL_LABEL[m]).join('、')}<button type="button" class="linkbtn" style="margin-left:6px" data-act="mealHint" data-v="off" aria-label="不要提醒還沒排的餐" title="不要提醒">×</button></span>` : '';
+}
+
 // 天數標題下面那行：日期、幾個地方、那天記了多少錢；出發前在第 1 天提醒還有幾件待辦
 function dayMeta(S, trip, d, n) {
   const date = dayIso(trip, d);
   const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => e.createdAt?.toDate && todayString(e.createdAt.toDate()) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
   const left = d === 1 && trip.start && todayString() < trip.start ? S.todoDocs.filter(t => !t.done).length : 0;
   return [dayDate(trip, d), n ? `${n} 個地方` : '', spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
-    + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
+    + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '') + mealLeft(S, d, n);
 }
 
 // 一天跑好幾個區域時，在每段區域前面標出區域名稱，可以整區移到別天
