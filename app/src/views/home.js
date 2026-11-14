@@ -346,7 +346,7 @@ function statsHtml(S, st) {
 }
 
 function tripCard(t, S) {
-  return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}">
+  return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}"${t.status === '已封存' ? ' style="opacity:.55"' : ''}>
     ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
       <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${esc(slashDate(t.start))} – ${esc(slashDate(t.end))}</span>
@@ -373,7 +373,7 @@ export function renderHome(S) {
   </header>
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
-    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips))}
+    ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips.filter(t => t.status !== '已封存')))}
     ${loading ? '' : statsHtml(S, st)}
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
@@ -381,7 +381,8 @@ export function renderHome(S) {
     ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載鈕（離線行程）。</div>' : ''}
     ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，或先看一趟填好的示範旅程。<br><button type="button" class="btn sm" data-act="demoTrip" style="margin-top:8px" ${S.offline ? 'disabled' : ''}>載入示範旅程</button></div>` : ''}
     ${years.map(y => {
-      const ts = list.filter(t => (t.start || '未知').startsWith(y));
+      // 已封存的旅程排在那年最後面，名稱很像的新舊旅程比較不會點錯
+      const ts = list.filter(t => (t.start || '未知').startsWith(y)).sort((a, b) => (a.status === '已封存') - (b.status === '已封存'));
       const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (S.wide || y === years[0]));
       const ytot = st.yearTotals[y] || 0;
       return `<section class="year" data-open="${open}">

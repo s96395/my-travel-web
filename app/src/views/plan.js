@@ -145,6 +145,8 @@ const mapBox = (S, d, trip, bare) => {
 const pinsOf = its => its.filter(hasXY);
 // 位置明顯有誤（離整趟旅程其他地點太遠）的先不插針、不編號，免得整張地圖被拉到世界地圖；地圖載入後會重查
 const farOf = S => farOff([...S.wishDocs, ...S.items]);
+// 想去清單裡位置可疑的：離整趟旅程中心超過 2000 公里（包括 Google 查到同名、但在別國的地點），清單上標出來
+const oddOf = S => { const c = farOf(S).center; return new Set(c ? S.wishDocs.filter(p => hasXY(p) && distanceKm(c, p) > 2000).map(p => p.id) : []); };
 
 // 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單放還沒排進這天的
 export function mapData(S, trip) {
@@ -249,8 +251,11 @@ function wishPanel(S, trip, d) {
   const named = groups.some(g => g.area);
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
   const name = p => (S.offline || !hasXY(p) ? `<b>${esc(p.title)}</b>` : `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>`);
+  // 位置離整趟旅程其他地點太遠（匯入時抓錯座標）：不寫距離，標出來讓人知道要確認
+  const far = oddOf(S);
+  const odd = p => (far.has(p.id) ? '<span class="tag bad" style="align-self:flex-start;width:fit-content;margin-top:2px" title="這個地點的位置離其他地點太遠，可能抓錯了。可以按 × 刪掉，再從地圖搜尋加回來">位置可能不對</span>' : '');
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
-      ${S.wide ? GRIP : ''}<div class="grow">${name(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
+      ${S.wide ? GRIP : ''}<div class="grow">${name(p)}${odd(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', !far.has(p.id) && p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
       <button type="button" class="wadd" data-act="wishAdd" data-id="${esc(p.id)}" ${off} aria-label="加入「${esc(p.title)}」" title="加入行程">${ICON.plus}</button>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
@@ -273,14 +278,18 @@ const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button typ
 // 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入想去清單
 export function daySheet(S, trip, p, kind) {
   const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p);
+  // 位置可能抓錯的收藏：距離算出來沒有意義，不標最順路和幾公里
+  const bad = kind === 'wish' && oddOf(S).has(p.id);
   const tag = r => (r.has ? '<span class="tag">已經排了</span>'
+    : bad ? ''
     : r.best ? '<span class="tag best">最順路</span>'
       : r.same ? `<span class="tag good">也有「${esc(p.area)}」的點</span>`
         : r.km !== null ? `<span class="tag">離最近 ${kmText(r.km)}</span>` : '');
   const sub = r => (r.n ? [dayAreas(S.items, r.day).join('・'), `${r.n} 個地方`].filter(Boolean).join('・') : '還沒安排');
   openSheet(`${head(`${esc(p.title)}${kind === 'moved' ? '改到哪一天？' : '要加在哪一天？'}`)}
     <p class="small muted" style="margin:0">${kind === 'area' ? '區域卡片會放在那天離它最近的站旁邊' : '會自動放在那天最順路的位置'}</p>
-    <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${r.best ? ' best' : ''}" data-act="dayPick" data-d="${r.day}" ${r.has ? 'disabled' : ''}>
+    ${bad ? '<p class="small" style="margin:0;color:var(--bad)">這個地點的位置可能不對，排進去的位置也可能不順，加入後請確認順序。</p>' : ''}
+    <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${r.best && !bad ? ' best' : ''}" data-act="dayPick" data-d="${r.day}" ${r.has ? 'disabled' : ''}>
       <span class="grow"><b>第 ${r.day} 天${dayDate(trip, r.day) ? `　${dayDate(trip, r.day)}` : ''}</b><small class="muted">${esc(sub(r))}</small></span>${tag(r)}</button>`).join('')}</div>
     ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">改加入想去清單</button>' : kind === 'moved' ? '<button type="button" class="linkbtn" data-act="addedUndo">不加了（復原）</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
 }
@@ -440,7 +449,8 @@ function infoCard(S, trip, d, mini = false) {
       main ? '' : `<button type="button" data-act="itemMenu" data-id="${id}">移到其他日期</button>`,
       areaN >= 2 ? `<button type="button" data-act="areaMove" data-area="${esc(it.area)}" data-d="${it.day}">整個「${esc(it.area)}」移到別天或移除</button>` : '',
       it.kind === 'area' ? '' : main ? `<button type="button" data-act="backupOff" data-id="${id}">改回正式行程</button>` : `<button type="button" data-act="itemMenu" data-id="${id}">改成別站的備案</button>`,
-      c.canDel ? `<button type="button" data-act="delItem" data-id="${id}" style="color:var(--bad)">刪除</button>` : '',
+      c.canDel && it.kind !== 'area' ? `<button type="button" data-act="backToWish" data-id="${id}">移回想去清單</button>` : '',
+      c.canDel ? `<button type="button" data-act="delItem" data-id="${id}" style="color:var(--bad)">${it.kind === 'area' ? '刪除' : '永久刪除'}</button>` : '',
     ].filter(Boolean);
     const addr = it.address && !isMapLink(it.address) ? esc(it.address) : '';
     const bk = backupsOf(S.items, it.id).map(b => esc(b.title)).join('、');
@@ -576,7 +586,9 @@ export function itemMenuSheet(S, trip, it, canDel) {
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     ${areaChips(S, days, it)}`}
     ${backupPart(S, it, main)}
-    <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}${it.kind === 'area' ? `<button type="button" class="btn grow" data-act="areaSheet" data-area="${esc(it.area)}">編輯區域</button>` : `<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button>`}</div>`);
+    <div class="row">${it.kind === 'area' ? `${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}<button type="button" class="btn grow" data-act="areaSheet" data-area="${esc(it.area)}">編輯區域</button>` : `<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button>`}</div>
+    ${canDel && it.kind !== 'area' ? `<div class="row"><button type="button" class="btn grow" data-act="backToWish" data-id="${esc(it.id)}">移回想去清單</button><button type="button" class="btn danger grow" data-act="delItem" data-id="${esc(it.id)}">永久刪除</button></div>
+    <p class="small muted" style="margin:0">移回想去清單：從這天拿掉，之後還能再加回來。永久刪除：想去清單裡的也一起刪掉。</p>` : ''}`);
 }
 
 // 調整順序：不用拖曳也能移動；上移、下移按完選單不關，可以連按
