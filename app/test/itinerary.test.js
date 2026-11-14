@@ -193,5 +193,7 @@ test('韓國導航手機電腦都開 Kakao：有座標照座標標點，名稱�
   assert.equal(naverHref({ title: 'A, B｜備註', lat: 35, lng: 129 }, 'A'), 'https://map.kakao.com/link/map/A%20%20B,35,129');
   const bare = { ...it, lat: null, lng: null };
   assert.equal(navHref(bare, '釜山', '韓國'), 'https://map.kakao.com/link/search/' + encodeURIComponent('青沙浦平交道拍膠囊列車 靑沙浦 釜山'));
-  assert.equal(kakaoRoute({ title: '出發', lat: 35.1, lng: 129 }, it), 'https://map.kakao.com/link/from/' + encodeURIComponent('出發') + ',35.1,129/to/' + encodeURIComponent('青沙浦平交道拍膠囊列車') + ',35.1606,129.1912');
+  const leg = encodeURIComponent('出發') + ',35.1,129/' + encodeURIComponent('青沙浦平交道拍膠囊列車') + ',35.1606,129.1912';
+  assert.equal(kakaoRoute({ title: '出發', lat: 35.1, lng: 129 }, it, true), 'https://map.kakao.com/link/by/walk/' + leg);
+  assert.equal(kakaoRoute({ title: '出發', lat: 35.1, lng: 129 }, it), 'https://map.kakao.com/link/by/traffic/' + leg);
 });

@@ -163,8 +163,8 @@ export function naverHref(p, query) {
   if (Number.isFinite(p?.lat) && Number.isFinite(p?.lng)) return `https://map.kakao.com/link/map/${kakaoSpot(p)}`;
   return `https://map.kakao.com/link/search/${encodeURIComponent(query || kakaoName(p))}`;
 }
-// 兩站之間的路線（韓國）
-export const kakaoRoute = (from, to) => `https://map.kakao.com/link/from/${kakaoSpot(from)}/to/${kakaoSpot(to)}`;
+// 兩站之間的路線（韓國）：walk 步行，否則大眾運輸（traffic）
+export const kakaoRoute = (from, to, walk = false) => `https://map.kakao.com/link/by/${walk ? 'walk' : 'traffic'}/${kakaoSpot(from)}/${kakaoSpot(to)}`;
 // 交通住宿分頁的住宿當成一個地點：沒有座標，用地址查；名稱只有中文（沒有韓文）時 Kakao 常查不到，改用地址搜尋
 export const stayPlace = st => {
   const name = String(st?.name || ''), addr = st?.address && !isMapLink(st.address) ? String(st.address).trim() : '';

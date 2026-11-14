@@ -185,7 +185,7 @@ function legHtml(r) {
   const kr = inKorea(r.it);
   // 韓國：手機、電腦都開 Kakao 地圖的兩站路線
   const href = !kr ? `https://www.google.com/maps/dir/?api=1&origin=${xy(l.from)}&destination=${xy(r.it)}&travelmode=${walk ? 'walking' : 'transit'}`
-    : kakaoRoute({ title: l.from.title || '出發', lat: l.from.lat, lng: l.from.lng }, r.it);
+    : kakaoRoute({ title: l.from.title || '出發', lat: l.from.lat, lng: l.from.lng }, r.it, walk);
   return `<a class="legline" href="${esc(href)}" target="_blank" rel="noopener" title="開 ${kr ? 'Kakao' : 'Google'} 地圖看路線">${walk ? '步行' : '搭車'} ${stayText(l.min)}</a>`;
 }
 const nowMin = () => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
