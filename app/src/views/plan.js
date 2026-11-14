@@ -65,7 +65,7 @@ function itemHtml(it, S, trip, r = {}) {
       <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${esc(it.title)}</button>` : esc(it.title)}</h4>
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
-      ${note ? `<details class="inote"><summary>備註</summary><p>${esc(note)}</p></details>` : ''}
+      ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
       <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>${drvLink('day', it.id, 'tag', '🚕 ')}`) : S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
@@ -652,7 +652,7 @@ export function itemFormSheet(day, it = null, near = null) {
     <div class="chips twords" style="flex-wrap:wrap" aria-label="常用時段">${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
     <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
-    <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
+    <div class="field"><label for="n-note">備註<span class="muted" style="font-weight:400">・最多 1000 字，可以換行</span></label><textarea class="input" id="n-note" rows="5" maxlength="1000">${esc(v.note)}</textarea></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
   // 打名稱時跳出 Google 候選地點，選了自動帶入名稱、類型、地圖連結和位置
   const t = $('#n-title');
