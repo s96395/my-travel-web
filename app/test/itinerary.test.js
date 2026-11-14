@@ -206,3 +206,19 @@ test('韓國導航手機電腦都開 Naver：有座標照座標開，名稱改�
     assert.match(naverRoute({ title: '出發', lat: 35.1, lng: 129 }, it), /^nmap:\/\/route\/public\?slat=35\.1&slng=129&/);
   } finally { delete globalThis.matchMedia; }
 });
+
+test('storeName：導航和給司機看只用店名', async () => {
+  const { storeName, mealOf, normalizeItem } = await import('../src/lib/itinerary.js');
+  assert.equal(storeName('晚餐｜83 Haechi'), '83 Haechi');
+  assert.equal(storeName('🍜 五福豬肉湯飯'), '五福豬肉湯飯');
+  assert.equal(storeName('〔午餐〕濟州家'), '濟州家');
+  assert.equal(storeName('Liberta（有空再去）'), 'Liberta');
+  assert.equal(storeName('海雲台市場'), '海雲台市場');
+  assert.equal(storeName('濟州家（晚餐備選）'), '濟州家');
+  assert.equal(storeName('一蘭（新宿中央東口店）'), '一蘭（新宿中央東口店）');
+  assert.ok(naverHref({ title: '晚餐｜83 Haechi', lat: 35, lng: 129 }, '').includes('83%20Haechi'));
+  assert.equal(mealOf('晚飯'), 'dinner');
+  assert.equal(mealOf('下午'), '');
+  assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).meal, 'lunch');
+  assert.equal(normalizeItem({ id: 'a', meal: 'xx' }).meal, '');
+});

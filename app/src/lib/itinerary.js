@@ -4,6 +4,21 @@ export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'tran
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
 export const PRIORITIES = ['must', 'want', 'optional'];
+// 餐別：顯示在名稱前面，例如「〔午餐〕五福豬肉湯飯」；名稱本身只放店名
+export const MEALS = ['breakfast', 'lunch', 'dinner', 'snack', 'night'];
+export const MEAL_LABEL = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心', night: '消夜' };
+const MEAL_WORD = { 早餐: 'breakfast', 早午餐: 'breakfast', 午餐: 'lunch', 午飯: 'lunch', 晚餐: 'dinner', 晚飯: 'dinner', 點心: 'snack', 下午茶: 'snack', 消夜: 'night', 宵夜: 'night' };
+// 「午餐」「晚飯」這類字換成餐別代碼，不是餐別就回傳空字串
+export const mealOf = w => MEAL_WORD[String(w || '').trim()] || '';
+// 導航、Naver、給司機看用的店名：拿掉 emoji、〔午餐〕、「晚餐｜」這類餐別、結尾的（有空再去）說明；「店名｜分店」保留兩段
+// 結尾括號只拿掉像說明的（有空再去、晚餐備選…），「一蘭（新宿中央東口店）」這種分店名保留
+const NOTE_TAIL = /\s*[（(][^）)]*(有空|再去|備選|備案|候補|必去|想去|看情況|早餐|午餐|晚餐|點心|消夜|宵夜|下午茶)[^）)]*[）)]\s*$/u;
+// first：只取第一段（Naver 地圖上的標籤用，「店名｜備註」只留店名）
+export function storeName(s, first = false) {
+  const t = String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/^\s*[〔［\[【][^〕］\]】]*[〕］\]】]\s*/u, '');
+  const parts = t.split(/[｜|]/).map(x => x.replace(NOTE_TAIL, '').trim()).filter(x => x && !mealOf(x));
+  return (parts.length ? (first ? parts[0] : parts.join(' ')) : t.replace(/[｜|]/g, ' ')).replace(/\s+/g, ' ').trim();
+}
 export const PRIORITY_LABEL = { must: '必去', want: '想去', optional: '有空再去' };
 // 訂位：要預約、要排隊、已預約；bookUrl 是訂位或排隊的網址（例如 CatchTable）
 export const BOOK_LABEL = { need: '要預約', queue: '要排隊', done: '已預約' };
@@ -28,6 +43,7 @@ export function normalizeItem(raw) {
     address: raw.address || '',
     type: ITEM_TYPES.includes(raw.type) ? raw.type : 'other',
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : '',
+    meal: MEALS.includes(raw.meal) ? raw.meal : '',
     time: raw.reservationTime || '',
     stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
@@ -146,7 +162,7 @@ const bareName = s => String(s || '').replace(/[\p{Extended_Pictographic}\u{FE0F
 export const sameName = (a, b) => !!bareName(a) && bareName(a) === bareName(b);
 // 自己打的行程沒有座標時，用地址（沒有就用名稱）請 Google 查位置；區域名稱像「○○一帶」會讓 Google 找錯，不放進去
 export const geoKey = it => (it.address && !isMapLink(it.address) ? String(it.address).trim() : cleanName(it.title));
-export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [cleanName(it.title), it.area, city].filter(Boolean).join(' '));
+export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [storeName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
 // 有座標（從想去清單加進來的）就用座標，位置最準
@@ -164,7 +180,7 @@ export const nq = o => Object.entries(o).map(([k, v]) => `${k}=${encodeURICompon
 // 韓國地點手機、電腦都開 Naver 地圖：有座標就照座標開，名稱只當標籤，名稱改成中文說明也不會找錯；沒有座標才用名稱搜尋
 // 手機開 Naver 地圖 App（nmap://），電腦開 Naver 地圖網頁的路線頁，終點放這個座標（網頁的座標是 Web Mercator 公尺）
 const coarse = () => typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-const naverName = (p, query) => cleanName(String(p?.title || query || '').split(/[｜|]/)[0]).replace(/[,/]/g, ' ').trim() || '目的地';
+const naverName = (p, query) => storeName(p?.title || query || '', true).replace(/[,/]/g, ' ').trim() || '目的地';
 const hasLL = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
 const R = 20037508.34;
 const merc = p => [(p.lng * R) / 180, ((Math.log(Math.tan(((90 + p.lat) * Math.PI) / 360)) / (Math.PI / 180)) * R) / 180].map(v => v.toFixed(2));
