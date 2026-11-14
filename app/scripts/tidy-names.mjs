@@ -44,6 +44,7 @@ const show = (raw, p) => {
   if (p.meal) after.push(`餐別 ${MEAL_LABEL[p.meal]}`);
   if ('priority' in p) after.push(`優先度 ${PRIORITY_LABEL[p.priority] || '不設定'}`);
   if ('timeText' in p) after.push('時間欄清空');
+  if (p.tip) after.push(`一句提示「${p.tip}」`);
   if (p.note) after.push(`備註加上「${p.note.split('\n')[0]}」`);
   return `  第 ${raw.day || '?'} 天「${raw.title}」${raw.timeText && 'timeText' in p ? `（時間欄：${raw.timeText}）` : ''} → ${after.join('、')}`;
 };
