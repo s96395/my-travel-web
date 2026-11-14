@@ -11,7 +11,7 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
+import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, distanceKm, farOff, nearArea } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
 import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
@@ -592,15 +592,6 @@ async function geoName(list) {
   return n;
 }
 
-// 自動取的暫時名稱：舊版用店名加「一帶」，現在查不到地名時叫「新區域」；按「區域改用地名」會換成真正的地名
-const AUTO_AREA = /一帶$|^新區域( \d+)?$/;
-
-// 改區域名稱：想去清單、行程、區域卡片一起改
-const renameWrites = (old, name) => [
-  ...S.wishDocs.filter(p => p.area === old).map(p => updateRecord(S.tripId, 'wishlist', p.id, { area: name }, S.user, S.nickname)),
-  ...S.items.filter(it => it.area === old).map(it => updateItem(S.tripId, it.id, it.kind === 'area' ? { area: name, title: name } : { area: name }, S.user, S.nickname)),
-];
-
 // 整個區域移到別天
 async function moveArea(area, from, to) {
   const updates = planAreaMove(S.items, from, area, to);
@@ -1085,28 +1076,67 @@ const actions = {
     S.busy = true; el.disabled = true;
     try { await groupNear(await exactNow(S.wishDocs.filter(p => !p.area).map(p => p.id))); } finally { S.busy = false; el.disabled = false; }
   },
-  // 自動取的區域名稱（「○○一帶」「新區域」），改成附近的中文地名，例如「海雲台」
-  async areaGeo(el) {
-    if (S.busy || S.offline) return;
+  // 依行政區重新分區：每個有位置的地點查所在的區（例如「海雲臺區」），先列出改前改後，按套用才寫入
+  async areaDist(el) {
+    if (S.busy || S.offline || !mapsKey) return;
     S.busy = true; el.disabled = true;
-    const olds = [...new Set(S.wishDocs.map(p => p.area).filter(a => a && AUTO_AREA.test(a)))];
-    const names = new Set(S.wishDocs.map(p => p.area).filter(Boolean)); // 沒改到的舊名稱也要算，免得新名稱撞名把兩區併在一起
-    let n = 0;
+    const tid = S.tripId;
+    const memo = new Map(), list = [];
+    let off = false;
     try {
-      for (const old of olds) {
-        const base = await geoName(S.wishDocs.filter(p => p.area === old));
-        if (!base || base === old) continue;
-        names.delete(old);
-        let name = base;
-        for (let i = 2; names.has(name); i++) name = `${base} ${i}`;
-        names.add(name);
-        await Promise.all(renameWrites(old, name));
-        if (S.mapArea === old) S.mapArea = name;
-        n++;
-      }
-      toast(n ? `${n} 個區域改好了，不滿意可以按區域旁的 ⋯ 自己改` : '查不到合適的中文名稱，可以按區域旁的 ⋯ 自己改');
-    } catch (err) { console.error(err); toast('沒有改完，請稍後再試'); }
+      // 匯入時從網址抓的大約位置不準，先查準再判斷在哪一區；查不準的地點不改
+      const xy = await exactNow(S.wishDocs.filter(p => !p.exact && !p.placeId).map(p => p.id));
+      const sure = p => !!p.placeId || (!!p.exact && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+      const pts = [
+        ...S.wishDocs.map(p => ({ src: 'wish', p: xy.has(p.id) ? { ...p, ...xy.get(p.id), exact: true } : p })),
+        ...S.items.filter(it => it.kind !== 'area' && it.type !== 'transport').map(it => ({ src: 'item', p: it })),
+      ].filter(x => sure(x.p));
+      const m = await import('./ui/map.js');
+      const look = async x => {
+        const k = x.p.placeId || `${x.p.lat},${x.p.lng}`;
+        if (!memo.has(k)) memo.set(k, m.districtOf(x.p));
+        const d = await memo.get(k);
+        if (d === 'off') { off = true; return; }
+        if (d && d !== x.p.area) list.push({ src: x.src, id: x.p.id, title: x.p.title, from: x.p.area || '', to: d });
+      };
+      toast(`正在查 ${pts.length} 個地點在哪一區…`);
+      for (let i = 0; i < pts.length && !off; i += 4) await Promise.all(pts.slice(i, i + 4).map(look));
+    } catch (err) { console.error(err); }
     S.busy = false; el.disabled = false;
+    if (tid !== S.tripId) return;
+    if (off) { toast('要在 Google Cloud 啟用 Places API (New) 才能查行政區'); return; }
+    if (!list.length) { toast('區域都和行政區一樣，不用改'); return; }
+    S.distPlan = list;
+    areaDistSheet(list);
+  },
+  async areaDistApply(el) {
+    const list = S.distPlan || [];
+    if (S.busy || S.offline || !list.length) return;
+    const pick = list.filter((_, i) => $(`[data-dpick="${i}"]`)?.checked);
+    if (!pick.length) { closeSheet(); return; }
+    S.busy = true; el.disabled = true;
+    // 區域卡片：原本那區的地點全部換到新區時，卡片跟著改成換最多的那個區名
+    const left = new Set([...S.wishDocs.map(p => ['wish', p.id, p.area]), ...S.items.filter(it => it.kind !== 'area').map(it => ['item', it.id, it.area])]
+      .filter(([src, id, a]) => a && !pick.some(x => x.src === src && x.id === id)).map(x => x[2]));
+    const cardTo = new Map();
+    for (const x of pick) {
+      if (!x.from || left.has(x.from)) continue;
+      const c = cardTo.get(x.from) || new Map();
+      c.set(x.to, (c.get(x.to) || 0) + 1);
+      cardTo.set(x.from, c);
+    }
+    const top = c => [...c].sort((a, b) => b[1] - a[1])[0][0];
+    try {
+      await Promise.all([
+        ...pick.map(x => (x.src === 'wish' ? updateRecord(S.tripId, 'wishlist', x.id, { area: x.to }, S.user, S.nickname) : updateItem(S.tripId, x.id, { area: x.to }, S.user, S.nickname))),
+        ...S.items.filter(it => it.kind === 'area' && cardTo.has(it.area)).map(it => { const to = top(cardTo.get(it.area)); return updateItem(S.tripId, it.id, { area: to, title: to }, S.user, S.nickname); }),
+      ]);
+      if (cardTo.has(S.mapArea)) S.mapArea = '';
+      S.distPlan = null;
+      closeSheet();
+      toast(`${pick.length} 個地點換好區域了，不滿意可以按區域旁的 ⋯ 自己改`);
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有改完，請稍後再試'); }
+    S.busy = false;
   },
   areaAdd(el) {
     const t = curTrip(), area = el.dataset.area;
