@@ -601,7 +601,9 @@ async function moveItem(id, target, quiet = false) {
   S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
   S.days[target.day] = true;
   render();
-  if (!quiet) undoable(S.tripId, from === target.day ? `已調整第 ${from} 天的順序` : from ? `已從第 ${from} 天移到第 ${target.day} 天` : `已排到第 ${target.day} 天`, undoMoves(before));
+  // 提示寫出站名和移到哪裡，放錯了馬上看得出來，可以按「復原」
+  const name = `「${it.title}」`, at = itemsOfDay(S.items, target.day).findIndex(x => x.id === id) + 1;
+  if (!quiet) undoable(S.tripId, from === target.day ? `${name}已移到第 ${at} 站` : from ? `${name}已從第 ${from} 天移到第 ${target.day} 天第 ${at} 站` : `${name}已排到第 ${target.day} 天`, undoMoves(before));
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
@@ -746,6 +748,7 @@ function syncTanks() {
 }
 
 function onDrop(id, t) {
+  if (!t) { toast('沒有放在行程裡，順序沒有改變'); return; }
   // 從想去清單拖過來的地點：拖到日期或某天就排在最後，拖到行程上就插在那個位置
   if (id.startsWith('w:')) {
     const ref = t.kind === 'item' ? findItem(t.id) : null;
