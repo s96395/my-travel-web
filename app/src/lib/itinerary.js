@@ -318,3 +318,51 @@ export function centerOf(list) {
   if (!xs.length) return {};
   return { lat: xs.reduce((s, p) => s + p.lat, 0) / xs.length, lng: xs.reduce((s, p) => s + p.lng, 0) / xs.length };
 }
+
+// 舊資料轉換（一次性）：名稱開頭的 emoji、「午餐｜」「〔晚餐〕」拿掉轉成餐別；結尾（有空再去）轉成優先度，其他說明（晚餐備選）移到備註
+// 時間欄只寫「午餐」「晚餐」的也轉成餐別。回傳要改的欄位，沒有要改就回傳 null
+// 名稱改了，自動查座標用的 geoq 也要跟著改，不然座標和地點代碼會被當成過期丟掉
+const LEAD_EMOJI = /^[\s\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+/u;
+const SEP = /[｜|]/;
+export function tidyItem(raw) {
+  const old = String(raw.title || '');
+  let t = old.replace(LEAD_EMOJI, '').trim();
+  let meal = MEALS.includes(raw.meal) ? raw.meal : '';
+  let priority = raw.priority || '';
+  const notes = [];
+  const takeMeal = m => { if (m && !meal) meal = m; };
+  // 開頭的〔午餐〕【晚餐】[早餐]
+  const br = t.match(/^[〔［[【]\s*([^〕］\]】]+?)\s*[〕］\]】]\s*/u);
+  if (br && mealOf(br[1])) { takeMeal(mealOf(br[1])); t = t.slice(br[0].length).replace(LEAD_EMOJI, '').trim(); }
+  // 「午餐｜店名」「店名｜晚餐」：餐別那一段拿掉，「有空再去」那一段轉優先度，其餘段落保留
+  if (SEP.test(t)) {
+    const keep = [];
+    for (const part of t.split(SEP).map(x => x.replace(LEAD_EMOJI, '').trim()).filter(Boolean)) {
+      if (mealOf(part)) { takeMeal(mealOf(part)); continue; }
+      if (/^有空(再去)?$/.test(part)) { if (!priority) priority = 'optional'; continue; }
+      keep.push(part);
+    }
+    if (keep.length) t = keep.join('｜');
+  }
+  // 結尾括號說明：（有空再去）→ 優先度；（午餐）→ 餐別；（晚餐備選）→ 備註，裡面有餐別字也標上餐別
+  const tail = t.match(NOTE_TAIL);
+  if (tail) {
+    const word = tail[0].trim().slice(1, -1).trim();
+    if (/有空/.test(word)) { if (!priority) priority = 'optional'; } else if (mealOf(word)) takeMeal(mealOf(word));
+    else { takeMeal(MEALS.find(k => word.includes(MEAL_LABEL[k])) || ''); notes.push(word); }
+    const rest = t.slice(0, tail.index).trim();
+    if (rest) t = rest; else notes.length = 0;
+  }
+  const patch = {};
+  if (t && t !== old) patch.title = t;
+  if (meal && meal !== (raw.meal || '')) patch.meal = meal;
+  // 時間欄只寫餐別（沒有幾點）：轉成餐別、時間欄清空；已經有其他餐別就不動
+  if (!raw.reservationTime && mealOf(raw.timeText)) {
+    if (!patch.meal && !meal) patch.meal = mealOf(raw.timeText);
+    if ((patch.meal || meal) === mealOf(raw.timeText)) patch.timeText = '';
+  }
+  if (priority !== (raw.priority || '')) patch.priority = priority;
+  if (notes.length) patch.note = [notes.join('、'), raw.note || ''].filter(Boolean).join('\n');
+  if (patch.title && raw.geoq && raw.geoq === geoKey({ title: old, address: raw.address })) patch.geoq = geoKey({ title: patch.title, address: raw.address });
+  return Object.keys(patch).length ? patch : null;
+}

@@ -222,3 +222,18 @@ test('storeName：導航和給司機看只用店名', async () => {
   assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).meal, 'lunch');
   assert.equal(normalizeItem({ id: 'a', meal: 'xx' }).meal, '');
 });
+
+test('tidyItem：舊名稱轉成餐別、優先度、備註，geoq 跟著改', async () => {
+  const { tidyItem } = await import('../src/lib/itinerary.js');
+  assert.deepEqual(tidyItem({ title: '晚餐｜83 Haechi' }), { title: '83 Haechi', meal: 'dinner' });
+  assert.deepEqual(tidyItem({ title: '🍜 五福豬肉湯飯' }), { title: '五福豬肉湯飯' });
+  assert.deepEqual(tidyItem({ title: '〔午餐〕濟州家' }), { title: '濟州家', meal: 'lunch' });
+  assert.deepEqual(tidyItem({ title: 'Liberta（有空再去）' }), { title: 'Liberta', priority: 'optional' });
+  assert.deepEqual(tidyItem({ title: '濟州家（晚餐備選）', note: '好吃' }), { title: '濟州家', meal: 'dinner', note: '晚餐備選\n好吃' });
+  assert.deepEqual(tidyItem({ title: 'Liberta', timeText: '晚餐' }), { meal: 'dinner', timeText: '' });
+  assert.deepEqual(tidyItem({ title: '🍖 午餐｜五福', geoq: '午餐 五福' }), { title: '五福', meal: 'lunch', geoq: '五福' });
+  assert.equal(tidyItem({ title: '海雲台市場' }), null);
+  assert.equal(tidyItem({ title: '東大門獵奇辣炒年糕｜廣安里店' }), null);
+  assert.equal(tidyItem({ title: '一蘭（新宿中央東口店）' }), null);
+  assert.equal(tidyItem({ title: '午餐' }), null);
+});
