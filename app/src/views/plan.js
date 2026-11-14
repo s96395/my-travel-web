@@ -65,7 +65,7 @@ function itemHtml(it, S, trip, r = {}) {
       <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${esc(it.title)}</button>` : esc(it.title)}</h4>
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
-      ${note ? `<details class="inote"><summary>備註</summary><p>${esc(note)}</p></details>` : ''}
+      ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
       <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>${drvLink('day', it.id, 'tag', '🚕 ')}`) : S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
@@ -563,11 +563,24 @@ export function itemMenuSheet(S, trip, it, canDel) {
   const days = dayList(S, trip).filter(Boolean);
   const main = it.backupOf && S.items.find(x => x.id === it.backupOf);
   openSheet(`${head(esc(it.title))}
-    ${main ? '' : `<p class="label">移到第幾天</p>
+    ${main ? '' : `${orderPart(S, it)}
+    <p class="label">移到第幾天</p>
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveTo" data-id="${esc(it.id)}" data-d="${d}" aria-pressed="${it.day === d}">第 ${d} 天</button>`).join('')}</div>
     ${areaChips(S, days, it)}`}
     ${backupPart(S, it, main)}
     <div class="row">${canDel ? `<button type="button" class="btn danger" data-act="delItem" data-id="${esc(it.id)}">刪除</button>` : ''}${it.kind === 'area' ? `<button type="button" class="btn grow" data-act="areaSheet" data-area="${esc(it.area)}">編輯區域</button>` : `<button type="button" class="btn grow" data-act="editItem" data-id="${esc(it.id)}">編輯內容</button>`}</div>`);
+}
+
+// 調整順序：不用拖曳也能移動；上移、下移按完選單不關，可以連按
+function orderPart(S, it) {
+  if (!it.day) return '';
+  const list = itemsOfDay(S.items, it.day), i = list.findIndex(x => x.id === it.id);
+  if (i < 0 || list.length < 2) return '';
+  const id = esc(it.id), b = (how, text, off) => `<button type="button" class="chip" data-act="stepMove" data-id="${id}" data-how="${how}" ${off ? 'disabled' : ''}>${text}</button>`;
+  const others = list.filter(x => x.id !== it.id);
+  return `<p class="label">調整順序<span class="muted" style="font-weight:400">・目前第 ${i + 1} 站，共 ${list.length} 站</span></p>
+    <div class="chips" style="flex-wrap:wrap">${b('first', '移到最前', i === 0)}${b('up', '上移', i === 0)}${b('down', '下移', i === list.length - 1)}${b('last', '移到最後', i === list.length - 1)}</div>
+    <div class="row"><select class="input grow" id="mv-after" aria-label="排在哪一站後面">${others.map(x => `<option value="${esc(x.id)}" ${x.id === list[i - 1]?.id ? 'selected' : ''}>排在「${esc(x.title)}」後面</option>`).join('')}</select><button type="button" class="btn" data-act="stepMove" data-id="${id}" data-how="after">移過去</button></div>`;
 }
 
 // 備案：掛在同一天的另一站下面，寫什麼時候改去；已經是備案的可以改條件或改回正式行程
@@ -639,7 +652,7 @@ export function itemFormSheet(day, it = null, near = null) {
     <div class="chips twords" style="flex-wrap:wrap" aria-label="常用時段">${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
     <div class="field"><label for="n-area">區域</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" value="${esc(v.area)}"></div>
     <div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>
-    <div class="field"><label for="n-note">備註</label><input class="input" id="n-note" maxlength="200" value="${esc(v.note)}"></div>
+    <div class="field"><label for="n-note">備註<span class="muted" style="font-weight:400">・最多 1000 字，可以換行</span></label><textarea class="input" id="n-note" rows="5" maxlength="1000">${esc(v.note)}</textarea></div>
     <button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button>`);
   // 打名稱時跳出 Google 候選地點，選了自動帶入名稱、類型、地圖連結和位置
   const t = $('#n-title');
