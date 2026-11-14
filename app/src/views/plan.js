@@ -671,8 +671,7 @@ export function areaSheet(S, area = '', wid = '') {
 }
 
 // 時間欄可以直接填幾點，也可以寫時段
-// 餐別（早餐、午餐…）和時段放在同一排：時段按了填進時間欄，餐別按了標在名稱前面，再按一次取消
-const TIME_WORDS = ['早上', '下午', '看完夕陽後']; // 「有空再去」放在優先度，這裡不重複
+// 餐別（早餐、午餐…）放在時間欄下面：按了標在名稱前面，再按一次取消；原本的「早上、下午」時段按鈕已拿掉
 
 // near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null；areas：這趟已有的區域名稱，區域欄可以直接選
 // tickets：這趟已用過的票券標記，可以直接點選
@@ -693,10 +692,10 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
       <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
-    <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="14:30 或 午餐" value="${esc(when)}"></div>
+    <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(when)}"></div>
       <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
-    <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30、下午2點，或選下面的時段</p>
-    <div class="chips twords" style="flex-wrap:wrap" aria-label="餐別和常用時段">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${MEAL_LABEL[m]}</label>`).join('')}${TIME_WORDS.map(w => `<button type="button" class="chip" data-act="timeWord" data-v="${w}">${w}</button>`).join('')}</div>
+    <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30 或 下午2點</p>
+    <div class="chips twords" style="flex-wrap:wrap" aria-label="餐別">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${MEAL_LABEL[m]}</label>`).join('')}</div>
     <details class="field"${v.book || v.bookUrl || v.tickets.length ? ' open' : ''}><summary class="linkbtn" style="justify-self:start">訂位、票券${bsum ? `<span class="muted" style="font-weight:400">・${esc(bsum)}</span>` : ''}</summary>
     <div class="field"><span class="label">訂位</span>
       <div class="chips" role="radiogroup" aria-label="訂位">${[['', '不用'], ...Object.entries(BOOK_LABEL)].map(b => `<label class="chip"><input type="radio" name="n-book" value="${b[0]}" ${b[0] === (v.book || '') ? 'checked' : ''}>${b[1]}</label>`).join('')}</div></div>
