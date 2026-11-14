@@ -500,23 +500,23 @@ function infoCard(S, trip, d, mini = false) {
     ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
 }
 
-// 給司機看：只用網站上已經有的資料（名稱、自己輸入的地址、座標），不查 Google 地點資料
+// 給司機看：只用網站上已經有的資料（名稱、自己輸入的地址、座標）；當地語言只用綁定的 Google 地點代碼查，不用座標找附近的店
 // k：'day' 行程、'wish' 收藏、'place' 資訊卡上的 Google 地點（名稱、地址是 Google 回傳的，只在畫面上顯示，要標資料來源）
 // 顯示當地語言：依地點位置或旅程國家決定查哪種語言；查到的名稱、地址只在這次畫面顯示，不存
 const LOCAL = [[/韓國|南韓|大韓民國|濟州/, 'ko', '韓文'], [/日本/, 'ja', '日文'], [/泰國/, 'th', '泰文'], [/越南/, 'vi', '越南文']];
-const localLang = (p, c) => (inKorea(p, c) && hasXY(p) ? LOCAL[0] : LOCAL.find(([re]) => re.test(c || ''))) || null;
+export const localLang = (p, c) => (inKorea(p, c) && hasXY(p) ? LOCAL[0] : LOCAL.find(([re]) => re.test(c || ''))) || null;
 const plainName = s => String(s || '').split(/[｜|]/)[0].replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').trim();
 export function driverData(S, trip, k, id) {
   const more = (p, key, pid = '') => { const l = localLang(p, trip.country); return { key, pid, q: plainName(p.title), lang: l?.[1] || '', langName: l?.[2] || '' }; };
   if (k === 'day') {
     const it = S.items.find(x => x.id === id);
     if (!it) return null;
-    return { name: it.title, addr: it.address && !isMapLink(it.address) ? it.address : '', lat: it.lat, lng: it.lng, nav: onMap(it) ? navHref(it, trip.city, trip.country) : '', open: onMap(it) ? placeHref(it, trip.city, trip.country) : '', map: mapName(it, trip.country), google: false, ...more(it, 'day:' + it.id) };
+    return { name: it.title, addr: it.address && !isMapLink(it.address) ? it.address : '', lat: it.lat, lng: it.lng, nav: onMap(it) ? navHref(it, trip.city, trip.country) : '', open: onMap(it) ? placeHref(it, trip.city, trip.country) : '', map: mapName(it, trip.country), google: false, ...more(it, 'day:' + it.id, it.placeId || '') };
   }
   if (k === 'wish') {
     const p = S.wishDocs.find(x => x.id === id);
     if (!p) return null;
-    return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false, ...more(p, 'wish:' + p.id) };
+    return { name: p.title, addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false, ...more(p, 'wish:' + p.id, p.placeId || '') };
   }
   // 交通住宿分頁的住宿：用自己貼的名稱、地址；沒有座標，所以不放小地圖、不查當地語言
   if (k === 'stay') {
@@ -532,7 +532,8 @@ export function driverData(S, trip, k, id) {
 // 複製：查到當地語言時複製當地語言的名稱和地址（給司機或貼到當地地圖用）
 export const driverText = d => (d.local ? [d.local.name, d.local.addr] : [d.name, d.addr]).filter(Boolean).join('\n');
 // 名稱大字、地址次大字；有座標又有網路時放小地圖（#drvmap，由 ui/map.js 放進同一張地圖），沒有就給「在 Google 地圖開啟」
-// d.local：按「顯示韓文」等按鈕查到的當地語言名稱、地址（Google 回傳，只顯示不保存）；d.busy 查詢中；d.miss 找不到可以確定的地點
+// d.local：按「顯示韓文」等按鈕查到的當地語言名稱、地址（Google 回傳，只顯示不保存）；d.busy 查詢中；d.miss 用地點代碼查不到
+// 沒有綁定 Google 地點（d.pid 空白）就不查，直接說明，免得用名稱找到別間店
 export function driverSheet(d, offline) {
   const map = hasXY(d) && !offline && mapsKey;
   // 韓國：導航已經照座標開 Naver 地圖，不再另外放「在地圖開啟」；查到韓文名稱就拿來當標籤
@@ -541,8 +542,9 @@ export function driverSheet(d, offline) {
   const big = 'margin:0;font-size:clamp(30px,8.5vw,44px);font-weight:800;line-height:1.25;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';
   const mid = 'margin:0;font-size:clamp(18px,5vw,22px);line-height:1.45;color:var(--fg);overflow-wrap:anywhere;user-select:text;-webkit-user-select:text';
   const name = d.local?.name || d.name, addr = d.local?.addr || d.addr;
-  const ask = d.lang && !d.local && !offline && mapsKey
-    ? `<button type="button" class="btn" data-act="drvLocal" ${d.busy ? 'disabled' : ''}>${d.busy ? '查詢中…' : `顯示${d.langName}`}</button>${d.miss ? `<p class="small muted" style="margin:0">找不到可以確定的地點，請先用上面的名稱和地址。</p>` : ''}` : '';
+  const ask = !d.lang || d.local || offline || !mapsKey ? ''
+    : !d.pid ? `<p class="small muted" style="margin:0">這一站沒有綁定 Google 地點，查不到${d.langName}名稱。請先用上面的名稱和地址，或到編輯畫面「換地點」重新選一次。</p>`
+      : `<button type="button" class="btn" data-act="drvLocal" ${d.busy ? 'disabled' : ''}>${d.busy ? '查詢中…' : `顯示${d.langName}`}</button>${d.miss ? `<p class="small muted" style="margin:0">Google 查不到這個綁定地點的${d.langName}資料，請先用上面的名稱和地址。</p>` : ''}`;
   openSheet(`<div class="row" style="justify-content:space-between"><span class="label" style="margin:0">給司機看</span><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>
     <p class="drvname" style="${big}" ${d.local ? `lang="${esc(d.lang)}"` : ''}>${esc(name)}</p>
     ${addr ? `<p style="${mid}" ${d.local?.addr ? `lang="${esc(d.lang)}"` : ''}>${esc(addr)}</p>` : ''}
@@ -678,7 +680,7 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
   openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
     <label for="n-title" class="small muted" style="text-align:center;margin-bottom:-8px">✎ 名稱${bound ? '（可以改成好認的中文，不影響導航）' : ''}</label>
     <div class="suggwrap"><input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}"></div>
-    ${bound ? `<p class="small muted" style="margin:-4px 0 0;text-align:center">📍 已綁定地點，導航和給司機看都照這個位置・${onMap(it) ? `<a href="${esc(placeHref(it))}" target="_blank" rel="noopener" style="color:var(--accent)">在地圖上看</a>` : ''}</p>` : ''}
+    ${bound ? `<p class="small muted" style="margin:-4px 0 0;text-align:center;overflow-wrap:anywhere">📍 <span id="n-bound">${it.placeId ? '已綁定地點，正在查是哪一間…' : '已綁定位置（沒有 Google 地點資料）'}</span>${onMap(it) ? `・<a href="${esc(placeHref(it))}" target="_blank" rel="noopener" style="color:var(--accent)">在地圖上看</a>` : ''}</p>` : ''}
     <div class="field"><label for="n-tip">一句提示<span class="muted" style="font-weight:400">・顯示在行程卡片上，20 字內</span></label><input class="input" id="n-tip" maxlength="20" placeholder="例如：先抽號碼牌再去逛" value="${esc(v.tip || '')}"></div>
     <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
     <div class="field"><span class="label">優先度</span>
@@ -709,6 +711,9 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
       t.value = p.title; t.classList.remove('err');
       t.dataset.place = JSON.stringify({ url: p.url, lat: p.lat, lng: p.lng, pid: p.pid || '' });
       $('#n-addr').value = p.url;
+      // 換了地點：📍 那行改成新選的地點，原本還在查的結果不再寫回來（main.js showBound 看 dataset.changed）
+      const b = $('#n-bound');
+      if (b) { b.dataset.changed = '1'; b.textContent = `換成：${[p.title, p.addr].filter(Boolean).join('・')}（儲存後生效）`; }
       const r = document.querySelector(`input[name="n-type"][value="${p.type}"]`);
       if (r && !it) r.checked = true;
     })).catch(console.error);
