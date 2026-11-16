@@ -568,12 +568,12 @@ async function areaToDay(area, day) {
 }
 
 // 依距離分組前先查好精確位置（收藏連結算出的位置誤差有好幾公里，分組會不準）；回傳 id → 座標
-async function exactNow(ids) {
+async function exactNow(ids, extra = new Map()) {
   const xy = new Map();
   if (!mapsKey || placesOff) return xy;
   const m = await import('./ui/map.js'), tid = S.tripId;
   for (const id of ids) {
-    const p = S.wishDocs.find(x => x.id === id);
+    const d = S.wishDocs.find(x => x.id === id), p = d && { ...d, ...(extra.get(id) || {}) };
     if (!p || p.exact || !Number.isFinite(p.lat)) continue;
     tried.add(id);
     const c = await m.locate(p).catch(() => null);
@@ -599,6 +599,34 @@ async function groupNear(xy = new Map()) {
     g.forEach(p => writes.push(updateRecord(tid, 'wishlist', p.id, { area: name }, S.user, S.nickname)));
   }
   try { await Promise.all(writes); toast(`分成 ${groups.length} 個區域，按區域旁的 ⋯ 可以改名`); } catch (err) { console.error(err); toast('沒有分組完成，請稍後再試'); }
+}
+
+// 匯入後依 Google 行政區分組：先查準位置，再查每個地點在哪一區，直接寫進區域；查不準或查不到的先不分
+async function groupDist(ids, found = new Map()) {
+  const tid = S.tripId;
+  const exact = await exactNow(ids, found);
+  if (tid !== S.tripId) return;
+  if (placesOff) { toast('要在 Google Cloud 啟用 Places API (New) 才能查行政區'); return; }
+  const pts = ids.map(id => { const p = S.wishDocs.find(x => x.id === id); return p && { ...p, ...(found.get(id) || {}), ...(exact.has(id) ? { ...exact.get(id), exact: true } : {}) }; })
+    .filter(p => p && (p.placeId || (p.exact && Number.isFinite(p.lat) && Number.isFinite(p.lng))));
+  if (!pts.length) { toast('這批地點查不到準確位置，沒有分區，之後可以按「依行政區分區」再試'); return; }
+  toast(`正在查 ${pts.length} 個地點在哪一區…`);
+  const m = await import('./ui/map.js'), memo = new Map(), writes = [], areas = new Set();
+  let off = false;
+  const look = async p => {
+    const k = p.placeId || `${p.lat},${p.lng}`;
+    if (!memo.has(k)) memo.set(k, m.districtOf(p));
+    const d = await memo.get(k);
+    if (d === 'off') { off = true; return; }
+    if (!d) return;
+    areas.add(d);
+    writes.push(updateRecord(tid, 'wishlist', p.id, { area: d }, S.user, S.nickname));
+  };
+  try { for (let i = 0; i < pts.length && !off; i += 4) await Promise.all(pts.slice(i, i + 4).map(look)); await Promise.all(writes); }
+  catch (err) { console.error(err); toast('沒有分區完成，請稍後再試'); return; }
+  if (off) { toast('要在 Google Cloud 啟用 Places API (New) 才能查行政區'); return; }
+  const left = ids.length - writes.length;
+  toast(writes.length ? `分成 ${areas.size} 個區域${left ? `，${left} 個地點查不到在哪一區，先放「還沒分區域」` : ''}` : '查不到這批地點在哪一區，先放「還沒分區域」');
 }
 
 // 一群地點的中文地名（Google 查中心附近的景點、車站）；沒有地圖金鑰或查不到時是空字串
@@ -1305,11 +1333,14 @@ const actions = {
       }
       S.imp = null; S.busy = false; // 查位置要一段時間，不擋其他操作
       closeSheet();
-      if (!todo.length && mode !== 'near') { toast(`已加入想去清單 ${picked.length} 個`); return; }
+      if (!todo.length && mode !== 'dist') { toast(`已加入想去清單 ${picked.length} 個`); return; }
       toast(`已加入想去清單 ${picked.length} 個，正在查位置…`);
       const found = await findCoords(todo, fetch, (i, c) => { if (c) updateRecord(S.tripId, 'wishlist', todo[i].id, c, S.user, S.nickname).catch(console.error); });
       const n = found.filter(Boolean).length;
-      if (mode === 'near') { await groupNear(await exactNow(ids)); return; }
+      if (mode === 'dist') {
+        const xy = new Map(todo.map((p, i) => [p.id, found[i]]).filter(x => x[1]));
+        await groupDist(ids, xy); return;
+      }
       toast(n === todo.length ? `${picked.length} 個地點都找到位置了` : `有 ${todo.length - n} 個地點找不到位置，不會出現在地圖上`);
     } catch (err) { console.error(err); if (S.imp) S.busy = false; toast('匯入失敗，請稍後再試'); }
   },

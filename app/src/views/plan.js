@@ -776,14 +776,14 @@ export function importSheet(places = null, have = new Map()) {
     ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入想去清單</button>` : ''}`);
 }
 
-// 匯入時順便分區域：用收藏清單的名稱（一個 CSV 一區），或依距離自動分組
+// 匯入時順便分區域：用收藏清單的名稱（一個 CSV 一區），或依 Google 行政區分組
 function areaPick(places) {
   const lists = [...new Set(places.map(p => p.list).filter(Boolean))];
-  const opts = [['', '先不分'], ['list', '用清單名稱'], ['near', '依距離分組']];
+  const opts = [['', '先不分'], ['list', '用清單名稱'], ...(mapsKey ? [['dist', '依行政區分組']] : [])];
   const def = lists.length ? 'list' : '';
   return `<div class="field"><span class="label">放進區域</span>
     <div class="chips" role="radiogroup" aria-label="放進區域" style="flex-wrap:wrap">${opts.map(([v, t]) => `<label class="chip"><input type="radio" name="imp-area" value="${v}" ${v === def ? 'checked' : ''}>${t}</label>`).join('')}</div>
-    <span class="small muted">用清單名稱：${lists.length ? lists.map(l => `「${esc(l)}」`).join('、') + ' 各成一區' : '這批檔案沒有清單名稱'}。依距離分組：查好位置後，把 1 公里內的地點放在一起，名稱之後可以改。</span></div>`;
+    <span class="small muted">用清單名稱：${lists.length ? lists.map(l => `「${esc(l)}」`).join('、') + ' 各成一區' : '這批檔案沒有清單名稱'}。${mapsKey ? '依行政區分組：查好位置後，同一個區（例如「海雲臺區」）的地點放在一起，名稱之後可以改。' : ''}</span></div>`;
 }
 
 // 讀表單；名稱空白時標示欄位並回傳 null
