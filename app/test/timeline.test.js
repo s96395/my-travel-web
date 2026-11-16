@@ -111,3 +111,24 @@ test('粗估交通時間', () => {
   assert.equal(roughMin({ lat: 35, lng: 129 }, { lat: 35, lng: 129 }), 5);
   assert.equal(roughMin({ lat: 35, lng: 129 }, { lat: 35.09, lng: 129 }), 50); // 約 10 公里搭車：15＋30 分，進位到 50
 });
+
+test('抵達日加回到飯店；退房日從飯店出發，退房、出發去機場、班機排最後', () => {
+  const data = {
+    flights: [{ id: 'f2', flightNo: 'BR169', from: 'PUS', to: 'TPE', dep: '2026-11-24 14:00', arr: '2026-11-24 15:40' }],
+    stays: [{ id: 's', name: 'Lavi', checkInDate: '2026-11-20', checkOutDate: '2026-11-24' }],
+  };
+  // 抵達日先去飯店寄放行李：最後加「回到 Lavi」
+  const d1 = dayEvents('2026-11-20', data, [it('Lavi 寄放行李', { type: 'stay' }), it('A')]);
+  assert.deepEqual(d1.map(e => e.kind + ':' + e.pos), ['home:end']);
+  assert.equal(d1[0].title, '回到 Lavi');
+  // 退房日：從飯店出發在最前，退房、出發去機場（14:00 − 2.5 小時 − 1 小時＝10:30）、班機在最後
+  const ev = dayEvents('2026-11-24', data, [it('A'), it('B')]);
+  const rows = buildDay([it('A', { time: '08:00' }), it('B')], ev);
+  assert.deepEqual(rows.map(r => r.kind === 'item' ? r.it.title : r.kind), ['home', 'A', 'B', 'out', 'airport', 'flight']);
+  assert.deepEqual(rows.slice(-3).map(r => r.at), [630, 630, 840]);
+});
+
+test('有空再去的站顯示大約時間，但不把後面的站往後推', () => {
+  const rows = buildDay([it('A', { time: '09:00', stay: 60 }), it('B', { priority: 'optional', stay: 120 }), it('C')], []);
+  assert.deepEqual(rows.map(r => r.at), [540, 600, 600]);
+});
