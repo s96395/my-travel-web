@@ -1240,3 +1240,9 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .qbtn svg{width:18px;height:18px}
 .qbtn span{font-size:18px;line-height:1}
 .item .qbtns+.more{align-self:center}
+
+/* 資訊卡：最上面一行灰字＋×；「其他動作」點開後的按鈕和上面同樣式 */
+.icard .cardtop{align-items:center;gap:8px;flex-wrap:nowrap}
+.icard .cardtop .grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.menulist .moreacts summary{color:var(--muted)}
+.menulist .moreacts>button{display:flex;align-items:center;gap:12px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer}
