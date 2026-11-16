@@ -109,7 +109,7 @@ export function renderTrip(S) {
   const body = VIEWS[tab](S, t);
   return `
   ${offBanner(S, t)}
-  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
+  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1><button type="button" class="iconbtn" id="undoBtn" data-act="undo" hidden aria-label="復原">${ICON.undo}</button>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
     ${S.wide ? tripHead(S, t, false, tab === 'plan') : tab === 'plan' ? tripHead(S, t, true) : tab === 'more' ? tripHead(S, t) : ''}

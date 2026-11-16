@@ -128,6 +128,7 @@ function render() {
   const keep = ['.two > .day', '.wishover .wishpane', '.msheet .mbody'].map(s => { const el = $(s); return el && { s, top: el.scrollTop, day: el.id }; }).filter(Boolean);
   $('#scroller').innerHTML = html + envTag();
   for (const k of keep) { const el = $(k.s); if (el && el.id === k.day) el.scrollTop = k.top; }
+  syncUndo();
   const trip = curTrip();
   $('#tabSlot').innerHTML = S.user && S.view === 'trip' && trip && !S.wide
     ? `<nav class="tabbar" aria-label="旅程分頁">${tabButtons(trip, S.tab)}</nav>` : '';
@@ -339,6 +340,7 @@ function syncItineraryWatch() {
   if (want === itin.tripId) return;
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
+  undoList.length = 0; // 換旅程就不留上一趟的復原
   Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
@@ -432,17 +434,36 @@ function startTripWatch(tripId) {
   ];
 }
 
-/* ---------- 復原上一步：加入、刪除、移動行程後，提示列有「復原」可以按 ---------- */
+/* ---------- 復原上一步：加入、刪除、移動行程後只跳一句提示，要復原時按標題列的「復原」 ---------- */
 let raw = new Map(); // 行程 id → 讀進來時的原始資料，復原刪除時寫回去
-let undoFn = null;
+// 最近做過的動作（新的在後面），每筆記旅程 id；最多留 10 步，換旅程或重新整理就清掉
+const UNDO_MAX = 10;
+const undoList = [];
+// 這趟旅程目前可以復原的最後一步
+const undoTop = () => { for (let i = undoList.length - 1; i >= 0; i--) if (undoList[i].tid === S.tripId) return undoList[i]; return null; };
+function pushUndo(tid, msg, fn) {
+  undoList.push({ tid, msg, fn: async () => { if (S.tripId === tid) await fn(tid); } });
+  if (undoList.length > UNDO_MAX) undoList.shift();
+  syncUndo();
+}
+// 標題列「復原」按鈕：有可以復原的動作才出現，提示寫出會復原哪一步（直接改按鈕，不整頁重畫）
+function syncUndo() {
+  const top = undoTop();
+  S.undoMsg = top ? top.msg : '';
+  const b = $('#undoBtn');
+  if (!b) return;
+  b.hidden = !top;
+  b.title = top ? `復原：${top.msg}` : '';
+  b.setAttribute('aria-label', top ? `復原：${top.msg}` : '復原');
+}
 // tid：開始寫入前記下的旅程 id（寫入途中換到別趟旅程，復原也只寫回原本那趟）
 function undoable(tid, msg, fn) {
-  undoFn = async () => { if (S.tripId === tid) await fn(tid); };
-  toast(msg, ['復原', 'undo']);
+  pushUndo(tid, msg, fn);
+  toast(msg);
 }
 // 自動加到某天後的提示：按「改到別天」可以換天，換天的選單裡也能「不加了」復原
 function addedToast(tid, id, msg) {
-  undoFn = async () => { if (S.tripId === tid) await deleteItem(tid, id); };
+  pushUndo(tid, msg, t => deleteItem(t, id));
   S.added = { tid, id };
   toast(msg, ['改\u2060到\u2060別\u2060天', 'addedMove']); // 字中間放不斷行字元，按鈕不會被擠成兩行
 }
@@ -1184,11 +1205,13 @@ const actions = {
     try { await updateRecord(S.tripId, 'wishlist', p.id, { visited: !p.visited }, S.user, S.nickname); } catch (err) { console.error(err); el.disabled = false; toast('沒有儲存成功，請稍後再試'); }
   },
   async undo() {
-    const fn = undoFn;
-    undoFn = null;
+    const top = undoTop();
     $('#toastSlot').innerHTML = '';
-    if (!fn || S.offline) return;
-    try { await fn(); toast('已復原'); } catch (err) { console.error(err); toast('沒有復原成功，請稍後再試'); }
+    if (!top || S.offline || S.busy) return;
+    undoList.splice(undoList.indexOf(top), 1);
+    syncUndo();
+    S.busy = true;
+    try { await top.fn(); toast('已復原'); } catch (err) { console.error(err); toast('沒有復原成功，請稍後再試'); } finally { S.busy = false; }
   },
   // 把這天某個區域的行程一次拿掉（例如不小心整區加到同一天）；地點還在想去清單，可以復原
   async areaDrop(el) {
