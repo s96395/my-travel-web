@@ -10,6 +10,9 @@ import { renderExp } from './expense.js';
 import { renderMore } from './more.js';
 import { renderDive } from './dive.js';
 
+// 標題列「復原」圖示（只用在這裡）
+const UNDO_ICO = '<svg width="18" height="18" fill="none" stroke-width="2" aria-hidden="true" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5L4.5 9.5 9 14"/><path d="M4.5 9.5H14a5.5 5.5 0 0 1 0 11h-3"/></svg>';
+
 const TABS_BASE = [['plan', '行程', 'plan'], ['move', '交通住宿', 'plane'], ['todo', '待辦', 'todo'], ['exp', '支出', 'money'], ['more', '更多', 'more']];
 export const tabsFor = trip => (trip.type === '潛旅' ? [TABS_BASE[0], ['dive', '潛水', 'dive'], ...TABS_BASE.slice(1)] : TABS_BASE);
 
@@ -109,7 +112,7 @@ export function renderTrip(S) {
   const body = VIEWS[tab](S, t);
   return `
   ${offBanner(S, t)}
-  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1><button type="button" class="iconbtn" id="undoBtn" data-act="undo" hidden aria-label="復原">${ICON.undo}</button>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
+  <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1><button type="button" class="iconbtn" id="undoBtn" data-act="undo" hidden aria-label="復原">${UNDO_ICO}</button>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
     ${S.wide ? tripHead(S, t, false, tab === 'plan') : tab === 'plan' ? tripHead(S, t, true) : tab === 'more' ? tripHead(S, t) : ''}

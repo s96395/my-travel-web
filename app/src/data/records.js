@@ -1,5 +1,5 @@
 // 旅程底下子集合（flights、stays）的共用讀寫
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, setDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
 const col = (tripId, name) => collection(db, `trips/${tripId}/${name}`);
@@ -14,3 +14,6 @@ export const addRecord = (tripId, name, fields, user, nickname) => addDoc(col(tr
 export const updateRecord = (tripId, name, id, fields, user, nickname) => updateDoc(doc(col(tripId, name), id), { ...fields, ...who(user, nickname, 'updated') });
 
 export const deleteRecord = (tripId, name, id) => deleteDoc(doc(col(tripId, name), id));
+
+// 復原刪除：用原本的 id 寫回去，之前記下的其他復原步驟才找得到同一筆
+export const restoreRecord = (tripId, name, id, raw) => { const { id: _, ...data } = raw; return setDoc(doc(col(tripId, name), id), data); };

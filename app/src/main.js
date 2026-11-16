@@ -18,7 +18,7 @@ import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDa
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
-import { watchRecords, addRecord, updateRecord, deleteRecord } from './data/records.js';
+import { watchRecords, addRecord, updateRecord, deleteRecord, restoreRecord } from './data/records.js';
 import { ticketFormSheet, readTicketForm, ticketSheet } from './views/move.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate, missingPack } from './lib/todos.js';
@@ -1395,7 +1395,7 @@ const actions = {
       await Promise.all(wish.map(w => deleteRecord(tid, 'wishlist', w.id)));
       closeSheet(); if (S.card?.id === id) closeCard();
       const msg = wish.length ? '已刪除，想去清單裡的也一起刪了' : '已刪除';
-      if (data) undoable(tid, msg, async t => { await restoreItem(t, id, data); await Promise.all(wish.map(({ id: _, ...w }) => addRecord(t, 'wishlist', w, S.user, S.nickname))); });
+      if (data) undoable(tid, msg, async t => { await restoreItem(t, id, data); await Promise.all(wish.map(w => restoreRecord(t, 'wishlist', w.id, w))); });
       else toast(msg);
     } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
     S.busy = false;
