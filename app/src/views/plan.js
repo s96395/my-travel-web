@@ -41,9 +41,13 @@ const whenOf = (it, r) => (it.time ? `<span class="data" style="color:var(--acce
     : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '');
 
 // 名稱前面自動加類型圖示（icon）和餐別「〔午餐〕」，使用者不用自己在名稱裡打 emoji 或「午餐｜」
-const mealTag = it => (it.meal ? `<span class="mealtag">〔${MEAL_LABEL[it.meal]}〕</span>` : '');
-const nameHtml = (it, icon = false) => `${icon && ITEM_ICON[it.type] ? `<span aria-hidden="true">${ITEM_ICON[it.type]}</span> ` : ''}${mealTag(it)}${esc(it.title)}`;
-const nameText = it => `${it.meal ? `〔${MEAL_LABEL[it.meal]}〕` : ''}${it.title}`;
+// 餐別的表情符號：時間軸、資訊卡、編輯畫面一起用
+const MEAL_EMO = { breakfast: '🍳', lunch: '🍱', dinner: '🍽️', snack: '🍰', night: '🍜' };
+const mealWord = m => `${MEAL_EMO[m] || ''}${MEAL_LABEL[m]}`;
+const mealTag = it => (it.meal ? `<span class="mealtag">〔${mealWord(it.meal)}〕</span>` : '');
+// 有餐別時表情符號已經說明是吃飯，不再放類型圖示
+const nameHtml = (it, icon = false) => `${icon && !it.meal && ITEM_ICON[it.type] ? `<span aria-hidden="true">${ITEM_ICON[it.type]}</span> ` : ''}${mealTag(it)}${esc(it.title)}`;
+const nameText = it => `${it.meal ? `〔${mealWord(it.meal)}〕` : ''}${it.title}`;
 
 // 掛在這站下面的備案：不排進時間軸，寫什麼時候要改去
 function backupRows(S, trip, it) {
@@ -71,7 +75,7 @@ function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
   const when = whenOf(it, r), note = noteOf(it);
   // 「有空再去」不算進後面的時間，標出來免得以為後面會被往後推
-  const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', r.skip ? '有空再去，不算進後面的時間' : ''].filter(Boolean).join('・');
+  const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', r.skip ? '有空再去' : ''].filter(Boolean).join('・');
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1">
@@ -79,12 +83,19 @@ function itemHtml(it, S, trip, r = {}) {
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
       ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${onMap(it) && !S.offline ? (S.wide && sideMap(S) && hasXY(it) ? '' : S.wide ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : `<a class="tag" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>${drvLink('day', it.id, 'tag', '🚕 ')}`) : S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
-    <span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>
+    ${S.wide ? GRIP : quickBtns(S, trip, it)}
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
   </div>`;
+}
+// 手機每站右邊的兩顆小圖示：導航、給司機看（沒網路時只留給司機看）；拖曳改成長按整列
+const TAXI_ICO = '<span aria-hidden="true">🚕</span>';
+function quickBtns(S, trip, it) {
+  const nav = onMap(it) && !S.offline ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${ICON.map}</a>` : '';
+  const drv = onMap(it) || S.offline ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
+  return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
 
 // 區域卡片：一個區域在時間軸上只佔一張卡，展開看這區想去清單的地點，按「加入」才排進時間軸
@@ -225,25 +236,20 @@ function dayItems(S, trip, d) {
   </div>${d ? '' : moveToWish(S)}`;
 }
 
-// 這天還沒排的正餐（早餐、午餐、晚餐）：看餐別標籤，舊資料時間欄寫「午餐」也算；這天沒有行程就不提醒
-const MAIN_MEALS = ['breakfast', 'lunch', 'dinner'];
-function mealLeft(S, d, n) {
-  if (!S.mealHint || !n || !d) return ''; // d 為 0 是「還沒排天數」，不是某一天，不提醒
-  const have = new Set(itemsOfDay(S.items, d).map(it => it.meal || (!it.time && mealOf(it.timeText))).filter(Boolean));
-  const left = MAIN_MEALS.filter(m => !have.has(m));
-  return left.length ? `<span class="mealleft">・還沒排${left.map(m => MEAL_LABEL[m]).join('、')}<button type="button" class="linkbtn" style="margin-left:6px" data-act="mealHint" data-v="off" aria-label="不要提醒還沒排的餐" title="不要提醒">×</button></span>` : '';
-}
-
 // 天數標題下面那行：日期、幾個地方、那天記了多少錢；出發前在第 1 天提醒還有幾件待辦
-function dayMeta(S, trip, d, n) {
+// short：手機版，不寫幾個地方（時間軸一眼就看得到）
+function dayMeta(S, trip, d, n, short = false) {
   const date = dayIso(trip, d);
   const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => e.createdAt?.toDate && todayString(e.createdAt.toDate()) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
   const left = d === 1 && trip.start && todayString() < trip.start ? S.todoDocs.filter(t => !t.done).length : 0;
-  return [dayDate(trip, d), n ? `${n} 個地方` : '', spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
-    + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '') + mealLeft(S, d, n);
+  return [dayDate(trip, d), n && !short ? `${n} 個地方` : '', spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
+    + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
 }
 
-// 一天跑好幾個區域時，在每段區域前面標出區域名稱，可以整區移到別天
+// 手機的天數標題：日期列已經寫了區域，這裡只寫第幾天和日期，出發前加上待辦提醒
+const mDayHead = (S, trip, d) => `<div class="dayhead mday"><h3>${d ? `第 ${d} 天` : '還沒排天數'}</h3><span class="small muted num">${dayMeta(S, trip, d, stopCount(S, d), true)}</span></div>`;
+
+// 一天跑好幾個區域時，在每段區域前面標出區域名稱
 function areaLine(S, its, i) {
   const a = its[i].area;
   // 前一段有區域、這站沒有：標出來，免得看起來像是前一區的
@@ -251,7 +257,8 @@ function areaLine(S, its, i) {
   if (!a || its[i].kind === 'area' || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
   // 這天已有這區的區域卡片，卡片就是這區的標題，不再多標一次
   if (its.some(x => x.kind === 'area' && x.area === a)) return '';
-  return `<div class="arealine"><b>${esc(a)}</b>${S.offline ? '' : `<button type="button" class="linkbtn" data-act="areaMove" data-area="${esc(a)}" data-d="${its[i].day}">整區移動或移除</button>`}</div>`;
+  // 整區移到別天或移除放在每站的 ⋯ 選單裡，這裡只標區域名
+  return `<div class="arealine"><b>${esc(a)}</b></div>`;
 }
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
@@ -402,7 +409,7 @@ function planSheet(S, trip, days, sel) {
   const list = wish
     ? `<section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`
     : `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-      <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
+      ${mDayHead(S, trip, sel)}
       ${dayItems(S, trip, sel)}
     </section>`;
   const body = card || (h === 'peek' ? peekHtml(S, trip, days, sel) : `${seg}${wish ? '' : dayPills(S, trip, days, sel)}${list}`);
@@ -431,7 +438,7 @@ function planNarrow(S, trip) {
   ${dayPills(S, trip, days, sel)}
   ${top}
   <section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
-    <div class="dayhead big"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
+    ${mDayHead(S, trip, sel)}
     ${dayItems(S, trip, sel)}
     <div class="row" style="justify-content:space-between"><button type="button" class="btn sm" data-act="pday" data-d="${days[idx - 1]}" ${idx <= 0 ? 'disabled' : ''}>‹ 前一天</button><button type="button" class="btn sm" data-act="pday" data-d="${days[idx + 1]}" ${idx >= days.length - 1 ? 'disabled' : ''}>後一天 ›</button></div>
   </section>
@@ -717,7 +724,7 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(when)}"></div>
       <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
     <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30 或 下午2點</p>
-    <div class="chips twords" style="flex-wrap:wrap" aria-label="餐別">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${MEAL_LABEL[m]}</label>`).join('')}</div>
+    <div class="chips twords" style="flex-wrap:wrap" aria-label="餐別">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${mealWord(m)}</label>`).join('')}</div>
     <details class="field"${v.book || v.bookUrl || v.tickets.length ? ' open' : ''}><summary class="linkbtn" style="justify-self:start">訂位、票券${bsum ? `<span class="muted" style="font-weight:400">・${esc(bsum)}</span>` : ''}</summary>
     <div class="field"><span class="label">訂位</span>
       <div class="chips" role="radiogroup" aria-label="訂位">${[['', '不用'], ...Object.entries(BOOK_LABEL)].map(b => `<label class="chip"><input type="radio" name="n-book" value="${b[0]}" ${b[0] === (v.book || '') ? 'checked' : ''}>${b[1]}</label>`).join('')}</div></div>
