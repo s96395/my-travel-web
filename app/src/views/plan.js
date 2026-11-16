@@ -281,7 +281,8 @@ function wishPanel(S, trip, d) {
       <button type="button" class="wadd" data-act="wishAdd" data-id="${esc(p.id)}" ${off} aria-label="加入「${esc(p.title)}」" title="加入行程">${ICON.plus}</button>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
-  const geo = mapsKey && S.wishDocs.some(p => p.area && /一帶$|^新區域( \d+)?$/.test(p.area)) ? `<button type="button" class="btn sm" data-act="areaGeo" ${off}>區域改用地名</button>` : '';
+  // 依行政區分區：有位置的地點查 Google 所在的區（例如「海雲臺區」），先列出改前改後再套用
+  const geo = mapsKey && [...S.wishDocs, ...S.items].some(p => p.placeId || hasXY(p)) ? `<button type="button" class="btn sm" data-act="areaDist" ${off}>依行政區分區</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
   if (!named) return `${onlyTip}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
   return `${onlyTip}<div class="wishtop">${addArea}</div>${groups.map(g => {
@@ -678,6 +679,17 @@ export function areaSheet(S, area = '', wid = '') {
     <div style="max-height:45vh;overflow:auto">${list.map(p => `<label class="todo"><input type="checkbox" data-apick="${esc(p.id)}" ${p.id === wid || (area && p.area === area) ? 'checked' : ''}>
       <span class="grow" style="flex:1">${esc(p.title)}${p.area && p.area !== area ? ` <small class="muted">（目前在「${esc(p.area)}」）</small>` : ''}</span></label>`).join('')}</div>
     <div class="row">${area ? `<button type="button" class="btn" data-act="areaSave" data-area="${esc(area)}" data-drop="1">取消這個區域</button>` : ''}<button type="button" class="btn primary grow" data-act="areaSave" data-area="${esc(area)}">儲存</button></div>`);
+}
+
+// 依行政區分區的預覽：照新的區名分組，每個地點可以取消勾選；按「套用」才寫入
+export function areaDistSheet(list) {
+  const groups = new Map();
+  list.forEach((x, i) => { if (!groups.has(x.to)) groups.set(x.to, []); groups.get(x.to).push([x, i]); });
+  openSheet(`${head('依行政區分區')}
+    <p class="small muted" style="margin:0">下面 ${list.length} 個地點的區域會換成 Google 查到的行政區，自己取的區域名稱也會換掉。不想換的請取消勾選。</p>
+    <div style="max-height:50vh;overflow:auto">${[...groups].map(([to, xs]) => `<p class="label" style="margin:10px 0 2px">${esc(to)}</p>${xs.map(([x, i]) => `<label class="todo"><input type="checkbox" data-dpick="${i}" checked>
+      <span class="grow" style="flex:1">${esc(x.title)} <small class="muted">${x.src === 'item' ? '行程・' : ''}${x.from ? `原本「${esc(x.from)}」` : '原本沒分區'}</small></span></label>`).join('')}`).join('')}</div>
+    <button type="button" class="btn primary" data-act="areaDistApply">套用</button>`);
 }
 
 // 時間欄可以直接填幾點，也可以寫時段

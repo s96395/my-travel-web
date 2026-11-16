@@ -643,6 +643,29 @@ export async function openNow(p) {
   }
 }
 
+// 地點所在的行政區（例如「海雲臺區」「東山區」）：有地點代碼就查代碼，沒有就查座標旁邊最近的地點；查不到回傳空字串
+// 只拿區名來當區域名稱，不存 Google 的地點資料
+const DIST_TYPES = ['sublocality_level_1', 'ward', 'locality', 'administrative_area_level_2'];
+const pickDistrict = comps => { for (const t of DIST_TYPES) { const c = (comps || []).find(x => x.types?.includes(t)); if (c?.longText) return c.longText; } return ''; };
+export async function districtOf(p) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  try {
+    if (p.placeId) {
+      const pl = new Place({ id: p.placeId, requestedLanguage: 'zh-TW' });
+      await pl.fetchFields({ fields: ['addressComponents'] });
+      const d = pickDistrict(pl.addressComponents);
+      if (d) return d;
+    }
+    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return '';
+    const { places } = await Place.searchNearby({ locationRestriction: { center: { lat: p.lat, lng: p.lng }, radius: 50 }, fields: ['addressComponents'], maxResultCount: 1, rankPreference: 'DISTANCE', language: 'zh-TW' });
+    return pickDistrict(places?.[0]?.addressComponents);
+  } catch (err) {
+    console.error(err);
+    return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : '';
+  }
+}
+
 // 區域名稱：查這區中心 800 公尺內熱門的景點、車站、市場，挑一個中文地名（例如「青沙浦」「廣安」）；查不到回傳空字串
 export async function areaName(center) {
   await loadApi();
