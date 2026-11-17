@@ -1382,7 +1382,7 @@ const actions = {
   async saveQuickTime(el) {
     const v = readQuickTime(), it = findItem(el.dataset.id), tid = S.tripId;
     if (!v || !it || S.busy) return;
-    const old = { reservationTime: it.time || '', timeText: it.timeText || '', stay: it.stay || 0 };
+    const old = { reservationTime: it.time || '', timeText: it.timeText || '' };
     S.busy = true; el.disabled = true;
     try {
       await updateItem(tid, it.id, v, S.user, S.nickname);
@@ -1497,6 +1497,8 @@ const actions = {
     const day = +el.dataset.d, id = el.dataset.id, tid = S.tripId;
     S.busy = true; el.disabled = true;
     try {
+      // 從候選地點選了新地點：區域改用新地址的區
+      if ('lat' in form) { const d = await districtArea(form); if (d) form.area = d; }
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
       if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null && !('lat' in form) ? { ...form, lat: null, lng: null, exact: false, placeId: '', geoAt: 0 } : form, S.user, S.nickname);
@@ -1516,6 +1518,7 @@ const actions = {
     const url = isMapLink(form.address) ? form.address : placeUrl(form.address || form.title);
     S.busy = true; el.disabled = true;
     try {
+      if (exact) { const d = await districtArea(form); if (d) form.area = d; }
       const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url, list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
       closeSheet();
       undoable(tid, '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id));

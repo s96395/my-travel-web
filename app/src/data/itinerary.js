@@ -1,5 +1,5 @@
 // 讀寫 trips/{tripId}/itinerary
-import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, setDoc, writeBatch, serverTimestamp, deleteField } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
 const col = tripId => collection(db, `trips/${tripId}/itinerary`);
@@ -11,9 +11,11 @@ export function watchItinerary(tripId, onChange, onError) {
 }
 
 // fields：title、area、type、priority、reservationTime、note、day、order
-export const addItem = (tripId, fields, user, nickname) => addDoc(col(tripId), { ...fields, ...who(user, nickname, 'created') });
+// 編輯畫面已拿掉的欄位（停留多久、訂位網址、票券標記、一句提示併進備註）：存檔時 clean 為 true 就從資料裡刪掉
+const GONE = ['stay', 'bookUrl', 'tickets', 'tip'];
+export const addItem = (tripId, { clean, ...fields }, user, nickname) => addDoc(col(tripId), { ...fields, ...who(user, nickname, 'created') });
 
-export const updateItem = (tripId, id, fields, user, nickname) => updateDoc(doc(col(tripId), id), { ...fields, ...who(user, nickname, 'updated') });
+export const updateItem = (tripId, id, { clean, ...fields }, user, nickname) => updateDoc(doc(col(tripId), id), { ...fields, ...(clean ? Object.fromEntries(GONE.map(k => [k, deleteField()])) : {}), ...who(user, nickname, 'updated') });
 
 export const deleteItem = (tripId, id) => deleteDoc(doc(col(tripId), id));
 
