@@ -229,7 +229,8 @@ function fillAreas() {
     if (it.area || !it.day || it.kind === 'area' || ['transport', 'stay'].includes(it.type) || !Number.isFinite(it.lat) || areaTried.has(it.id)) continue;
     areaTried.add(it.id);
     const tid = S.tripId;
-    districtArea(it).then(area => { if (area && tid === S.tripId) return updateItem(tid, it.id, { area }, S.user, S.nickname); }).catch(console.error);
+    // 查區名期間有人自己填了區域，就不蓋掉
+    districtArea(it).then(area => { if (area && tid === S.tripId && !findItem(it.id)?.area) return updateItem(tid, it.id, { area }, S.user, S.nickname); }).catch(console.error);
   }
 }
 
@@ -536,8 +537,8 @@ async function placeAct(kind, p, day, beforeId) {
   if (kind === 'placeWish') {
     if (p.url && S.wishDocs.some(w => w.url === p.url)) { toast(`「${p.title}」已經在想去清單了`); return false; }
     S.busy = true;
+    const tid = S.tripId; // 查區名期間換到別趟旅程，仍寫回原本那趟
     const area = await districtArea(p);
-    const tid = S.tripId;
     try { const ref = await addRecord(tid, 'wishlist', { title: p.title, note: '', url: p.url, list: '', area, ...xy }, S.user, S.nickname); undoable(tid, area ? `已加入想去清單「${area}」` : '已加入想去清單', t => deleteRecord(t, 'wishlist', ref.id)); return true; } catch (err) { console.error(err); toast('沒有加成功，請稍後再試'); return false; } finally { S.busy = false; }
   }
   // 「加入第 N 天 ▾」或還沒選天數：先跳出要加在哪一天（預設 day），看過會排在哪裡再加入
