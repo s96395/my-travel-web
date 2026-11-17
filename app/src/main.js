@@ -1967,8 +1967,8 @@ document.addEventListener('click', ev => {
     // 區域卡片裡有很多地點：只認點到的那一個地點（.aplace），點到區域卡片其他地方不動作
     const row = ev.target.closest('.item[data-iid]');
     const box = row && (row.classList.contains('areacard') ? ev.target.closest('.aplace') : row);
-    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"]');
-    if (name) actions.mapFocus(name, ev);
+    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"], .wname[data-act="itemMenu"]');
+    if (name) actions[name.dataset.act](name, ev);
     return;
   }
   if (el.disabled) return;

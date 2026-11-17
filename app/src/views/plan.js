@@ -98,6 +98,7 @@ const STAR_TAG = '<span class="tag star">⭐ 重點</span>';
 // 卡片上的一行說明：有一句提示就放提示，沒有就放備註的第一行
 const lineOf = it => it.tip || noteOf(it).split('\n').map(x => x.trim()).find(Boolean) || '';
 // 時間軸上的一站：號碼、名稱、一行說明，右邊導航、給司機看、拖曳把手（停留多久、訂位、票券、⋯ 都收進編輯畫面）
+// 點名稱：有位置時在地圖上看（開資訊卡）；沒有位置或沒有地圖時，打開移動與編輯選單
 function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
   const when = timeBtn(S, it), line = lineOf(it);
@@ -106,7 +107,7 @@ function itemHtml(it, S, trip, r = {}) {
   return `<div class="item slim" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1;min-width:0">
-      <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${name}</button>` : name}</h4>
+      <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${name}</button>` : !S.offline ? `<button type="button" class="wname" data-act="itemMenu" data-id="${esc(it.id)}" title="移動或編輯">${name}</button>` : name}</h4>
       ${line ? `<p class="iline">${esc(line)}</p>` : ''}
       ${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}
       ${backupRows(S, trip, it)}
