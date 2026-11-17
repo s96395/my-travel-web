@@ -1661,6 +1661,7 @@ const actions = {
     expSheet();
   },
   payAll() { if (S.draft) { S.draft.payAll = true; expSheet(); } },
+  expMore() { if (S.draft) { S.draft.more = true; expSheet(); } },
   // 消費日期點旅程的某一天；再點一次同一天就清掉
   expDay(el) { const d = S.draft; if (!d) return; d.spentOn = d.spentOn === el.dataset.v ? '' : el.dataset.v; d.dirty = true; expSheet(); },
   async saveExp(el) {
