@@ -108,7 +108,7 @@ function itemHtml(it, S, trip, r = {}) {
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1;min-width:0">
       <h4>${when}${!S.offline ? `<button type="button" class="wname" data-act="itemOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${name}</button>` : name}</h4>
-      ${line ? `<p class="iline">${esc(line)}</p>` : ''}
+      ${line ? `<p class="iline"${open ? ' style="white-space:normal"' : ''}>${esc(line)}</p>` : ''}
       ${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}
       ${backupRows(S, trip, it)}
     </div>
