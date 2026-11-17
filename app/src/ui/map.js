@@ -103,6 +103,33 @@ export function closeCard() {
   if (view0 && map) { map.setCenter(view0.c); map.setZoom(view0.z); }
   view0 = null;
 }
+// 把這些點都放進畫面；只有一點時放大到街道
+function fitTo(pts) {
+  if (!map || !pts.length) return;
+  if (pts.length === 1) { map.setCenter({ lat: pts[0].lat, lng: pts[0].lng }); map.setZoom(15); return; }
+  const b = new window.google.maps.LatLngBounds();
+  pts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+  map.fitBounds(b, 40);
+}
+let lastDayPts = [], lastDest = '', fitTrip = '', curTid = '';
+// 還沒有任何地點時，地圖移到旅程的目的地（城市＋國家）；查過的記在這台裝置，下次不再查
+async function goDest(tid, text, city) {
+  const key = 'dest:' + text, mark = `dest:${tid}|${text}`;
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(key) || 'null'); } catch { /* 不能用 localStorage 就每次查 */ }
+  if (!v) {
+    const { Place } = await window.google.maps.importLibrary('places');
+    const { places } = await Place.searchByText({ textQuery: text, fields: ['location', 'viewport'], maxResultCount: 1, language: 'zh-TW' });
+    const p = places?.[0];
+    if (!p?.location) return;
+    v = { lat: p.location.lat(), lng: p.location.lng(), ...(p.viewport ? { b: p.viewport.toJSON() } : {}) };
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 存不了就算了 */ }
+  }
+  if (lastDest !== mark || curTid !== tid || fitTrip === tid) return; // 查的時候已經換了旅程或加了地點
+  // 有城市就放在市中心、看得到街區；只有國家就框整個國家
+  if (city || !v.b) { map.setCenter({ lat: v.lat, lng: v.lng }); map.setZoom(city ? 12 : 7); } else map.fitBounds(v.b, 0);
+}
+
 // Google 地點的評分、營業時間、照片、電話、網站：開資訊卡時才查（每點一次查一次）
 const MORE_FIELDS = ['rating', 'userRatingCount', 'regularOpeningHours', 'utcOffsetMinutes', 'photos', 'nationalPhoneNumber', 'websiteURI'];
 async function placeMore(p) {
@@ -207,11 +234,13 @@ async function runNear() {
 function nearControls(g, bar) {
   nearBar = document.createElement('div');
   nearBar.className = 'mcats';
-  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
+  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button><button type="button" class="mnearopen" data-fitday hidden>看當天全部景點</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
   wBtn = nearBar.querySelector('[data-wbox]');
   nearBar.addEventListener('click', ev => {
     // 「搜尋此區域」：只看地圖範圍內有哪些收藏
     if (ev.target.closest('[data-wbox]')) { ev.stopPropagation(); runBox(); return; }
+    // 看當天全部景點：把當天行程的針都放進畫面
+    if (ev.target.closest('[data-fitday]')) { ev.stopPropagation(); view0 = null; fitTo(lastDayPts); return; }
     // 「找附近店家」：打開分類；再按一次收起，同時清掉找到的店家
     if (ev.target.closest('[data-near]')) {
       ev.stopPropagation();
@@ -609,13 +638,21 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
   // 「搜尋此區域」進行中不自動框範圍，地圖停在搜尋的那一帶（打開清單、多放上收藏都不會跳走）
   if (data.box) lastFit = data.fit;
+  lastDayPts = dayPts;
+  const fitBtn = nearBar?.querySelector('[data-fitday]');
+  if (fitBtn) fitBtn.hidden = dayPts.length < 2;
   if (data.fit !== lastFit && fitPts.length) {
-    lastFit = data.fit;
-    if (fitPts.length === 1) { map.setCenter({ lat: fitPts[0].lat, lng: fitPts[0].lng }); map.setZoom(15); } else {
-      const b = new g.LatLngBounds();
-      fitPts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
-      map.fitBounds(b, 40);
-    }
+    lastFit = data.fit; fitTrip = String(data.fit).split(':')[0]; lastDest = '';
+    // 地圖已經框到新加的點，關掉資訊卡時不要再跳回開卡前的範圍
+    view0 = null;
+    fitTo(fitPts);
+  }
+  // 這趟旅程還沒有任何地點（地圖從沒框過）：移到目的地，不停在台灣；每趟只移一次
+  const tid = String(data.fit).split(':')[0];
+  curTid = tid; // 換到別趟（就算那趟沒有目的地），前一趟還沒查完的目的地就不套用
+  if (!data.points.length && data.dest && fitTrip !== tid && lastDest !== `dest:${tid}|${data.dest}` && !data.box) {
+    lastDest = `dest:${tid}|${data.dest}`;
+    goDest(tid, data.dest, data.destCity).catch(console.error);
   }
   if (data.focus !== lastFocus) {
     lastFocus = data.focus;
