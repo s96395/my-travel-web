@@ -1462,6 +1462,19 @@ const actions = {
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
+  // 自己輸入的地點先放想去清單（還沒決定哪一天）：一句提示併進備註，其他設定留到排進行程時再填
+  async saveItemWish(el) {
+    const form = readItemForm();
+    if (!form || S.busy) return;
+    const tid = S.tripId, { lat, lng, exact, placeId, geoAt } = form;
+    S.busy = true; el.disabled = true;
+    try {
+      const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url: isMapLink(form.address) ? form.address : '', list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
+      closeSheet();
+      undoable(tid, '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id));
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有加成功，請稍後再試'); }
+    S.busy = false;
+  },
   // 永久刪除：行程拿掉，想去清單裡同一個地點也一起刪（別天還排著就留著）
   async delItem(el) {
     // 第一次按只換成確認文字，再按一次才真的刪除
