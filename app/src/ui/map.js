@@ -111,7 +111,7 @@ function fitTo(pts) {
   pts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
   map.fitBounds(b, 40);
 }
-let lastDayPts = [], lastDest = '', fitTrip = '';
+let lastDayPts = [], lastDest = '', fitTrip = '', curTid = '';
 // 還沒有任何地點時，地圖移到旅程的目的地（城市＋國家）；查過的記在這台裝置，下次不再查
 async function goDest(tid, text, city) {
   const key = 'dest:' + text, mark = `dest:${tid}|${text}`;
@@ -125,7 +125,7 @@ async function goDest(tid, text, city) {
     v = { lat: p.location.lat(), lng: p.location.lng(), ...(p.viewport ? { b: p.viewport.toJSON() } : {}) };
     try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 存不了就算了 */ }
   }
-  if (lastDest !== mark || fitTrip === tid) return; // 查的時候已經換了旅程或加了地點
+  if (lastDest !== mark || curTid !== tid || fitTrip === tid) return; // 查的時候已經換了旅程或加了地點
   // 有城市就放在市中心、看得到街區；只有國家就框整個國家
   if (city || !v.b) { map.setCenter({ lat: v.lat, lng: v.lng }); map.setZoom(city ? 12 : 7); } else map.fitBounds(v.b, 0);
 }
@@ -649,6 +649,7 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   }
   // 這趟旅程還沒有任何地點（地圖從沒框過）：移到目的地，不停在台灣；每趟只移一次
   const tid = String(data.fit).split(':')[0];
+  curTid = tid; // 換到別趟（就算那趟沒有目的地），前一趟還沒查完的目的地就不套用
   if (!data.points.length && data.dest && fitTrip !== tid && lastDest !== `dest:${tid}|${data.dest}` && !data.box) {
     lastDest = `dest:${tid}|${data.dest}`;
     goDest(tid, data.dest, data.destCity).catch(console.error);
