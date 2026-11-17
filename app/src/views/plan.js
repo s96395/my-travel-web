@@ -284,7 +284,8 @@ function wishPanel(S, trip, d) {
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個</p>`;
   const chip = (act, v, cur, label) => `<button type="button" class="chip" data-act="${act}" data-v="${esc(v)}" aria-pressed="${cur === v}">${label}</button>`;
-  const tools = S.wishDocs.length < 6 ? '' : `<div class="wtools">
+  // 收藏刪到少於 6 個時，篩選條件還在就留著搜尋框與篩選鈕，才能清掉
+  const tools = S.wishDocs.length < 6 && !filtering ? '' : `<div class="wtools">
       <div class="search">${ICON.search}<input id="wq" type="search" placeholder="搜尋收藏名稱" value="${esc(S.wq || '')}" aria-label="搜尋收藏"></div>
       <div class="chips" role="group" aria-label="篩選收藏">${chip('wstat', '', st || lf, '全部')}${chip('wstat', 'free', st, '未安排')}${chip('wstat', 'used', st, '已安排')}${lists.length > 1 ? `<span class="chipsep" aria-hidden="true"></span>${lists.map(l => chip('wlist', l, lf, esc(l))).join('')}` : ''}</div>
     </div>`;
