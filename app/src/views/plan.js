@@ -3,6 +3,7 @@ import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
 import { clockOf } from '../lib/time24.js';
 import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
 import { amountOf } from '../lib/expenses.js';
+import { spentDay } from './expense.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
@@ -82,7 +83,7 @@ function itemHtml(it, S, trip, r = {}) {
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
       ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${r.early ? `<span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span>` : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
     ${S.wide ? GRIP : quickBtns(S, trip, it)}
@@ -202,7 +203,7 @@ const evOf = (S, trip, date, its) => dayEvents(date, { flights: allFlights(S, tr
 const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed, airport: ICON.plane };
 const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${['in', 'out', 'home'].includes(r.kind) ? 'stay' : 'transport'}">
     <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
-    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
+    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}</div>
     <span class="tag">交通住宿</span>
   </button>`;
 // 站與站之間的交通時間畫在虛線上，點了開 Google 地圖路線
@@ -239,7 +240,7 @@ function dayItems(S, trip, d) {
 // short：手機版，不寫幾個地方（時間軸一眼就看得到）
 function dayMeta(S, trip, d, n, short = false) {
   const date = dayIso(trip, d);
-  const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => e.createdAt?.toDate && todayString(e.createdAt.toDate()) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
+  const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => spentDay(e) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
   const left = d === 1 && trip.start && todayString() < trip.start ? S.todoDocs.filter(t => !t.done).length : 0;
   return [dayDate(trip, d), n && !short ? `${n} 個地方` : '', spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
     + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
@@ -273,11 +274,21 @@ function wishPanel(S, trip, d) {
   // 從「搜尋此區域」的結果條按「看清單」：只列地圖上亮著的收藏，或只列沒有位置的
   const only = S.wbox && S.wboxList;
   const lit = only === 'in' && new Set(mapData(S, null).points.filter(p => p.kind === 'wish' && !p.dim).map(p => p.id.slice(2)));
-  const left = wishLeft(S, d).filter(p => !only || (only === 'in' ? lit.has(p.id) : !hasXY(p) && (!S.mapArea || p.area === S.mapArea)));
+  // 搜尋名稱、未安排／已安排、匯入時的清單：有任何一個條件時，各區域全部展開
+  const q = (S.wq || '').trim().toLowerCase(), lists = [...new Set(S.wishDocs.map(p => p.list).filter(Boolean))];
+  const lf = lists.includes(S.wlist) ? S.wlist : '', st = S.wstat || '';
+  const hit = p => (!q || `${p.title} ${p.note || ''} ${p.area || ''}`.toLowerCase().includes(q)) && (!st || (st === 'used') === used.has(p.url)) && (!lf || p.list === lf);
+  const filtering = !!(q || st || lf);
+  const left = wishLeft(S, d).filter(p => !only || (only === 'in' ? lit.has(p.id) : !hasXY(p) && (!S.mapArea || p.area === S.mapArea))).filter(hit);
   const onlyTip = only ? `<div class="tip"><span><b>${only === 'in' ? '只顯示這一帶' : '只顯示沒有位置的收藏'}</b>${S.mapArea ? `（${esc(S.mapArea)}）` : ''}・${left.length} 個</span><button type="button" class="btn sm" data-act="wboxList" data-v="">顯示全部</button></div>` : '';
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個</p>`;
-  if (!left.length) return `${onlyTip}${count}<p class="small muted" style="margin:0">${only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
+  const chip = (act, v, cur, label) => `<button type="button" class="chip" data-act="${act}" data-v="${esc(v)}" aria-pressed="${cur === v}">${label}</button>`;
+  const tools = S.wishDocs.length < 6 ? '' : `<div class="wtools">
+      <div class="search">${ICON.search}<input id="wq" type="search" placeholder="搜尋收藏名稱" value="${esc(S.wq || '')}" aria-label="搜尋收藏"></div>
+      <div class="chips" role="group" aria-label="篩選收藏">${chip('wstat', '', st || lf, '全部')}${chip('wstat', 'free', st, '未安排')}${chip('wstat', 'used', st, '已安排')}${lists.length > 1 ? `<span class="chipsep" aria-hidden="true"></span>${lists.map(l => chip('wlist', l, lf, esc(l))).join('')}` : ''}</div>
+    </div>`;
+  if (!left.length) return `${onlyTip}${tools}${count}<p class="small muted" style="margin:0">${filtering ? '沒有符合的收藏。' : only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
   const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
   const named = groups.some(g => g.area);
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
@@ -293,14 +304,17 @@ function wishPanel(S, trip, d) {
   // 依行政區分區：有位置的地點查 Google 所在的區（例如「海雲臺區」），先列出改前改後再套用
   const geo = mapsKey && [...S.wishDocs, ...S.items].some(p => p.placeId || hasXY(p)) ? `<button type="button" class="btn sm" data-act="areaDist" ${off}>依行政區分區</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
-  if (!named) return `${onlyTip}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
-  return `${onlyTip}<div class="wishtop">${addArea}</div>${groups.map(g => {
-    const a = esc(g.area);
-    return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
-      <div class="grow">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>
+  if (!named) return `${onlyTip}${tools}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  // 區域預設收起，只展開自己點開的（或地圖正在看的那區）；只有一區、或正在搜尋篩選時全部展開
+  const isOpen = g => filtering || groups.length < 2 || S.wopen?.has(g.area) || (!!g.area && S.mapArea === g.area);
+  return `${onlyTip}${tools}<div class="wishtop">${addArea}</div>${groups.map(g => {
+    const a = esc(g.area), open = isOpen(g);
+    const fold = filtering || groups.length < 2 ? '' : `<button type="button" class="wgfold" data-act="wgToggle" data-area="${a}" aria-expanded="${open}" aria-label="${open ? '收起' : '展開'}「${g.area ? a : '還沒分區域'}」">${ICON.chev}</button>`;
+    return `<section class="wgroup${g.area ? '' : ' none'}" data-open="${open}"><div class="wghead">
+      ${fold}<div class="grow">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>
       <span class="wgact">${g.area ? addTo(S, trip, d, off, `class="btn sm" data-act="areaAdd" data-area="${a}"`, '排進這天') : ''}
       ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}</span>
-    </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
+    </div>${open ? `<div class="wishes">${g.places.map(row).join('')}</div>` : ''}</section>`;
   }).join('')}`;
 }
 
@@ -387,7 +401,8 @@ function dayPill(trip, d) {
 }
 
 // short：電腦版三欄左邊窄，直接寫「第 N 天」和日期，不放區域名稱
-const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
+// 天數多、一排放不下時左右可以滑，兩邊的箭頭（main.js syncDayArrows 控制顯示）按了往前、往後捲
+const dayPills = (S, trip, days, sel, short) => `<div class="dpwrap"><button type="button" class="dparrow l" data-act="dpScroll" data-v="-1" aria-label="前面的天數" hidden>‹</button><div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
   const p = dayPill(trip, d);
   const cur = d === sel ? 'aria-current="true"' : '';
   if (short) return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><b>${d ? `第 ${d} 天` : '未排'}</b><span class="num">${d && p.w ? `${p.n} 日（${p.w}）` : ''}</span></button>`;
@@ -395,7 +410,7 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
   const areas = d ? dayAreas(S.items, d).filter(a => !/^新區域( \d+)?$/.test(a)) : [];
   const label = d ? areas.slice(0, 2).join('、') || `第 ${d} 天` : '天數';
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur} title="${esc(areas.length ? `第 ${d} 天：${areas.join('、')}` : '')}"><span>${p.w}</span><b class="num">${p.n}</b><span class="dparea">${esc(label)}</span></button>`;
-}).join('')}</div>`;
+}).join('')}</div><button type="button" class="dparrow r" data-act="dpScroll" data-v="1" aria-label="後面的天數" hidden>›</button></div>`;
 
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
@@ -532,13 +547,14 @@ function infoCard(S, trip, d, mini = false) {
   const p = c.p;
   if (!p) return '';
   const pd = addDay(S, trip);
-  if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
+  if (mini) return miniCard(p.where ? `${p.title}（${p.where.split('・')[0]}）` : p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
   // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
   const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
   const today = p.hours?.[(local + 6) % 7];
   const rate = Number.isFinite(p.rating) ? `★ ${p.rating.toFixed(1)}${p.ratingN ? `（${p.ratingN.toLocaleString()} 則評論）` : ''}` : '';
   return wrap(['Google 地點', ITEM_LABEL[p.type] || ''], `${p.photo ? `<img src="${esc(p.photo)}" alt="" onerror="this.remove()" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;display:block;flex:none">` : ''}
     <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
+    ${p.where ? `<p class="small muted" style="margin:-6px 0 0;flex:none">${esc(p.where)}</p>` : ''}
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
     <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>${drvBtn('place', '')}</div>
     ${cardLinks([extLink(navTo(p, trip.country), '導航'), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}

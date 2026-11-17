@@ -727,6 +727,12 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 /* ---------- 行程時間軸：手機一次看一天，每項用類型顏色的圓形圖示 ---------- */
 .dpills{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding:2px 16px}
 .dpills::-webkit-scrollbar{display:none}
+/* 天數列放不下時兩邊的箭頭（只在那一邊還有天數時出現） */
+.dpwrap{position:relative}
+.dparrow{position:absolute;top:50%;transform:translateY(-50%);z-index:3;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--fg);box-shadow:var(--sh-card);font-size:20px;line-height:1;padding:0 0 2px;cursor:pointer}
+.dparrow[hidden]{display:none}
+.dparrow.l{left:-6px}
+.dparrow.r{right:-6px}
 .dpill{flex:none;min-width:56px;border:2px solid transparent;border-radius:16px;background:var(--surface);color:var(--muted);padding:6px 8px;display:grid;justify-items:center;line-height:1.25;font-size:11px;box-shadow:var(--sh-card)}
 .dpill b{font-size:20px;color:var(--fg);font-weight:800}
 .dpill span:last-child{max-width:5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1106,7 +1112,8 @@ button.mate:active .avatar{transform:scale(.92)}
   /* 固定高度又要捲動，用 flex 並且子項不縮，日期列才不會被下面的天數標題蓋住 */
   .device.wide .two > .day{display:flex;flex-direction:column;gap:8px;overflow-y:auto;scrollbar-width:thin;background:var(--surface);border-radius:18px;padding:12px 12px 72px;box-shadow:var(--sh-card)}
   .device.wide .two > .day > *{flex-shrink:0}
-  .device.wide .two > .day .dpills{position:sticky;top:-12px;z-index:2;background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
+  .device.wide .two > .day .dpwrap{position:sticky;top:-12px;z-index:2} /* 箭頭外框跟著天數列一起固定在上面 */
+  .device.wide .two > .day .dpills{background:var(--surface);margin:-12px -12px 0;padding:12px 12px 8px;gap:6px;border-bottom:1px solid var(--line)}
   .device.wide .two > .day .dpill{flex:0 0 auto;min-width:76px;padding:6px 10px;box-shadow:none;border:1px solid var(--line);gap:1px}
   .device.wide .two > .day .dpill b{font-size:15px;white-space:nowrap}
   .device.wide .two > .day .dpill span{font-size:12px;white-space:nowrap}
@@ -1247,3 +1254,31 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .menulist .moreacts summary{color:var(--muted)}
 .menulist .moreacts>button{display:flex;align-items:center;gap:12px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer}
 .device.wide .dayhead.mday h3{flex:none}
+
+/* 首頁「近期旅程」：旅行中、還沒出發、剛回國的旅程排在歷年列表前面；狀態標籤用橘底深字（不只靠顏色，標籤本身有文字） */
+.nearbox{display:grid;gap:10px}
+.nearh{display:flex;align-items:center;gap:8px}
+.nearh h3{font-size:15px}
+.tag.near,:root[data-style] .tripcard .tag.near{background:var(--warm);color:#10233d;font-weight:700;backdrop-filter:none}
+.yearsh{margin:4px 0 -4px}
+@media (min-width:1000px){ .device.wide .nearbox .list{grid-template-columns:repeat(3,1fr)} }
+.nearbox .tripcard::before{display:none} /* 時間軸圓點只給歷年列表用 */
+
+/* 支出明細：記一筆放最上面，總額縮成一行；每人負擔、分類放「分攤」 */
+.expbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+.expbar .expadd{min-height:44px;padding-inline:20px}
+.exptot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 12px;margin:0;color:var(--muted);text-align:right}
+.exptot b{color:var(--fg);font-family:var(--font-data);font-size:16px}
+.exptodo{display:grid;gap:8px;background:color-mix(in srgb,var(--warn) 12%,var(--surface));color:var(--fg)}
+.exptodo .row{display:flex;flex-wrap:wrap;gap:8px}
+
+/* 想去清單：搜尋、未安排／已安排、匯入清單篩選；區域預設收起，點左邊箭頭展開 */
+.wtools{display:grid;gap:8px}
+
+.wgfold{all:unset;flex:none;display:inline-grid;place-items:center;width:44px;height:44px;margin:-10px -8px -10px -12px;border-radius:10px;color:var(--muted);cursor:pointer}
+.wgfold svg{width:16px;height:16px;transition:transform .2s}
+.wgfold[aria-expanded="true"] svg{transform:rotate(90deg)}
+.wgfold:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
+@media (prefers-reduced-motion:reduce){.wgfold svg{transition:none}}
+.wtools .chips{flex-wrap:nowrap}
+.chipsep{flex:none;width:1px;align-self:stretch;margin:6px 2px;background:var(--line)}
