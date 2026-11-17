@@ -274,11 +274,21 @@ function wishPanel(S, trip, d) {
   // 從「搜尋此區域」的結果條按「看清單」：只列地圖上亮著的收藏，或只列沒有位置的
   const only = S.wbox && S.wboxList;
   const lit = only === 'in' && new Set(mapData(S, null).points.filter(p => p.kind === 'wish' && !p.dim).map(p => p.id.slice(2)));
-  const left = wishLeft(S, d).filter(p => !only || (only === 'in' ? lit.has(p.id) : !hasXY(p) && (!S.mapArea || p.area === S.mapArea)));
+  // 搜尋名稱、未安排／已安排、匯入時的清單：有任何一個條件時，各區域全部展開
+  const q = (S.wq || '').trim().toLowerCase(), lists = [...new Set(S.wishDocs.map(p => p.list).filter(Boolean))];
+  const lf = lists.includes(S.wlist) ? S.wlist : '', st = S.wstat || '';
+  const hit = p => (!q || `${p.title} ${p.note || ''} ${p.area || ''}`.toLowerCase().includes(q)) && (!st || (st === 'used') === used.has(p.url)) && (!lf || p.list === lf);
+  const filtering = !!(q || st || lf);
+  const left = wishLeft(S, d).filter(p => !only || (only === 'in' ? lit.has(p.id) : !hasXY(p) && (!S.mapArea || p.area === S.mapArea))).filter(hit);
   const onlyTip = only ? `<div class="tip"><span><b>${only === 'in' ? '只顯示這一帶' : '只顯示沒有位置的收藏'}</b>${S.mapArea ? `（${esc(S.mapArea)}）` : ''}・${left.length} 個</span><button type="button" class="btn sm" data-act="wboxList" data-v="">顯示全部</button></div>` : '';
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個</p>`;
-  if (!left.length) return `${onlyTip}${count}<p class="small muted" style="margin:0">${only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
+  const chip = (act, v, cur, label) => `<button type="button" class="chip" data-act="${act}" data-v="${esc(v)}" aria-pressed="${cur === v}">${label}</button>`;
+  const tools = S.wishDocs.length < 6 ? '' : `<div class="wtools">
+      <div class="search">${ICON.search}<input id="wq" type="search" placeholder="搜尋收藏名稱" value="${esc(S.wq || '')}" aria-label="搜尋收藏"></div>
+      <div class="chips" role="group" aria-label="篩選收藏">${chip('wstat', '', st || lf, '全部')}${chip('wstat', 'free', st, '未安排')}${chip('wstat', 'used', st, '已安排')}${lists.length > 1 ? `<span class="chipsep" aria-hidden="true"></span>${lists.map(l => chip('wlist', l, lf, esc(l))).join('')}` : ''}</div>
+    </div>`;
+  if (!left.length) return `${onlyTip}${tools}${count}<p class="small muted" style="margin:0">${filtering ? '沒有符合的收藏。' : only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
   const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
   const named = groups.some(g => g.area);
   // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
@@ -294,14 +304,17 @@ function wishPanel(S, trip, d) {
   // 依行政區分區：有位置的地點查 Google 所在的區（例如「海雲臺區」），先列出改前改後再套用
   const geo = mapsKey && [...S.wishDocs, ...S.items].some(p => p.placeId || hasXY(p)) ? `<button type="button" class="btn sm" data-act="areaDist" ${off}>依行政區分區</button>` : '';
   const addArea = `<span class="row" style="gap:6px;flex:none">${geo}${groups.some(g => !g.area && g.places.length > 1) ? `<button type="button" class="btn sm" data-act="areaNear" ${off}>依距離分組</button>` : ''}<button type="button" class="btn sm" data-act="areaSheet" data-area="" ${off}>${ICON.plus}新增區域</button></span>`;
-  if (!named) return `${onlyTip}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
-  return `${onlyTip}<div class="wishtop">${addArea}</div>${groups.map(g => {
-    const a = esc(g.area);
-    return `<section class="wgroup${g.area ? '' : ' none'}"><div class="wghead">
-      <div class="grow">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>
+  if (!named) return `${onlyTip}${tools}<div class="tip"><span>把附近的地點分成區域，到時候整區排進某一天。</span>${addArea}</div><div class="wishes">${left.length ? groups[0].places.map(row).join('') : ''}</div>`;
+  // 區域預設收起，只展開自己點開的（或地圖正在看的那區）；只有一區、或正在搜尋篩選時全部展開
+  const isOpen = g => filtering || groups.length < 2 || S.wopen?.has(g.area) || (!!g.area && S.mapArea === g.area);
+  return `${onlyTip}${tools}<div class="wishtop">${addArea}</div>${groups.map(g => {
+    const a = esc(g.area), open = isOpen(g);
+    const fold = filtering || groups.length < 2 ? '' : `<button type="button" class="wgfold" data-act="wgToggle" data-area="${a}" aria-expanded="${open}" aria-label="${open ? '收起' : '展開'}「${g.area ? a : '還沒分區域'}」">${ICON.chev}</button>`;
+    return `<section class="wgroup${g.area ? '' : ' none'}" data-open="${open}"><div class="wghead">
+      ${fold}<div class="grow">${g.area && !S.offline && g.places.some(hasXY) ? `<button type="button" class="wgname" data-act="mapArea" data-area="${a}" aria-pressed="${S.mapArea === g.area}" title="${S.mapArea === g.area ? '地圖改回看全部' : '地圖只看這區'}">${a}</button>` : `<b>${g.area ? a : '還沒分區域'}</b>`}<span class="small muted num">${g.places.length} 個${cardDays(S, g.area)}</span></div>
       <span class="wgact">${g.area ? addTo(S, trip, d, off, `class="btn sm" data-act="areaAdd" data-area="${a}"`, '排進這天') : ''}
       ${g.area ? `<button type="button" class="more" data-act="areaSheet" data-area="${a}" ${off} aria-label="編輯區域「${a}」">⋯</button>` : ''}</span>
-    </div><div class="wishes">${g.places.map(row).join('')}</div></section>`;
+    </div>${open ? `<div class="wishes">${g.places.map(row).join('')}</div>` : ''}</section>`;
   }).join('')}`;
 }
 

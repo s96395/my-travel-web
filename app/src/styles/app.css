@@ -1271,3 +1271,14 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .exptot b{color:var(--fg);font-family:var(--font-data);font-size:16px}
 .exptodo{display:grid;gap:8px;background:color-mix(in srgb,var(--warn) 12%,var(--surface));color:var(--fg)}
 .exptodo .row{display:flex;flex-wrap:wrap;gap:8px}
+
+/* 想去清單：搜尋、未安排／已安排、匯入清單篩選；區域預設收起，點左邊箭頭展開 */
+.wtools{display:grid;gap:8px}
+
+.wgfold{all:unset;flex:none;display:inline-grid;place-items:center;width:44px;height:44px;margin:-10px -8px -10px -12px;border-radius:10px;color:var(--muted);cursor:pointer}
+.wgfold svg{width:16px;height:16px;transition:transform .2s}
+.wgfold[aria-expanded="true"] svg{transform:rotate(90deg)}
+.wgfold:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
+@media (prefers-reduced-motion:reduce){.wgfold svg{transition:none}}
+.wtools .chips{flex-wrap:nowrap}
+.chipsep{flex:none;width:1px;align-self:stretch;margin:6px 2px;background:var(--line)}
