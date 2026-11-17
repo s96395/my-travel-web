@@ -7,7 +7,7 @@ import { spentDay } from './expense.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_TYPES, ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, storeName, PRIORITIES, PRIORITY_LABEL, BOOK_LABEL, ticketList, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, stayPlace, groupByArea, sameName, STAY_MINS, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
+import { ITEM_TYPES, ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, storeName, BOOK_LABEL, ticketList, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, stayPlace, groupByArea, sameName, STAY_MINS, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -15,7 +15,6 @@ import { mapsKey } from '../firebase.js';
 const ITEM_ICON = { attraction: ICON.pin, restaurant: ICON.food, cafe: ICON.cafe, shopping: ICON.shop, transport: ICON.train, stay: ICON.bed, other: ICON.note };
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
-const PRI_TAG = { must: ' bad', want: ' accent', optional: '' };
 
 // 第 d 天的日期字串（2026-11-20）；超出旅程日期或沒設日期時是空的
 function dayIso(trip, d) {
@@ -44,7 +43,8 @@ const whenOf = (it, r) => (it.time ? `<span class="data" style="color:var(--acce
 // 餐別的表情符號：時間軸、資訊卡、編輯畫面一起用
 const MEAL_EMO = { breakfast: '🍳', lunch: '🍱', dinner: '🍽️', snack: '🍰', night: '🍜' };
 const mealWord = m => `${MEAL_EMO[m] || ''}${MEAL_LABEL[m]}`;
-const mealTag = it => (it.meal ? `<span class="mealtag">〔${mealWord(it.meal)}〕</span>` : '');
+// 卡片上餐別只放表情符號（名稱、類型圖示已經說明是吃飯，不再多一個「〔午餐〕」）；文字放在提示與讀屏
+const mealTag = it => (it.meal ? `<span class="mealtag" title="${MEAL_LABEL[it.meal]}" aria-label="${MEAL_LABEL[it.meal]}">${MEAL_EMO[it.meal] || ''}</span> ` : '');
 // 有餐別時表情符號已經說明是吃飯，不再放類型圖示
 const nameHtml = (it, icon = false) => `${icon && !it.meal && ITEM_ICON[it.type] ? `<span aria-hidden="true">${ITEM_ICON[it.type]}</span> ` : ''}${mealTag(it)}${esc(it.title)}`;
 const nameText = it => `${it.meal ? `〔${mealWord(it.meal)}〕` : ''}${it.title}`;
@@ -70,12 +70,17 @@ function bookTag(it, cls = 'tag') {
   return it.bookUrl ? `<a class="${c}" href="${esc(it.bookUrl)}" target="_blank" rel="noopener" title="開啟訂位頁">${t} ↗</a>` : `<span class="${c}">${t}</span>`;
 }
 
+// 「必去／想去／有空再去」收斂成一個「⭐ 重點」：只有原本是必去的顯示；想去、有空再去的舊資料照存，不顯示標籤
+const STAR_TAG = '<span class="tag star">⭐ 重點</span>';
+// 票券標記：一個寫名稱，兩個以上只寫幾張，點開資訊卡再看
+const ticketTag = it => (!it.tickets.length ? '' : it.tickets.length === 1 ? `<span class="tag">🎫 ${esc(it.tickets[0])}</span>` : `<span class="tag" title="${esc(it.tickets.join('、'))}">🎫 ${it.tickets.length} 張票券</span>`);
+
 // 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
 function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
   const when = whenOf(it, r), note = noteOf(it);
-  // 「有空再去」不算進後面的時間，標出來免得以為後面會被往後推
-  const sub = [it.stay ? `停留 ${stayText(it.stay)}` : '', r.skip ? '有空再去' : ''].filter(Boolean).join('・');
+  // 舊資料的「有空再去」照樣不算進後面的時間，但卡片不再多一個標籤（優先度只顯示 ⭐ 重點）
+  const sub = it.stay ? `停留 ${stayText(it.stay)}` : '';
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
     <div class="grow" style="flex:1">
@@ -83,18 +88,18 @@ function itemHtml(it, S, trip, r = {}) {
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
       ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${r.early ? `<span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span>` : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${r.early ? `<span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span>` : ''}${it.priority === 'must' ? STAR_TAG : ''}${bookTag(it)}${ticketTag(it)}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
     ${S.wide ? GRIP : quickBtns(S, trip, it)}
     <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
   </div>`;
 }
-// 手機每站右邊的兩顆小圖示：導航、給司機看（沒網路時只留給司機看）；拖曳改成長按整列
+// 手機每站右邊只留「導航」；給司機看收進資訊卡的詳細資訊（沒網路不能導航時才露出給司機看）；拖曳改成長按整列
 const TAXI_ICO = '<span aria-hidden="true">🚕</span>';
 function quickBtns(S, trip, it) {
   const nav = onMap(it) && !S.offline ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${ICON.map}</a>` : '';
-  const drv = onMap(it) || S.offline ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
+  const drv = S.offline ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
   return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
 
@@ -284,7 +289,8 @@ function wishPanel(S, trip, d) {
   if (!S.wishDocs.length) return `<div class="tip"><span>把 Google 地圖收藏的地點匯入這裡，再一個個加到每天，名稱和位置都不會錯。</span><button type="button" class="btn sm" data-act="importSheet" ${off}>匯入 Google 地圖收藏</button></div>`;
   const count = `<p class="small muted num" style="margin:0">共 ${S.wishDocs.length} 個・已排進行程 ${S.wishDocs.filter(p => used.has(p.url)).length} 個</p>`;
   const chip = (act, v, cur, label) => `<button type="button" class="chip" data-act="${act}" data-v="${esc(v)}" aria-pressed="${cur === v}">${label}</button>`;
-  const tools = S.wishDocs.length < 6 ? '' : `<div class="wtools">
+  // 收藏刪到少於 6 個時，篩選條件還在就留著搜尋框與篩選鈕，才能清掉
+  const tools = S.wishDocs.length < 6 && !filtering ? '' : `<div class="wtools">
       <div class="search">${ICON.search}<input id="wq" type="search" placeholder="搜尋收藏名稱" value="${esc(S.wq || '')}" aria-label="搜尋收藏"></div>
       <div class="chips" role="group" aria-label="篩選收藏">${chip('wstat', '', st || lf, '全部')}${chip('wstat', 'free', st, '未安排')}${chip('wstat', 'used', st, '已安排')}${lists.length > 1 ? `<span class="chipsep" aria-hidden="true"></span>${lists.map(l => chip('wlist', l, lf, esc(l))).join('')}` : ''}</div>
     </div>`;
@@ -493,7 +499,6 @@ const navTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title, true) : hasX
 // 給司機看的「在地圖開啟」：韓國改開 Naver 地圖（資訊卡上韓國只留導航，不放這個連結）
 const openTo = (p, c = '') => (inKorea(p, c) ? naverHref(p, p.title) : p.url || '');
 // 給司機看的入口：資訊卡放在文字連結列；離線時資訊卡打不開，改在時間軸那一站下面放一個標籤
-const drvBtn = (k, id) => drvLink(k, id, 'btn grow', '🚕 ');
 const drvLink = (k, id, cls = 'linkbtn', icon = '') => `<button type="button" class="${cls}" data-act="driver" data-k="${k}" data-id="${esc(id || '')}">${icon}給司機看</button>`;
 const facts = rows => (rows.some(r => r[1]) ? `<details open><summary class="label" style="cursor:pointer">詳細資訊</summary><dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:8px 0 0">${rows.filter(r => r[1]).map(([k, v]) => `<dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd>`).join('')}</dl></details>` : '');
 // 手機面板收合時（mini）不把面板撐高，只放名稱和兩顆主要按鈕；要看更多就把面板往上拉
@@ -525,12 +530,12 @@ function infoCard(S, trip, d, mini = false) {
     ].filter(Boolean);
     const addr = it.address && !isMapLink(it.address) ? esc(it.address) : '';
     const bk = backupsOf(S.items, it.id).map(b => esc(b.title)).join('、');
-    const marks = it.kind !== 'area' ? bookTag(it) + it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('') : '';
-    return wrap([it.day ? `第 ${it.day} 天` : '還沒排天數', no ? `第 ${no} 站` : '', it.kind === 'area' ? '區域' : ITEM_LABEL[it.type] || '', it.kind !== 'area' ? esc(it.area || '') : ''], `${marks ? `<div class="tags">${marks}</div>` : ''}
+    const marks = it.kind !== 'area' ? (it.priority === 'must' ? STAR_TAG : '') + bookTag(it) + it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('') : '';
+    return wrap([it.day ? `第 ${it.day} 天` : '還沒排天數', no ? `第 ${no} 站` : '', it.kind === 'area' ? '區域' : it.meal ? MEAL_LABEL[it.meal] : ITEM_LABEL[it.type] || '', it.kind !== 'area' ? esc(it.area || '') : ''], `${marks ? `<div class="tags">${marks}</div>` : ''}
       <h3 style="margin:0;flex:none">${it.kind === 'area' ? esc(it.title) : nameHtml(it, true)}</h3>
       ${when ? `<p style="margin:0">${when}</p>` : ''}${it.tip ? `<p class="small muted" style="margin:0">${esc(it.tip)}</p>` : ''}
-      <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}${it.kind !== 'area' && onMap(it) ? drvBtn('day', it.id) : ''}</div>
-      ${cardLinks([onMap(it) && !inKorea(it, trip.country) ? extLink(placeHref(it, trip.city, trip.country), '在 Google 地圖開啟') : ''], cardMore(more, main ? 1 : 2))}
+      <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
+      ${cardLinks([it.kind !== 'area' && onMap(it) ? drvLink('day', it.id, 'linkbtn', '🚕 ') : '', onMap(it) && !inKorea(it, trip.country) ? extLink(placeHref(it, trip.city, trip.country), '在 Google 地圖開啟') : ''], cardMore(more, main ? 1 : 2))}
       ${facts([['地址', addr], ['備註', esc(noteOf(it))], ['備案', bk]])}`);
   }
   if (c.kind === 'wish') {
@@ -540,8 +545,8 @@ function infoCard(S, trip, d, mini = false) {
     const ad = addDay(S, trip);
     if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="wishPick" data-id="${id}" data-d="${ad}" ${off} style="white-space:nowrap">${ICON.plus}加入第 ${ad} 天 ▾</button>${navTo(p, trip.country) ? `<a class="btn sm grow" href="${esc(navTo(p, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}`);
     return wrap(['收藏', esc(p.area || ''), days ? `已排第 ${days.join('、')} 天` : ''], `<div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
-      <div class="row"><button type="button" class="btn primary grow" data-act="wishPick" data-id="${id}" data-d="${ad}" ${off} style="white-space:nowrap">${ICON.plus}加入第 ${ad} 天 ▾</button>${navTo(p, trip.country) ? `<a class="btn grow" href="${esc(navTo(p, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}${drvBtn('wish', p.id)}</div>
-      ${cardLinks([inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
+      <div class="row"><button type="button" class="btn primary grow" data-act="wishPick" data-id="${id}" data-d="${ad}" ${off} style="white-space:nowrap">${ICON.plus}加入第 ${ad} 天 ▾</button>${navTo(p, trip.country) ? `<a class="btn grow" href="${esc(navTo(p, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
+      ${cardLinks([drvLink('wish', p.id, 'linkbtn', '🚕 '), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
       ${facts([['備註', esc(noteOf(p))]])}`);
   }
   const p = c.p;
@@ -556,8 +561,8 @@ function infoCard(S, trip, d, mini = false) {
     <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
     ${p.where ? `<p class="small muted" style="margin:-6px 0 0;flex:none">${esc(p.where)}</p>` : ''}
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
-    <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>${drvBtn('place', '')}</div>
-    ${cardLinks([extLink(navTo(p, trip.country), '導航'), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
+    <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button></div>
+    ${cardLinks([extLink(navTo(p, trip.country), '導航'), drvLink('place', '', 'linkbtn', '🚕 '), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
     ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
 }
 
@@ -750,19 +755,19 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
   // 舊資料時間欄寫「午餐」「晚餐」的，打開時改成餐別，時間欄清空
   const oldMeal = !v.meal && !v.time ? mealOf(v.timeText) : '';
   const meal = v.meal || oldMeal, when = v.time || (oldMeal ? '' : v.timeText) || '';
-  openSheet(`${head(it ? '編輯行程' : `新增到第 ${day} 天`)}
+  openSheet(`${head(it ? '編輯行程' : '新增地點')}
     <label for="n-title" class="small muted" style="text-align:center;margin-bottom:-8px">✎ 名稱${bound ? '（可以改成好認的中文，不影響導航）' : ''}</label>
     <div class="suggwrap"><input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}"></div>
     ${bound ? `<p class="small muted" style="margin:-4px 0 0;text-align:center;overflow-wrap:anywhere">📍 <span id="n-bound">${it.placeId ? '已綁定地點，正在查是哪一間…' : '已綁定位置（沒有 Google 地點資料）'}</span>${onMap(it) ? `・<a href="${esc(placeHref(it))}" target="_blank" rel="noopener" style="color:var(--accent)">在地圖上看</a>` : ''}</p>` : ''}
-    <div class="field"><label for="n-tip">一句提示<span class="muted" style="font-weight:400">・顯示在行程卡片上，20 字內</span></label><input class="input" id="n-tip" maxlength="20" placeholder="例如：先抽號碼牌再去逛" value="${esc(v.tip || '')}"></div>
-    <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div>
-    <div class="field"><span class="label">優先度</span>
-      <div class="chips" role="radiogroup" aria-label="優先度">${[['', '不設定'], ...PRIORITIES.map(p => [p, PRIORITY_LABEL[p]])].map(p => `<label class="chip"><input type="radio" name="n-pri" value="${p[0]}" ${p[0] === (v.priority || '') ? 'checked' : ''}>${p[1]}</label>`).join('')}</div></div>
-    <div class="grid2"><div class="field"><label for="n-time">什麼時候</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(when)}"></div>
-      <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div></div>
+    <div class="field"><label for="n-time">什麼時候<span class="muted" style="font-weight:400">・選填，沒填會依前一站推算</span></label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(when)}"></div>
     <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30 或 下午2點</p>
-    <div class="chips twords" style="flex-wrap:wrap" aria-label="餐別">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${mealWord(m)}</label>`).join('')}</div>
-    <details class="field"${v.book || v.bookUrl || v.tickets.length ? ' open' : ''}><summary class="linkbtn" style="justify-self:start">訂位、票券${bsum ? `<span class="muted" style="font-weight:400">・${esc(bsum)}</span>` : ''}</summary>
+    <div class="field"><label for="n-tip">一句提示<span class="muted" style="font-weight:400">・選填，顯示在行程卡片上，20 字內</span></label><input class="input" id="n-tip" maxlength="20" placeholder="例如：先抽號碼牌再去逛" value="${esc(v.tip || '')}"></div>
+    <div class="chips"><label class="chip starchip"><input type="checkbox" id="n-star" data-old="${esc(v.priority || '')}" ${v.priority === 'must' ? 'checked' : ''}>⭐ 標成重點</label></div>
+    <details class="field moreset"><summary class="linkbtn" style="justify-self:start">更多設定（類型、停留、餐別、訂位、區域、備註）${(x => x ? `<span class="muted" style="font-weight:400">・${esc(x)}</span>` : '')([it ? ITEM_LABEL[v.type] : '', meal ? MEAL_LABEL[meal] : '', bsum, v.area, v.note ? '有備註' : ''].filter(Boolean).join('・'))}</summary>
+    <div class="field"><span class="label">類型<span class="muted" style="font-weight:400">・從搜尋選地點會自動帶入</span></span>
+    <div class="picks" role="radiogroup" aria-label="類型">${ITEM_TYPES.map(t => `<label class="pick"><input type="radio" name="n-type" value="${t}" ${t === v.type ? 'checked' : ''}><i>${ITEM_ICON[t]}</i><span>${ITEM_LABEL[t]}</span></label>`).join('')}</div></div>
+    <div class="field"><label for="n-stay">停留多久</label><select class="input" id="n-stay"><option value="0">依類型推算</option>${STAY_MINS.map(m => `<option value="${m}" ${m === v.stay ? 'selected' : ''}>${stayText(m)}</option>`).join('')}</select></div>
+    <div class="field"><span class="label">餐別</span><div class="chips twords" style="flex-wrap:wrap" aria-label="餐別">${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${mealWord(m)}</label>`).join('')}</div></div>
     <div class="field"><span class="label">訂位</span>
       <div class="chips" role="radiogroup" aria-label="訂位">${[['', '不用'], ...Object.entries(BOOK_LABEL)].map(b => `<label class="chip"><input type="radio" name="n-book" value="${b[0]}" ${b[0] === (v.book || '') ? 'checked' : ''}>${b[1]}</label>`).join('')}</div></div>
     <div class="field"><label for="n-burl">訂位或排隊網址<span class="muted" style="font-weight:400">・例如 CatchTable、餐廳訂位頁，選填</span></label><input class="input" id="n-burl" type="url" inputmode="url" autocomplete="off" maxlength="500" placeholder="https://" value="${esc(v.bookUrl || '')}"></div>
@@ -770,13 +775,11 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     <div class="field"><label for="n-tk">票券標記<span class="muted" style="font-weight:400">・例如：釜山 Pass 可用，最多 5 個</span></label>
       ${pool.length ? `<div class="chips" style="flex-wrap:wrap" aria-label="這趟用過的標記">${pool.map(t => `<label class="chip"><input type="checkbox" name="n-tks" value="${esc(t)}" ${v.tickets.includes(t) ? 'checked' : ''}>🎫 ${esc(t)}</label>`).join('')}</div>` : ''}
       <input class="input" id="n-tk" maxlength="60" autocomplete="off" placeholder="${pool.length ? '新增其他標記，' : ''}多個用逗號隔開"></div>
-    </details>
-    <details class="field moreset"><summary class="linkbtn" style="justify-self:start">更多設定（區域、地址、備註）${(x => x ? `<span class="muted" style="font-weight:400">・${esc(x)}</span>` : '')([v.area, v.note ? '有備註' : ''].filter(Boolean).join('・'))}</summary>
     <div class="field"><label for="n-area">區域<span class="muted" style="font-weight:400">・可以選現有的，也可以打新的</span></label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" list="n-areas" autocomplete="off" value="${esc(v.area)}"><datalist id="n-areas">${areas.map(a => `<option value="${esc(a)}">`).join('')}</datalist></div>
     ${(f => bound ? `<details class="field"><summary class="linkbtn" style="justify-self:start">換地點</summary><p class="small muted" style="margin:4px 0">在上面的名稱欄打字，從跳出的候選地點選新的；或在這裡貼 Google 地圖連結。</p>${f}</details>` : f)(`<div class="field"><label for="n-addr">地址或 Google 地圖連結（選填）</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結；沒填就用名稱和區域搜尋" value="${esc(v.address || '')}"></div>`)}
     <div class="field"><label for="n-note">備註<span class="muted" style="font-weight:400">・點開這站才看得到，最多 1000 字，可以換行</span></label><textarea class="input" id="n-note" rows="5" maxlength="1000">${esc(v.note)}</textarea></div>
     </details>
-    <div style="position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 -4px calc(-20px - env(safe-area-inset-bottom,0px));padding:8px 4px calc(20px + env(safe-area-inset-bottom,0px));background:var(--surface);display:grid"><button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : '加入行程'}</button></div>`);
+    <div style="position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 -4px calc(-20px - env(safe-area-inset-bottom,0px));padding:8px 4px calc(20px + env(safe-area-inset-bottom,0px));background:var(--surface);display:grid;${it ? '' : 'grid-template-columns:auto 1fr;'}gap:8px">${it ? '' : '<button type="button" class="btn" data-act="saveItemWish">先收藏</button>'}<button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : `加入第 ${day} 天`}</button></div>`);
   // 餐別只能選一個：勾了一個就取消其他的
   document.querySelectorAll('input[name="n-meal"]').forEach(x => x.addEventListener('change', () => {
     if (x.checked) document.querySelectorAll('input[name="n-meal"]').forEach(y => { if (y !== x) y.checked = false; });
@@ -850,7 +853,8 @@ export function readItemForm() {
     ...xy,
     title: t.value.trim(),
     type: $('input[name="n-type"]:checked')?.value || 'other',
-    priority: $('input[name="n-pri"]:checked')?.value || '',
+    // ⭐ 重點＝必去；取消時，原本是想去／有空再去的舊資料照留，不覆寫
+    priority: $('#n-star').checked ? 'must' : ($('#n-star').dataset.old === 'must' ? '' : $('#n-star').dataset.old || ''),
     meal: $('input[name="n-meal"]:checked')?.value || '',
     reservationTime: hm,
     timeText: hm ? '' : tv,

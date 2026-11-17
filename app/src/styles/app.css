@@ -1282,3 +1282,8 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 @media (prefers-reduced-motion:reduce){.wgfold svg{transition:none}}
 .wtools .chips{flex-wrap:nowrap}
 .chipsep{flex:none;width:1px;align-self:stretch;margin:6px 2px;background:var(--line)}
+
+/* 收斂：⭐ 重點（取代必去／想去／有空再去的顯示），新增表單的重點勾選 */
+.tag.star{background:color-mix(in srgb,var(--warm) 16%,transparent);color:var(--fg);font-weight:600}
+.starchip{justify-self:start;min-height:44px}
+.chips label.starchip{display:inline-flex;align-items:center}
