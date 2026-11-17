@@ -758,7 +758,6 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     <div class="field" id="n-timebox" ${done ? '' : 'hidden'}><label for="n-time">預約幾點</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(done ? when : '')}"></div>
     <p class="small err-text" id="n-time-err" hidden>看不懂這個時間，請寫 14:30 或 下午2點</p>
     <div class="field"><label for="n-note">備註${sub('第一行會顯示在行程卡片上，最多 1000 字')}</label><textarea class="input" id="n-note" rows="4" maxlength="1000" placeholder="例如：先抽號碼牌再去逛">${esc(note)}</textarea></div>
-    <div class="field"><label for="n-area">區域${sub('選填，可以選現有的，也可以打新的')}</label><input class="input" id="n-area" maxlength="20" placeholder="例如：嵐山" list="n-areas" autocomplete="off" value="${esc(v.area)}"><datalist id="n-areas">${areas.map(a => `<option value="${esc(a)}">`).join('')}</datalist></div>
     <div class="field"><label for="n-addr">${bound ? `換地點${sub('在名稱欄打字選新的地點，或貼 Google 地圖連結')}` : `地址或 Google 地圖連結${sub('選填，沒填就用名稱和區域搜尋')}`}</label><input class="input" id="n-addr" maxlength="300" placeholder="可貼 Google 地圖分享連結" value="${esc(v.address || '')}"></div>
     <div style="position:sticky;bottom:calc(-20px - env(safe-area-inset-bottom,0px));margin:0 -4px calc(-20px - env(safe-area-inset-bottom,0px));padding:8px 4px calc(20px + env(safe-area-inset-bottom,0px));background:var(--surface);display:grid;${it ? '' : 'grid-template-columns:auto 1fr;'}gap:8px">${it ? '' : '<button type="button" class="btn" data-act="saveItemWish">先收藏</button>'}<button type="button" class="btn primary" data-act="saveItem" data-d="${day}" ${it ? `data-id="${esc(it.id)}"` : ''}>${it ? '儲存' : `加入第 ${day} 天`}</button></div>`);
   // 選「已預約」才出現時間欄
@@ -852,7 +851,8 @@ export function readItemForm() {
     bookUrl: o.bookUrl || '',
     tickets: o.tickets || [],
     stay: o.stay || 0,
-    area: $('#n-area').value.trim(),
+    // 區域一律用地址的區，不讓使用者填；換了地點由 main.js 重查，沒換就照舊
+    area: o.area || '',
     address: $('#n-addr').value.trim(),
   };
 }
