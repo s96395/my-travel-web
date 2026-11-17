@@ -734,7 +734,7 @@ export function areaDistSheet(list) {
 
 // near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null；areas：這趟已有的區域名稱，區域欄可以直接選
 // tickets：這趟已用過的票券標記，可以直接點選
-// 編輯畫面拿掉的欄位（類型、停留多久、訂位網址、票券標記）照舊資料存回去，不清掉
+// 編輯畫面打開時的舊資料：類型、區域、沒選已預約時的舊時間照原值存回
 let formOld = null;
 export function itemFormSheet(day, it = null, near = null, areas = [], tickets = []) {
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', meal: '', time: '', timeText: '', stay: 0, note: '', tip: '', book: '', bookUrl: '', tickets: [] };
@@ -745,7 +745,7 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
   const meal = v.meal || oldMeal, when = v.time || (oldMeal ? '' : v.timeText) || '';
   // 一句提示和備註合成一欄：第一行顯示在行程卡片上
   const note = [v.tip, v.note].filter(Boolean).join('\n');
-  formOld = { ...v, noteText: note };
+  formOld = v;
   const done = v.book === 'done';
   const sub = t => `<span class="muted" style="font-weight:400">・${t}</span>`;
   openSheet(`${head(it ? '編輯行程' : '新增地點')}
@@ -822,8 +822,8 @@ function areaPick(places) {
 export function readItemForm() {
   const t = $('#n-title'), o = formOld || {};
   if (!t.value.trim()) { t.classList.add('err'); t.focus(); return null; }
-  // 訂位：沒選（舊資料是「要排隊」）就照舊
-  const book = $('input[name="n-book"]:checked')?.value ?? (o.book || '');
+  // 訂位：舊資料的「要排隊」沒有選項了，存檔時清掉
+  const book = $('input[name="n-book"]:checked')?.value || '';
   // 已預約才讀時間欄；1430、下午2點這類寫法換成 14:30，看不懂的先提醒。沒選已預約時，舊的時間照留
   let when = { reservationTime: o.time || '', timeText: o.timeText || '' };
   if (book === 'done') {
@@ -832,8 +832,8 @@ export function readItemForm() {
     if (hm === null) { tm.classList.add('err'); tm.focus(); return null; }
     when = { reservationTime: hm, timeText: hm ? '' : tv };
   }
-  // 備註一欄：沒改過就照原本的提示、備註存；改過就整段存進備註，提示清空（內容都在備註裡）
-  const nv = $('#n-note').value.trim(), same = nv === (o.noteText || '').trim();
+  // 備註一欄：原本的一句提示也併進來，整段存在備註
+  const nv = $('#n-note').value.trim();
   // 從候選地點選的：地址欄還是那個連結，就連同位置一起存
   let xy = {};
   try { const p = JSON.parse(t.dataset.place || 'null'); if (p && p.url === $('#n-addr').value.trim()) xy = { lat: p.lat, lng: p.lng, exact: true, placeId: p.pid || '', geoAt: Date.now() }; } catch { /* 沒選過 */ }
@@ -845,12 +845,10 @@ export function readItemForm() {
     priority: $('#n-star').checked ? 'must' : ($('#n-star').dataset.old === 'must' ? '' : $('#n-star').dataset.old || ''),
     meal: $('input[name="n-meal"]:checked')?.value || '',
     ...when,
-    tip: same ? o.tip || '' : '',
-    note: same ? o.note || '' : nv,
+    note: nv,
     book,
-    bookUrl: o.bookUrl || '',
-    tickets: o.tickets || [],
-    stay: o.stay || 0,
+    // 拿掉的欄位（停留多久、訂位網址、票券標記、一句提示）存檔時從資料裡刪掉
+    clean: true,
     // 區域一律用地址的區，不讓使用者填；換了地點由 main.js 重查，沒換就照舊
     area: o.area || '',
     address: $('#n-addr').value.trim(),

@@ -1382,7 +1382,7 @@ const actions = {
   async saveQuickTime(el) {
     const v = readQuickTime(), it = findItem(el.dataset.id), tid = S.tripId;
     if (!v || !it || S.busy) return;
-    const old = { reservationTime: it.time || '', timeText: it.timeText || '', stay: it.stay || 0 };
+    const old = { reservationTime: it.time || '', timeText: it.timeText || '' };
     S.busy = true; el.disabled = true;
     try {
       await updateItem(tid, it.id, v, S.user, S.nickname);
