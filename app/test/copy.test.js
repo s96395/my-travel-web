@@ -66,3 +66,11 @@ test('不帶同行者時只留自己；別人複製時自己變成建立者', ()
   assert.deepEqual(Object.values(solo.trip.participants).map(p => p.uid), ['me']);
   assert.equal(solo.trip.fund.keeper, undefined);
 });
+
+test('舊版班機沒日期不會多出 undefined；跨夏令時間重算時差', () => {
+  const t = { ...src, startDate: '2026-01-10', endDate: '2026-01-11', flight: { airline: '虎航' } };
+  const { trip, subs: out } = planCopy(t, { flights: [{ id: 'f', from: 'LHR', fromTz: '0', dep: '2026-01-10 10:00', to: 'TPE', arr: '2026-01-11 06:00' }] }, { title: 'x', startDate: '2026-07-10', parts: new Set(['flights']), people: false, uid: 'me', nickname: '我', newId });
+  assert.deepEqual(trip.flight, { airline: '虎航' });
+  assert.equal(out.flights[0].data.dep, '2026-07-10 10:00');
+  assert.equal(out.flights[0].data.fromTz, '+1');
+});

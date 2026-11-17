@@ -1,5 +1,6 @@
 // 複製旅程（拿舊旅程當範本）：只產生要寫入的新資料，不動原本那趟
 import { parseDate, toDateString, daysBetween } from './dates.js';
+import { airportTz } from './flights.js';
 
 // 可以選要不要帶過去的資料（子集合名稱 → 畫面上的名稱）；支出、公費、票券、潛水日誌不帶
 export const COPY_PARTS = [
@@ -28,13 +29,22 @@ export const copyEnd = (trip, start) => (trip.startDate && trip.endDate ? shiftD
 const META = ['id', 'createdByUid', 'createdByName', 'createdAt', 'updatedByUid', 'updatedByName', 'updatedAt'];
 const clean = d => { const out = { ...d }; META.forEach(k => delete out[k]); return out; };
 
+// 只挪有填的欄位，沒填的不要多出 undefined（Firestore 不收）
+const shiftKeys = (d, keys, n) => { const out = { ...d }; keys.forEach(k => { if (out[k]) out[k] = shiftDate(out[k], n); }); return out; };
+// 航段挪到別的季節，有夏令時間的機場時差要重算
+function shiftFlight(d, n) {
+  const out = shiftKeys(d, ['dep', 'arr'], n);
+  [['from', 'dep', 'fromTz'], ['to', 'arr', 'toTz']].forEach(([ap, at, tz]) => { const z = out[ap] && out[at] ? airportTz(out[ap], out[at]) : ''; if (z) out[tz] = z; });
+  return out;
+}
+
 // 每一種資料要怎麼改：日期跟著挪、勾選狀態清掉
 const FIX = {
   itinerary: (d, n, ids) => ({ ...d, ...(d.book === 'done' ? { book: 'need' } : {}), ...(d.backupOf ? { backupOf: ids.get(d.backupOf) || '' } : {}) }),
   wishlist: d => ({ ...d, visited: false }),
-  flights: (d, n) => ({ ...d, dep: shiftDate(d.dep, n), arr: shiftDate(d.arr, n) }),
-  stays: (d, n) => ({ ...d, checkInDate: shiftDate(d.checkInDate, n), checkOutDate: shiftDate(d.checkOutDate, n) }),
-  transits: (d, n) => ({ ...d, dep: shiftDate(d.dep, n), arr: shiftDate(d.arr, n) }),
+  flights: (d, n) => shiftFlight(d, n),
+  stays: (d, n) => shiftKeys(d, ['checkInDate', 'checkOutDate'], n),
+  transits: (d, n) => shiftKeys(d, ['dep', 'arr'], n),
   todos: d => ({ ...d, done: false }),
   packing: d => ({ ...d, done: false }),
 };
@@ -71,7 +81,7 @@ export function planCopy(trip, subs, opt) {
     ...(trip.fund?.on ? { fund: { on: true, ...(keeper && participants[keeper] ? { keeper } : {}) } } : {}),
   };
   // 舊版單筆班機格式（只有少數舊旅程有）也一起挪日期
-  if (opt.parts.has('flights') && trip.flight && typeof trip.flight === 'object') out.flight = { ...trip.flight, depDate: shiftDate(trip.flight.depDate, n), retDate: shiftDate(trip.flight.retDate, n) };
+  if (opt.parts.has('flights') && trip.flight && typeof trip.flight === 'object') out.flight = shiftKeys(trip.flight, ['depDate', 'retDate'], n);
   if (opt.parts.has('stays') && trip.hotel && typeof trip.hotel === 'object') out.hotel = { ...trip.hotel };
 
   const result = {};

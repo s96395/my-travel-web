@@ -1859,7 +1859,7 @@ const actions = {
   copyTrip() {
     const trip = curTrip();
     if (!trip || S.offline) return;
-    const counts = { itinerary: S.items.length, wishlist: S.wishDocs.length, flights: S.flightDocs.length, stays: S.stayDocs.length, transits: S.transitDocs.length, todos: S.todoDocs.length, packing: S.packDocs.filter(p => p.uid === S.user.uid).length };
+    const counts = { itinerary: S.items.length, wishlist: S.wishDocs.length, flights: allFlights(S, trip).length, stays: allStays(S, trip).length, transits: S.transitDocs.length, todos: S.todoDocs.length, packing: S.packDocs.filter(p => p.uid === S.user.uid).length };
     const c = S.covers[trip.id];
     copyTripSheet(trip, counts, !!(c && (c.src || (c.style && c.style !== 'auto'))));
   },
