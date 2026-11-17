@@ -321,14 +321,14 @@ function wishPanel(S, trip, d) {
   if (!left.length) return `${onlyTip}${tools}${count}<p class="small muted" style="margin:0">${filtering ? '沒有符合的收藏。' : only ? '這一帶沒有收藏。' : '清單上的地點都排進這一天了。'}</p>`;
   const groups = groupByArea(nearDay(left, itemsOfDay(S.items, d)));
   const named = groups.some(g => g.area);
-  // 每列只有一顆「加入」：加到目前看的那一天；點名稱在地圖上標出來
+  // 每列只有一顆「＋第 N 天」：先跳出選天與排在哪（預設目前看的那天）；點名稱在地圖上標出來
   const name = p => (S.offline || !hasXY(p) ? `<b>${esc(p.title)}</b>` : `<button type="button" class="wname" data-act="mapFocus" data-id="w:${esc(p.id)}" title="在地圖上看">${esc(p.title)}</button>`);
   // 位置離整趟旅程其他地點太遠（匯入時抓錯座標）：不寫距離，標出來讓人知道要確認
   const far = oddOf(S);
   const odd = p => (far.has(p.id) ? '<span class="tag bad" style="align-self:flex-start;width:fit-content;margin-top:2px" title="這個地點的位置離其他地點太遠，可能抓錯了。可以按 × 刪掉，再從地圖搜尋加回來">位置可能不對</span>' : '');
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
       ${S.wide ? GRIP : ''}<div class="grow">${name(p)}${odd(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', !far.has(p.id) && p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
-      <button type="button" class="wadd" data-act="wishPick" data-id="${esc(p.id)}" data-d="${addDay(S, trip)}" ${off} aria-label="加入「${esc(p.title)}」" title="加入行程">${ICON.plus}</button>
+      <button type="button" class="wadd" data-act="wishPick" data-id="${esc(p.id)}" data-d="${addDay(S, trip)}" ${off} aria-label="加入第 ${addDay(S, trip)} 天：「${esc(p.title)}」，可再選天數與排在哪" title="加入第 ${addDay(S, trip)} 天，按了可再選天數與排在哪">${ICON.plus}第 ${addDay(S, trip)} 天</button>
       <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
     </div>`;
   // 依行政區分區：有位置的地點查 Google 所在的區（例如「海雲臺區」），先列出改前改後再套用
