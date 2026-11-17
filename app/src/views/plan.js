@@ -39,11 +39,11 @@ const stopCount = (S, d) => itemsOfDay(S.items, d).filter(it => it.kind !== 'are
 const whenOf = (it, r) => (it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> `
   : it.timeText ? `<span class="whentxt">${esc(it.timeText)}</span> `
     : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '');
-// 時間軸上的時間可以直接點來改（時間、停留多久）；還沒有時間的顯示「＋時間」
+// 時間軸上已經有的時間（填的或推算的）可以直接點來改時間、停留多久；沒有時間的不多放按鈕，從 ⋯ 編輯補
 function timeBtn(S, it, r) {
   const w = whenOf(it, r);
-  if (S.offline || it.kind === 'area') return w;
-  return `<button type="button" class="whenbtn" data-act="quickTime" data-id="${esc(it.id)}" aria-label="改「${esc(it.title)}」的時間與停留">${w ? w.trim() : '<span class="whenadd">＋時間</span>'}</button> `;
+  if (!w || S.offline || it.kind === 'area') return w;
+  return `<button type="button" class="whenbtn" data-act="quickTime" data-id="${esc(it.id)}" aria-label="改「${esc(it.title)}」的時間與停留">${w.trim()}</button> `;
 }
 // 直接改時間與停留的小視窗
 export function quickTimeSheet(it) {
