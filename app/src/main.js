@@ -555,7 +555,7 @@ function spotMsg(day, spot) {
 }
 // 選好的位置（排在 beforeId 前面，空的是最後面）前一站是誰，給提示用；self 是正在移動的那一站
 function spotAt(day, beforeId, self = '') {
-  const list = itemsOfDay(S.items, day).filter(x => x.id !== self && !x.backupOf);
+  const list = itemsOfDay(S.items, day).filter(x => x.id !== self);
   const i = beforeId ? list.findIndex(x => x.id === beforeId) : list.length;
   return { beforeId: beforeId || '', prevId: i > 0 ? list[i - 1].id : '' };
 }

@@ -310,7 +310,8 @@ const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button typ
 // 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入想去清單
 // 單一地點（place、wish、moved）先選天、看會排在哪裡（可以改），按「加入」才寫入；區域卡片點了天數就直接加
 export function daySheet(S, trip, p, kind) {
-  const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p);
+  // 有 Google 連結的地點只看連結判斷「已經排了」，同名的不同分店才加得進同一天
+  const rows = rankDays(S.items, dayList(S, trip).filter(Boolean), p.url ? { ...p, title: '' } : p);
   // 位置可能抓錯的收藏：距離算出來沒有意義，不標最順路和幾公里
   const bad = kind === 'wish' && oddOf(S).has(p.id);
   const two = kind !== 'area';
@@ -335,7 +336,7 @@ export function daySheet(S, trip, p, kind) {
 }
 // 會排在哪裡：預設最順路的位置，可以改成這天任何一站後面；選項的值是「排在哪一站前面」（空的是最後面）
 function spotPick(S, p, day, self, bad) {
-  const list = itemsOfDay(S.items, day).filter(it => it.id !== self && !it.backupOf);
+  const list = itemsOfDay(S.items, day).filter(it => it.id !== self);
   if (!list.length) return '<p class="small muted" style="margin:0">這天還沒有安排，會是第一站。</p>';
   const best = bestSpot(list, p).beforeId;
   const name = it => (it.kind === 'area' ? `「${esc(it.area || it.title)}」區域` : `「${esc(it.title)}」`);
