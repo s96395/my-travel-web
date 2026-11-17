@@ -103,6 +103,33 @@ export function closeCard() {
   if (view0 && map) { map.setCenter(view0.c); map.setZoom(view0.z); }
   view0 = null;
 }
+// 把這些點都放進畫面；只有一點時放大到街道
+function fitTo(pts) {
+  if (!map || !pts.length) return;
+  if (pts.length === 1) { map.setCenter({ lat: pts[0].lat, lng: pts[0].lng }); map.setZoom(15); return; }
+  const b = new window.google.maps.LatLngBounds();
+  pts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
+  map.fitBounds(b, 40);
+}
+let lastDayPts = [], lastDest = '', fitTrip = '', curTid = '';
+// 還沒有任何地點時，地圖移到旅程的目的地（城市＋國家）；查過的記在這台裝置，下次不再查
+async function goDest(tid, text, city) {
+  const key = 'dest:' + text, mark = `dest:${tid}|${text}`;
+  let v = null;
+  try { v = JSON.parse(localStorage.getItem(key) || 'null'); } catch { /* 不能用 localStorage 就每次查 */ }
+  if (!v) {
+    const { Place } = await window.google.maps.importLibrary('places');
+    const { places } = await Place.searchByText({ textQuery: text, fields: ['location', 'viewport'], maxResultCount: 1, language: 'zh-TW' });
+    const p = places?.[0];
+    if (!p?.location) return;
+    v = { lat: p.location.lat(), lng: p.location.lng(), ...(p.viewport ? { b: p.viewport.toJSON() } : {}) };
+    try { localStorage.setItem(key, JSON.stringify(v)); } catch { /* 存不了就算了 */ }
+  }
+  if (lastDest !== mark || curTid !== tid || fitTrip === tid) return; // 查的時候已經換了旅程或加了地點
+  // 有城市就放在市中心、看得到街區；只有國家就框整個國家
+  if (city || !v.b) { map.setCenter({ lat: v.lat, lng: v.lng }); map.setZoom(city ? 12 : 7); } else map.fitBounds(v.b, 0);
+}
+
 // Google 地點的評分、營業時間、照片、電話、網站：開資訊卡時才查（每點一次查一次）
 const MORE_FIELDS = ['rating', 'userRatingCount', 'regularOpeningHours', 'utcOffsetMinutes', 'photos', 'nationalPhoneNumber', 'websiteURI'];
 async function placeMore(p) {
@@ -153,8 +180,8 @@ function whereOf(comps, p) {
 }
 const farText = p => (dayHere && Number.isFinite(p.lat) ? `離第 ${dayHere.d} 天行程約 ${kmText(distanceKm(dayHere, p))}` : '');
 
-// 找附近店家：搜尋框下的「找附近店家」打開分類（景點、美食…），點了就把目前畫面附近的 Google 店家標出來；
-// 移動地圖後按「在這一帶重找」。這是找 Google 上的店家，和只篩選自己收藏的「搜尋此區域」不同
+// 找附近店家：點地圖左上角的搜尋框（還沒打字）時，候選清單列出分類（景點、美食…），點了就把目前畫面附近的 Google 店家標出來；
+// 找了以後搜尋框下面才出現分類鈕可切換、「收起店家」可清掉；移動地圖後按「在這一帶重找」。這是找 Google 上的店家，和只篩選自己收藏的「搜尋此區域」不同
 const NEAR_CATS = [
   ['sight', '景點', '#2f6fdb', ['tourist_attraction', 'museum', 'park', 'amusement_park', 'art_gallery', 'zoo', 'aquarium', 'historical_landmark']],
   ['food', '美食', '#c2255c', ['restaurant']],
@@ -173,7 +200,8 @@ function nearView() {
 const NEAR_AGAIN = '在這一帶重找店家';
 function syncNearUi() {
   nearBar?.querySelectorAll('[data-cat]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.cat === nearCat); b.hidden = !nearOpen; });
-  nearBar?.querySelector('[data-near]')?.setAttribute('aria-expanded', nearOpen);
+  const nb = nearBar?.querySelector('[data-near]');
+  if (nb) { nb.hidden = !nearOpen; nb.setAttribute('aria-expanded', nearOpen); }
   if (!nearBtn) return;
   const v = nearCat && nearView();
   // 移動超過畫面寬度的三分之一，或縮放過，才出現「在這一帶重找」
@@ -204,19 +232,27 @@ async function runNear() {
   nearBtn.disabled = false;
   nearBtn.hidden = nearBtn.textContent === NEAR_AGAIN;
 }
+// 從搜尋框的候選清單選了分類：打開分類鈕並開始找
+function startNear(cat) {
+  if (!map || !NEAR_CATS.some(c => c[0] === cat)) return;
+  nearOpen = true; nearCat = cat;
+  nearSeq++; clearNear(); nearAt = null;
+  runNear();
+}
 function nearControls(g, bar) {
   nearBar = document.createElement('div');
   nearBar.className = 'mcats';
-  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false">找附近店家</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
+  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false" hidden>收起店家</button><button type="button" class="mnearopen" data-fitday hidden>看當天全部景點</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
   wBtn = nearBar.querySelector('[data-wbox]');
   nearBar.addEventListener('click', ev => {
     // 「搜尋此區域」：只看地圖範圍內有哪些收藏
     if (ev.target.closest('[data-wbox]')) { ev.stopPropagation(); runBox(); return; }
-    // 「找附近店家」：打開分類；再按一次收起，同時清掉找到的店家
+    // 看當天全部景點：把當天行程的針都放進畫面
+    if (ev.target.closest('[data-fitday]')) { ev.stopPropagation(); view0 = null; fitTo(lastDayPts); return; }
+    // 「收起店家」：收起分類鈕，同時清掉找到的店家
     if (ev.target.closest('[data-near]')) {
       ev.stopPropagation();
-      nearOpen = !nearOpen;
-      if (!nearOpen) { nearCat = ''; nearSeq++; clearNear(); nearAt = null; }
+      nearOpen = false; nearCat = ''; nearSeq++; clearNear(); nearAt = null;
       syncNearUi();
       return;
     }
@@ -332,7 +368,15 @@ export async function attachSuggest(input, near, onPick, onSelf) {
   // 地圖上的搜尋框：優先找目前看的那天行程附近，候選地點標出離這天多遠，最後可以「列出所有分店」
   const onMap = !!input.closest('.msearch');
   const here = () => (onMap && dayHere ? { lat: dayHere.lat, lng: dayHere.lng } : null);
+  // 地圖搜尋框還沒打字：候選清單先列出找附近店家的分類，是搜尋的次要選項
+  function nearMenu() {
+    rows = []; shops = null; at = -1;
+    list.innerHTML = NEAR_CATS.map(([k, label, color], i) => `<button type="button" role="option" data-i="${i}" data-cat="${k}" class="suggnear" style="--c:${color}"><b>附近的${label}</b>${i ? '' : '<span>標出目前地圖這一帶的 Google 店家</span>'}</button>`).join('');
+    list.hidden = false;
+  }
   async function pick(i) {
+    const nb = list.children[i];
+    if (nb?.dataset.cat) { close(); input.blur(); startNear(nb.dataset.cat); return; }
     if (shops) { const p = shops[i]; close(); if (p) onPick(p); return; }
     const pred = rows[i];
     if (!pred) {
@@ -371,7 +415,7 @@ export async function attachSuggest(input, near, onPick, onSelf) {
   async function run() {
     const q = input.value.trim(), my = ++seq;
     shops = null;
-    if (q.length < 2) { close(); return; }
+    if (q.length < 2) { if (onMap && document.activeElement === input) nearMenu(); else close(); return; }
     try {
       const c = here();
       const bias = c ? { center: c, radius: 8000 } : near();
@@ -394,13 +438,15 @@ export async function attachSuggest(input, near, onPick, onSelf) {
   input.addEventListener('input', ev => { if (ev.isComposing) return; clearTimeout(timer); timer = setTimeout(run, 250); });
   input.addEventListener('compositionend', () => { clearTimeout(timer); timer = setTimeout(run, 250); });
   input.addEventListener('blur', () => setTimeout(close, 150));
+  if (onMap) input.addEventListener('focus', () => { if (input.value.trim().length < 2) nearMenu(); });
   input.addEventListener('keydown', ev => {
     if (input.closest('.msearch')) ev.stopPropagation(); // 不讓地圖拿方向鍵去移動畫面
     if (list.hidden) return;
     ev.stopPropagation(); // 候選清單開著時，Enter、Esc 只管清單
     const n = list.children.length;
     if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') { ev.preventDefault(); at = (at + (ev.key === 'ArrowDown' ? 1 : n - 1)) % n; mark(); }
-    else if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); pick(Math.max(at, 0)); }
+    // 還沒打字只列出店家分類時，Enter 不要直接開始找店家
+    else if (ev.key === 'Enter' && !ev.isComposing) { ev.preventDefault(); if (at >= 0 || !list.children[0]?.dataset.cat) pick(Math.max(at, 0)); }
     else if (ev.key === 'Escape') close();
   });
   list.addEventListener('pointerdown', ev => ev.preventDefault()); // 點選項時輸入框不要先失去焦點
@@ -554,7 +600,7 @@ export async function syncMap(data, onAct, onPlace, onCard) {
     // 左上角搜尋框：打字跳出候選地點，選了就插針
     const bar = document.createElement('div');
     bar.className = 'msearch';
-    bar.innerHTML = `<div class="suggwrap"><input type="search" class="input" placeholder="搜尋地點，加進行程" aria-label="搜尋地點"></div>`;
+    bar.innerHTML = `<div class="suggwrap"><input type="search" class="input" placeholder="搜尋地點，或找附近店家" aria-label="搜尋地點"></div>`;
     search = bar.querySelector('input');
     map.controls[g.ControlPosition.TOP_LEFT].push(bar);
     nearControls(g, bar);
@@ -609,13 +655,21 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
   // 「搜尋此區域」進行中不自動框範圍，地圖停在搜尋的那一帶（打開清單、多放上收藏都不會跳走）
   if (data.box) lastFit = data.fit;
+  lastDayPts = dayPts;
+  const fitBtn = nearBar?.querySelector('[data-fitday]');
+  if (fitBtn) fitBtn.hidden = dayPts.length < 2;
   if (data.fit !== lastFit && fitPts.length) {
-    lastFit = data.fit;
-    if (fitPts.length === 1) { map.setCenter({ lat: fitPts[0].lat, lng: fitPts[0].lng }); map.setZoom(15); } else {
-      const b = new g.LatLngBounds();
-      fitPts.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
-      map.fitBounds(b, 40);
-    }
+    lastFit = data.fit; fitTrip = String(data.fit).split(':')[0]; lastDest = '';
+    // 地圖已經框到新加的點，關掉資訊卡時不要再跳回開卡前的範圍
+    view0 = null;
+    fitTo(fitPts);
+  }
+  // 這趟旅程還沒有任何地點（地圖從沒框過）：移到目的地，不停在台灣；每趟只移一次
+  const tid = String(data.fit).split(':')[0];
+  curTid = tid; // 換到別趟（就算那趟沒有目的地），前一趟還沒查完的目的地就不套用
+  if (!data.points.length && data.dest && fitTrip !== tid && lastDest !== `dest:${tid}|${data.dest}` && !data.box) {
+    lastDest = `dest:${tid}|${data.dest}`;
+    goDest(tid, data.dest, data.destCity).catch(console.error);
   }
   if (data.focus !== lastFocus) {
     lastFocus = data.focus;

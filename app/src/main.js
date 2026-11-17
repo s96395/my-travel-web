@@ -11,10 +11,10 @@ import { renderHome } from './views/home.js';
 import { renderLogin, loginErrorText } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
-import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
+import { quickTimeSheet, readQuickTime, itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, farOff } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
+import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf, placeUrl } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
@@ -1346,6 +1346,20 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
+  // 時間軸上直接點時間：只改時間與停留多久，改完可以復原
+  quickTime(el) { const it = findItem(el.dataset.id); if (it && !S.offline) quickTimeSheet(it); },
+  async saveQuickTime(el) {
+    const v = readQuickTime(), it = findItem(el.dataset.id), tid = S.tripId;
+    if (!v || !it || S.busy) return;
+    const old = { reservationTime: it.time || '', timeText: it.timeText || '', stay: it.stay || 0 };
+    S.busy = true; el.disabled = true;
+    try {
+      await updateItem(tid, it.id, v, S.user, S.nickname);
+      closeSheet();
+      undoable(tid, '已改時間', t => updateItem(t, it.id, old, S.user, S.nickname));
+    } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
   // ⋯ 選單調整順序；上移、下移後選單留著（更新目前第幾站），可以連按
   stepMove(el) {
     const id = el.dataset.id, how = el.dataset.how;
@@ -1460,6 +1474,21 @@ const actions = {
       closeSheet();
       if (ref) undoable(tid, '已加入行程', t => deleteItem(t, ref.id)); else toast('已儲存');
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    S.busy = false;
+  },
+  // 自己輸入的地點先放想去清單（還沒決定哪一天）：一句提示併進備註，其他設定留到排進行程時再填
+  async saveItemWish(el) {
+    const form = readItemForm();
+    if (!form || S.busy) return;
+    const tid = S.tripId, { lat, lng, exact, placeId, geoAt } = form;
+    // 想去清單靠連結對應行程（判斷已排第幾天、加入時帶地址），手打地址或只有名稱就換成 Google 地圖搜尋連結
+    const url = isMapLink(form.address) ? form.address : placeUrl(form.address || form.title);
+    S.busy = true; el.disabled = true;
+    try {
+      const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url, list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
+      closeSheet();
+      undoable(tid, '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id));
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有加成功，請稍後再試'); }
     S.busy = false;
   },
   // 永久刪除：行程拿掉，想去清單裡同一個地點也一起刪（別天還排著就留著）
