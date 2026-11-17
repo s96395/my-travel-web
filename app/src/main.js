@@ -1068,12 +1068,14 @@ const actions = {
   dpScroll(el) { const row = el.parentNode.querySelector('.dpills'); row?.scrollBy({ left: +el.dataset.v * row.clientWidth * 0.7, behavior: 'smooth' }); },
   // 資訊卡：關閉；Google 地點的「加入行程」先問哪一天，「加入想去清單」直接加
   cardClose() { closeCard(); },
-  // 給司機看：蓋在資訊卡上的視窗，關掉後資訊卡、日期、清單捲動位置都不變；只用現有資料，不查 Google 地點資料
+  // 給司機看：蓋在資訊卡上的視窗，關掉後資訊卡、日期、清單捲動位置都不變
+  // 韓國的地點有綁定 Google 地點就一打開自動查韓文（只顯示不保存）；其他語言照舊按了才查
   driver(el) {
     const t = curTrip(), d = t && driverData(S, t, el.dataset.k, el.dataset.id);
     if (!d) return;
     S.drv = d;
     showDriver(d);
+    if (d.lang === 'ko' && d.pid && !S.offline && mapsKey) actions.drvLocal();
   },
   // 給司機看「顯示韓文」等：按了才查 Google，查到的名稱、地址只放在 S.drv（不存）
   async drvLocal() {
