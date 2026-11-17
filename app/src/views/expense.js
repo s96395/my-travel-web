@@ -71,19 +71,21 @@ function expList(S, c) {
   const notSplit = all.filter(e => !isSplit(e, c.people)).length;
   const list = S.expFilter === 'none' ? all.filter(e => !isSplit(e, c.people)) : all;
   const mine = c.me ? perPerson(all, c.people)[c.me] : null;
+  const noPayer = all.filter(e => !e.payerId).length;
+  // 旅程結束後（回國整理）把還沒處理好的帳目拉到上面；旅行中只在篩選鈕上顯示數字，不打擾記帳
+  const back = c.trip.end && todayString() > c.trip.end;
+  const todo = [notSplit && `${notSplit} 筆尚未分攤`, noPayer && `${noPayer} 筆沒填誰付的`].filter(Boolean);
+  // 記一筆放最上面；總額縮成一行，每人負擔與分類比例放在「分攤」
   return `
-  <div class="summary">
-    <div class="card"><span class="label">這趟總支出</span><b class="num">${money(total)}</b><span class="small muted">${all.length} 筆</span></div>
-    <div class="card"><span class="label">我的負擔</span><b class="num">${mine === null ? '—' : money(mine)}</b><span class="small muted">${mine === null ? '你還不在同行者名單裡' : esc(c.name(c.me))}</span></div>
+  <div class="expbar">
+    <button type="button" class="btn primary expadd" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
+    ${S.wide && !['settle', 'fund'].includes(S.expSeg) ? '' /* 電腦版右邊「分攤」已經有總支出和我的負擔 */ : `<p class="exptot small"><span>這趟 <b class="num">${money(total)}</b>・${all.length} 筆</span><span>我負擔 <b class="num">${mine === null ? '—' : money(mine)}</b></span></p>`}
   </div>
-  <div class="row">
-    <div class="chips grow">
-      <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
-      <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
-    </div>
-    <button type="button" class="btn sm" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
+  ${back && todo.length ? `<div class="check exptodo">回國整理：還有 ${todo.join('、')}<span class="row">${notSplit ? '<button type="button" class="btn sm" data-act="expFilter" data-v="none">只看尚未分攤</button>' : ''}<button type="button" class="btn sm" data-act="expSeg" data-v="settle">看結算</button></span></div>` : ''}
+  <div class="chips">
+    <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
+    <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
   </div>
-  ${catStrip(all)}
   <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day ? monthDay(g.day) : '沒填消費日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
 }
 
@@ -95,15 +97,6 @@ function groups(list) {
     if (g && g.day === day) { g.list.push(e); g.sum += amountOf(e); } else out.push({ day, list: [e], sum: amountOf(e) });
   }
   return out;
-}
-
-// 一條色條看錢花在哪一類，下面列出前四類的比例
-function catStrip(all) {
-  const cats = byCategory(all), total = cats.reduce((a, x) => a + x[1], 0);
-  if (!total) return '';
-  const pct = v => Math.round(v / total * 100);
-  return `<div class="catstrip"><div class="bar" role="img" aria-label="${esc(cats.map(x => `${x[0]} ${pct(x[1])}%`).join('、'))}">${cats.map(x => `<i style="flex:${x[1]};--k:${CAT_COLOR[x[0]] || CAT_COLOR.其他}"></i>`).join('')}</div>
-    <div class="legend small">${cats.slice(0, 4).map(x => `<span><i style="--k:${CAT_COLOR[x[0]] || CAT_COLOR.其他}"></i>${esc(x[0])} ${pct(x[1])}%</span>`).join('')}</div></div>`;
 }
 
 function expRow(c, e) {
@@ -129,7 +122,13 @@ function expShare(S, c) {
   const ids = [...c.people.filter(p => p.status !== 'inactive' || t[p.id]).map(p => p.id), ...Object.keys(t).filter(k => t[k] && !c.idx.has(k))];
   const cats = byCategory(c.expenses), max = Math.max(1, ...cats.map(x => x[1]));
   const unbound = c.people.filter(p => !p.uid && p.status !== 'inactive').map(p => p.name);
+  const all = c.expenses.reduce((a, e) => a + amountOf(e), 0), mine = c.me ? t[c.me] || 0 : null;
+  // 摘要：總支出、我的負擔（明細上方只留一行），下面是每人負擔與分類
   return `
+  <div class="summary">
+    <div class="card"><span class="label">這趟總支出</span><b class="num">${money(all)}</b><span class="small muted">${c.expenses.length} 筆</span></div>
+    <div class="card"><span class="label">我的負擔</span><b class="num">${mine === null ? '—' : money(mine)}</b><span class="small muted">${mine === null ? '你還不在同行者名單裡' : esc(c.name(c.me))}</span></div>
+  </div>
   <section class="card">
     <div class="sec-h"><h2>每人負擔</h2><span class="small muted num">已分攤 ${money(total)}</span></div>
     <div class="pertable divide" style="margin-top:6px">${ids.map(id => {

@@ -1263,3 +1263,11 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .yearsh{margin:4px 0 -4px}
 @media (min-width:1000px){ .device.wide .nearbox .list{grid-template-columns:repeat(3,1fr)} }
 .nearbox .tripcard::before{display:none} /* 時間軸圓點只給歷年列表用 */
+
+/* 支出明細：記一筆放最上面，總額縮成一行；每人負擔、分類放「分攤」 */
+.expbar{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;align-items:center}
+.expbar .expadd{min-height:44px;padding-inline:20px}
+.exptot{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:2px 12px;margin:0;color:var(--muted);text-align:right}
+.exptot b{color:var(--fg);font-family:var(--font-data);font-size:16px}
+.exptodo{display:grid;gap:8px;background:color-mix(in srgb,var(--warn) 12%,var(--surface));color:var(--fg)}
+.exptodo .row{display:flex;flex-wrap:wrap;gap:8px}
