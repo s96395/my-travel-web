@@ -22,7 +22,7 @@ import { watchRecords, addRecord, updateRecord, deleteRecord, restoreRecord } fr
 import { ticketFormSheet, readTicketForm, ticketSheet } from './views/move.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate, missingPack } from './lib/todos.js';
-import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord } from './views/expense.js';
+import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord, spentNote } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
@@ -1904,7 +1904,12 @@ function onDraftInput(t) {
     if (['amt', 'rate'].includes(f) && t.value !== v) t.value = v;
     if (f === 'rate') d.rateState = 'manual';
     if (f === 'cur') { d.rate = ''; d.rateDate = ''; d.rateState = ''; loadRate(d); }
-    if (['amt', 'rate', 'cur', 'cat', 'pay', 'spentOn'].includes(f)) expSheet();
+    if (['amt', 'rate', 'cur', 'cat', 'pay'].includes(f)) expSheet();
+    else if (f === 'spentOn') {
+      // 日期欄不重畫：只更新旅程天數按鈕的選取和下面的說明
+      document.querySelectorAll('[data-act="expDay"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
+      const n = $('#x-spent-note'); if (n) { n.textContent = spentNote(d); n.hidden = !n.textContent; }
+    }
     else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
   }
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }

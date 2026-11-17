@@ -132,3 +132,22 @@ test('有空再去的站顯示大約時間，但不把後面的站往後推', ()
   const rows = buildDay([it('A', { time: '09:00', stay: 60 }), it('B', { priority: 'optional', stay: 120 }), it('C')], []);
   assert.deepEqual(rows.map(r => r.at), [540, 600, 600]);
 });
+
+test('接駁或下一站早於預估出關時間：標 early，不算排太滿', () => {
+  // 11:30 落地，抓 1 小時 30 分出關＝13:00；12:30 的接駁要提醒
+  const fl = { kind: 'flight', t: 480, end: 690, ready: 780 };
+  const tr = buildDay([], [fl, { kind: 'transit', t: 750, end: 810 }]);
+  assert.equal(tr[1].early, 780);
+  // 行程裡自己加的接駁（12:30）也一樣
+  const its = buildDay([{ id: 'a', title: '機場接駁', type: 'transport', time: '12:30' }], [fl]);
+  const row = its.find(r => r.kind === 'item');
+  assert.equal(row.early, 780);
+  assert.equal(row.late, false);
+  // 13:30 才接駁就不提醒
+  assert.equal(buildDay([], [fl, { kind: 'transit', t: 810 }])[1].early, undefined);
+});
+
+test('落地和接駁中間還有沒填時間的站，接駁太早仍要提醒', () => {
+  const rows = buildDay([{ id: 'a', title: '錦市場', type: 'restaurant' }], [{ kind: 'flight', t: 430, end: 650, ready: 740 }, { kind: 'transit', t: 720 }]);
+  assert.equal(rows.find(r => r.kind === 'transit').early, 740);
+});

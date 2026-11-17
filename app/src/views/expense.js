@@ -384,14 +384,16 @@ export function expSheetHtml(S, trip, d) {
 // 消費日期：旅程每一天可以直接點，其他日期（出發前訂票、回國後補記）用日期欄
 function dayField(trip, d, dis) {
   const days = tripDates(trip);
-  const note = !d.spentOn ? '還沒選日期，明細會列在「沒填消費日期」'
-    : d.logged && d.logged !== d.spentOn ? `${monthDay(d.logged)} 記錄` : '';
+  const note = spentNote(d);
   return `<div class="field"><label class="label" for="x-spent">消費日期</label>
     ${days.length ? `<div class="chips" style="flex-wrap:wrap">${days.map((x, i) => `<button type="button" class="chip" data-act="expDay" data-v="${x}" aria-pressed="${d.spentOn === x}" ${dis}>第 ${i + 1} 天 ${esc(monthDay(x))}</button>`).join('')}</div>` : ''}
     <input class="input" type="date" id="x-spent" data-f="spentOn" value="${esc(d.spentOn)}" ${dis} style="justify-self:start">
-    ${note ? `<p class="small muted" style="margin:0">${esc(note)}</p>` : ''}
+    <p class="small muted" id="x-spent-note" style="margin:0" ${note ? '' : 'hidden'}>${esc(note)}</p>
   </div>`;
 }
+// 消費日期下面那行說明；日期欄打字時只改這行和按鈕，不重畫整個表單（重畫會把打到一半的日期清掉）
+export const spentNote = d => (!d.spentOn ? '還沒選日期，明細會列在「沒填消費日期」'
+  : d.logged && d.logged !== d.spentOn ? `${monthDay(d.logged)} 記錄` : '');
 
 // 幣別選單：這趟旅程國家的幣別排最前面，再來是新台幣和其他常用幣別
 function curPicker(trip, d, dis) {

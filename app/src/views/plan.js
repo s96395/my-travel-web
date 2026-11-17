@@ -83,7 +83,7 @@ function itemHtml(it, S, trip, r = {}) {
       ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
       ${sub ? `<p>${esc(sub)}</p>` : ''}
       ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
+      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${r.early ? `<span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span>` : ''}${it.priority === 'must' ? `<span class="tag${PRI_TAG.must}">${PRIORITY_LABEL.must}</span>` : ''}${bookTag(it)}${it.tickets.map(t => `<span class="tag">🎫 ${esc(t)}</span>`).join('')}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
       ${backupRows(S, trip, it)}
     </div>
     ${S.wide ? GRIP : quickBtns(S, trip, it)}
@@ -203,7 +203,7 @@ const evOf = (S, trip, date, its) => dayEvents(date, { flights: allFlights(S, tr
 const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed, airport: ICON.plane };
 const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${['in', 'out', 'home'].includes(r.kind) ? 'stay' : 'transport'}">
     <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
-    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
+    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}</div>
     <span class="tag">交通住宿</span>
   </button>`;
 // 站與站之間的交通時間畫在虛線上，點了開 Google 地圖路線

@@ -100,7 +100,9 @@ export function buildDay(items, events, legs = new Map()) {
   // 排在最後的：有時間的（退房、出發去機場、班機）照時間排，沒時間的照原本順序
   const last = events.filter(e => e.pos === 'end').map(e => ({ ...e, t: e.t ?? null }));
   rows.push(...last.map((e, i) => [e, i]).sort((a, b) => (a[0].t ?? Infinity) - (b[0].t ?? Infinity) || a[1] - b[1]).map(x => x[0]));
-  let clock = null, prev = null;
+  // 預估出關時間：land＝剛落地、還沒排下一站時；landed＝這天最近一班落地的
+  // 接駁（其他交通）或落地後第一站填的時間比它早，就標 early（可以保留，只是提醒）
+  let clock = null, prev = null, land = null, landed = null;
   for (const r of rows) {
     if (r.kind === 'item' && r.it.kind === 'area') {
       // 區域卡片不是實際的一站：顯示到這裡的推算時間，但不打斷前後兩站的交通與推算
@@ -121,6 +123,8 @@ export function buildDay(items, events, legs = new Map()) {
       r.at = r.fixed ?? clock;
       r.est = r.fixed === null && r.at !== null;
       r.late = r.fixed !== null && clock !== null && clock > r.fixed;
+      if (r.late && land !== null) { r.late = false; r.early = land; }
+      land = null;
       // 沒填停留多久就依類型抓時間；住宿、交通不停留，時間接著往下算
       const st = r.it.stay || DEFAULT_STAY[r.it.type] || 0;
       clock = r.at !== null ? r.at + st : null;
@@ -133,6 +137,9 @@ export function buildDay(items, events, legs = new Map()) {
       if (r.est) r.sub = [r.sub, `${leg.mode === 'WALKING' ? '步行' : '搭車'}約 ${min} 分`].filter(Boolean).join('・');
     } else {
       r.at = r.t ?? null;
+      if (r.kind === 'transit' && landed !== null && r.at !== null && r.at < landed) r.early = landed;
+      land = r.ready ?? null;
+      if (r.ready != null) landed = r.ready;
       clock = r.ready ?? r.end ?? null;
       // 從飯店出發：第一站的交通從飯店算起
       prev = r.pos === 'start' && hasXY(r.place) ? r.place : null;
