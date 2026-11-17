@@ -1246,3 +1246,4 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .icard .cardtop .grow{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .menulist .moreacts summary{color:var(--muted)}
 .menulist .moreacts>button{display:flex;align-items:center;gap:12px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer}
+.device.wide .dayhead.mday h3{flex:none}

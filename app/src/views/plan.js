@@ -31,7 +31,6 @@ function dayDate(trip, d) {
 }
 // 加到第幾天的下拉選單：預設選目前看的那天（看「還沒排天數」時預設第 1 天）
 export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n => `<option value="${n}" ${n === (sel || 1) ? 'selected' : ''}>第 ${n} 天${dayDate(trip, n) ? ' ' + dayDate(trip, n).replace(/（.*）/, '') : ''}</option>`).join('');
-const dayTitle = (items, d) => (d === 0 ? '還沒排天數' : dayAreas(items, d).join('・') || `第 ${d} 天`);
 // 「幾個地方」只算真的要去的站：區域卡片是分組標題、備案掛在別站下面，都不算
 const stopCount = (S, d) => itemsOfDay(S.items, d).filter(it => it.kind !== 'area').length;
 
@@ -246,8 +245,11 @@ function dayMeta(S, trip, d, n, short = false) {
     + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
 }
 
-// 手機的天數標題：日期列已經寫了區域，這裡只寫第幾天和日期，出發前加上待辦提醒
-const mDayHead = (S, trip, d) => `<div class="dayhead mday"><h3>${d ? `第 ${d} 天` : '還沒排天數'}</h3><span class="small muted num">${dayMeta(S, trip, d, stopCount(S, d), true)}</span></div>`;
+// 天數標題：寫第幾天和日期，出發前加上待辦提醒。手機的日期列已經寫了區域，這裡不重複；電腦的日期列沒有區域，放在日期前面
+const mDayHead = (S, trip, d) => {
+  const areas = S.wide && d ? dayAreas(S.items, d).join('・') : '';
+  return `<div class="dayhead mday"><h3>${d ? `第 ${d} 天` : '還沒排天數'}</h3><span class="small muted num">${areas ? `${esc(areas)}・` : ''}${dayMeta(S, trip, d, stopCount(S, d), true)}</span></div>`;
+};
 
 // 一天跑好幾個區域時，在每段區域前面標出區域名稱
 function areaLine(S, its, i) {
@@ -584,11 +586,10 @@ export function driverSheet(d, offline) {
 function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
-  const n = stopCount(S, sel);
   const card = sideMap(S) ? infoCard(S, trip, sel) : '';
   const day = card || `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${sideMap(S) ? dayPills(S, trip, days, sel, true) : ''}
-      <div class="dayhead"><span class="daynum">${sel ? 'D' + sel : '?'}</span><div class="grow" style="flex:1;min-width:0"><h3>${esc(dayTitle(S.items, sel))}</h3><span class="small muted num">${dayMeta(S, trip, sel, n)}</span></div></div>
+      ${mDayHead(S, trip, sel)}
       ${dayItems(S, trip, sel)}
     </section>`;
   // 沒有地圖（離線、沒金鑰）時維持一欄
