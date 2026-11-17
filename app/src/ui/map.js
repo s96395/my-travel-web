@@ -2,12 +2,14 @@
 // 畫面每次重畫都會換掉 HTML，所以地圖放在一個固定的區塊，重畫後搬回 #mapslot，縮放位置不會跑掉
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
-import { distanceKm, openAt, pickAreaName } from '../lib/places.js';
+import { distanceKm, kmText, openAt, pickAreaName } from '../lib/places.js';
 import { inKorea, naverHref } from '../lib/itinerary.js';
 
 let ready, map, box, info, line, temp, search, act, dayOptsHtml = '', lastKey = '', lastFit = '', lastFocus = '', lastOpts = '';
 const markers = new Map();
 let wishPts = [], wishMarks = [], clusterZoom = -1, onActRef;
+// 目前看的那天行程的中心點（{ lat, lng, d }），搜尋時優先找這附近、標出離這天多遠；這天沒有有位置的站時是 null
+let dayHere = null;
 // 電腦版資訊卡：點標記不開地圖上的小視窗，改請畫面在左欄開資訊卡；開卡前記下地圖範圍，關卡時放回去
 let cardFn = null, cardOn = false, view0 = null, selId = '';
 let nearCat = '', nearAt = null, nearBtn, nearBar, nearOpen = false, nearSeq = 0;
@@ -53,7 +55,7 @@ const curDay = () => +(/value="(\d+)" selected/.exec(dayOptsHtml)?.[1] || 1);
 function placePopup(p) {
   const el = document.createElement('div');
   el.className = 'mpop';
-  el.innerHTML = `${p.addr ? `<span class="mpopsub">${esc(p.addr)}</span>` : ''}
+  el.innerHTML = `${p.where || p.addr ? `<span class="mpopsub">${esc(p.where || p.addr)}</span>` : ''}
     ${dayOptsHtml ? `<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placePick" data-d="${curDay()}">加入第 ${curDay()} 天 ▾</button></div>` : ''}
     <div class="mpoplinks"><button type="button" data-pact="placeWish">加入想去清單</button>${navLink(p)}${gmapLink(p)}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
@@ -127,7 +129,7 @@ const TYPE_OF = [[/restaurant|food|meal|bakery|bar\b/, 'restaurant'], [/cafe|cof
 const typeOf = types => (TYPE_OF.find(([re]) => (types || []).some(t => re.test(t))) || [0, 'attraction'])[1];
 
 // 地點代碼查名稱、座標、Google 地圖連結；回傳 { title, lat, lng, url, addr, type }
-const INFO_FIELDS = ['displayName', 'location', 'googleMapsURI', 'formattedAddress', 'types'];
+const INFO_FIELDS = ['displayName', 'location', 'googleMapsURI', 'formattedAddress', 'types', 'addressComponents'];
 async function placeInfo(place) {
   await place.fetchFields({ fields: INFO_FIELDS });
   return toInfo(place);
@@ -138,8 +140,18 @@ function toInfo(place) {
   // Google 給的連結後面帶一長串追蹤參數，只留地點代碼 cid
   const cid = (place.googleMapsURI || '').match(/[?&]cid=(\d+)/)?.[1];
   const url = cid ? `https://maps.google.com/?cid=${cid}` : place.googleMapsURI || '';
-  return { pid: place.id || '', title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
+  const p = { pid: place.id || '', title: (place.displayName || '').slice(0, 60), lat: +loc.lat().toFixed(6), lng: +loc.lng().toFixed(6), url, addr: place.formattedAddress || '', type: typeOf(place.types) };
+  return { ...p, where: whereOf(place.addressComponents, p) };
 }
+// 連鎖店分得出是哪一家：地址的「區＋洞」（例如「海雲臺區 佑洞」），加上離目前看的那天行程多遠
+function whereOf(comps, p) {
+  const get = t => (comps || []).find(c => c.types?.includes(t))?.longText || '';
+  // 韓國的地址 Google 常只給英文或韓文，有些整串放在一格裡：抓不到區時從韓文地址找「○○구」「○○동」
+  const ko = [/(\S+[구군])(?=\s|$)/.exec(p.addr)?.[1], /(\S+[동읍면])(?=\s|$)/.exec(p.addr)?.[1]].filter(Boolean).join(' ');
+  const dist = [get('sublocality_level_1') || get('locality'), get('sublocality_level_2')].filter(Boolean).join(' ') || ko;
+  return [dist, farText(p)].filter(Boolean).join('・');
+}
+const farText = p => (dayHere && Number.isFinite(p.lat) ? `離第 ${dayHere.d} 天行程約 ${kmText(distanceKm(dayHere, p))}` : '');
 
 // 找附近店家：搜尋框下的「找附近店家」打開分類（景點、美食…），點了就把目前畫面附近的 Google 店家標出來；
 // 移動地圖後按「在這一帶重找」。這是找 Google 上的店家，和只篩選自己收藏的「搜尋此區域」不同
@@ -300,6 +312,8 @@ function syncBox(data) {
   syncBoxMoved();
 }
 
+// 候選清單上的地址拿掉開頭的國名，留下城市、區（例如「釜山廣域市海雲臺區」）
+const shortAddr = t => t.replace(/^(大韓民國|南韓|韓國|日本|台灣|臺灣|中華民國)\s*/, '');
 // 輸入框打字時跳出 Google 候選地點（Places API (New) 自動完成）
 // near()：回傳要優先找的範圍（地圖目前看到的範圍，或行程大約位置），沒有就回傳 null；onPick(地點)
 // onSelf(名稱)：有給的話，清單最後一列是「自己輸入」，找不到地點時用
@@ -312,30 +326,68 @@ export async function attachSuggest(input, near, onPick, onSelf) {
   list.hidden = true;
   input.after(list);
   input.setAttribute('autocomplete', 'off');
-  let token = new AutocompleteSessionToken(), timer, seq = 0, rows = [], at = -1;
+  let token = new AutocompleteSessionToken(), timer, seq = 0, rows = [], at = -1, shops = null;
   const close = () => { list.hidden = true; at = -1; };
   const mark = () => list.querySelectorAll('button').forEach((b, i) => b.setAttribute('aria-selected', i === at));
+  // 地圖上的搜尋框：優先找目前看的那天行程附近，候選地點標出離這天多遠，最後可以「列出所有分店」
+  const onMap = !!input.closest('.msearch');
+  const here = () => (onMap && dayHere ? { lat: dayHere.lat, lng: dayHere.lng } : null);
   async function pick(i) {
+    if (shops) { const p = shops[i]; close(); if (p) onPick(p); return; }
     const pred = rows[i];
+    if (!pred) {
+      if (onMap && i === rows.length) { await branches(); return; }
+      close();
+      if (onSelf && i === rows.length + (onMap ? 1 : 0)) onSelf(input.value.trim());
+      return;
+    }
     close();
-    if (!pred) { if (onSelf && i === rows.length) onSelf(input.value.trim()); return; }
     try {
       const p = await placeInfo(pred.toPlace());
       token = new AutocompleteSessionToken();
-      if (p) onPick({ ...p, addr: pred.secondaryText?.text || p.addr }); // 候選清單上的地址是中文，詳細資料的地址有時是英文
+      // 候選清單上的地址是中文，詳細資料的地址有時是英文：詳細地址沒有中文字時才用候選清單的
+      if (p) onPick({ ...p, addr: /[\u4e00-\u9fff]/.test(p.addr) ? p.addr : pred.secondaryText?.text || p.addr });
     } catch (err) { console.error(err); }
+  }
+  // 列出所有分店：用關鍵字查最多 8 家，每家寫出在哪一區、離這天行程多遠，近的排前面
+  async function branches() {
+    const q = input.value.trim(), my = ++seq;
+    if (!q) return;
+    list.innerHTML = '<button type="button" disabled><span>正在找所有分店…</span></button>';
+    try {
+      const { Place } = await window.google.maps.importLibrary('places');
+      const c = here();
+      const { places } = await Place.searchByText({ textQuery: q, fields: INFO_FIELDS, ...(c ? { locationBias: { center: c, radius: 20000 } } : {}), maxResultCount: 8, language: 'zh-TW' });
+      if (my !== seq) return;
+      shops = (places || []).map(toInfo).filter(Boolean);
+      if (c) shops.sort((a, b) => distanceKm(c, a) - distanceKm(c, b));
+      at = -1;
+      list.innerHTML = shops.length ? shops.map((p, i) => `<button type="button" role="option" data-i="${i}"><b>${esc(p.title)}</b><span>${esc(p.where || p.addr)}</span></button>`).join('')
+        : '<button type="button" disabled><span>沒有找到其他分店</span></button>';
+      list.hidden = false;
+      input.focus();
+    } catch (err) { console.error(err); list.innerHTML = '<button type="button" disabled><span>查詢失敗，請稍後再試</span></button>'; }
   }
   async function run() {
     const q = input.value.trim(), my = ++seq;
+    shops = null;
     if (q.length < 2) { close(); return; }
     try {
-      const bias = near();
-      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, sessionToken: token, language: 'zh-TW', ...(bias ? { locationBias: bias } : {}) });
+      const c = here();
+      const bias = c ? { center: c, radius: 8000 } : near();
+      const { suggestions } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({ input: q, sessionToken: token, language: 'zh-TW', ...(bias ? { locationBias: bias } : {}), ...(c ? { origin: c } : {}) });
       if (my !== seq || document.activeElement !== input) return;
       rows = suggestions.map(s => s.placePrediction).filter(Boolean).slice(0, 5);
+      // 同名的店（連鎖店）離這天近的排前面，其他照 Google 的順序
+      const first = new Map();
+      rows.forEach((r, i) => { const k = r.mainText?.text || r.text.text; if (!first.has(k)) first.set(k, i); });
+      const key = r => first.get(r.mainText?.text || r.text.text);
+      rows = rows.map((r, i) => ({ r, i })).sort((a, b) => key(a.r) - key(b.r) || (a.r.distanceMeters ?? 1e9) - (b.r.distanceMeters ?? 1e9) || a.i - b.i).map(x => x.r);
+      const far = r => (c && Number.isFinite(r.distanceMeters) ? `離第 ${dayHere.d} 天行程約 ${kmText(r.distanceMeters / 1000)}` : '');
       at = -1;
-      list.innerHTML = rows.map((r, i) => `<button type="button" role="option" data-i="${i}"><b>${esc(r.mainText?.text || r.text.text)}</b><span>${esc(r.secondaryText?.text || '')}</span></button>`).join('')
-        + (onSelf ? `<button type="button" role="option" data-i="${rows.length}" class="suggself"><span>找不到？自己輸入「${esc(q)}」</span></button>` : '');
+      list.innerHTML = rows.map((r, i) => `<button type="button" role="option" data-i="${i}"><b>${esc(r.mainText?.text || r.text.text)}</b><span>${esc([shortAddr(r.secondaryText?.text || ''), far(r)].filter(Boolean).join('・'))}</span></button>`).join('')
+        + (onMap ? `<button type="button" role="option" data-i="${rows.length}" class="suggself"><span>列出所有「${esc(q)}」，看是哪一家分店</span></button>` : '')
+        + (onSelf ? `<button type="button" role="option" data-i="${rows.length + (onMap ? 1 : 0)}" class="suggself"><span>找不到？自己輸入「${esc(q)}」</span></button>` : '');
       list.hidden = !list.children.length;
     } catch (err) { console.error(err); close(); }
   }
@@ -524,6 +576,8 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   const opts = `${String(data.fit).split(':')[0]}|${data.opts || ''}`;
   if (opts !== lastOpts) { lastOpts = opts; clearPlace(); }
   dayOptsHtml = data.opts || '';
+  const here = data.points.filter(q => q.kind === 'day');
+  dayHere = here.length && dayOptsHtml ? { lat: here.reduce((t, q) => t + q.lat, 0) / here.length, lng: here.reduce((t, q) => t + q.lng, 0) / here.length, d: curDay() } : null;
   if (box.parentNode !== slot) slot.appendChild(box);
   const key = JSON.stringify(data.points);
   if (key !== lastKey) {
