@@ -1,9 +1,9 @@
-// 首頁：主視覺（下一趟登機證／旅行足跡兩個頁籤）、統計、搜尋與類型篩選、依年度分組的旅程卡
+// 首頁：主視覺（下一趟登機證／旅行足跡兩個頁籤）→ 我的旅程（近期在前，歷年收合）→ 旅行回顧統計
 import { esc, money, ICON, TYPE_ICO, themeBtn } from '../ui/dom.js';
 import { scene, art, coverHtml } from '../ui/scene.js';
 import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
 import { computeStats } from '../lib/stats.js';
-import { slashDate, todayString } from '../lib/dates.js';
+import { slashDate, todayString, daysBetween } from '../lib/dates.js';
 import { worldFootprint, footprintTimeline, countryInfo, SHAPES, DOTS } from '../lib/world.js';
 
 const ti = t => `${TYPE_ICO[t] || ''}${t}`;
@@ -345,12 +345,26 @@ function statsHtml(S, st) {
 `;
 }
 
-function tripCard(t, S) {
+// 近期旅程：旅行中、還沒出發、回國 30 天內（方便回來補帳、整理），已封存不算
+// 排序：旅行中 → 還沒出發（出發日近的在前）→ 剛回國（剛回來的在前）
+const NEAR_BACK = 30;
+function nearTrips(trips, today) {
+  const rank = t => (t.start <= today && today <= t.end ? 0 : t.start > today ? 1 : 2);
+  return trips.filter(t => t.status !== '已封存' && t.start && t.end && (t.end >= today || daysBetween(t.end, today) <= NEAR_BACK))
+    .sort((a, b) => rank(a) - rank(b) || (rank(a) === 2 ? b.end.localeCompare(a.end) : a.start.localeCompare(b.start)));
+}
+function nearTag(t, today) {
+  if (t.start <= today && today <= t.end) return '旅行中';
+  if (t.start > today) { const n = daysBetween(today, t.start); return n === 1 ? '明天出發' : `${n} 天後出發`; }
+  return '已回國';
+}
+
+function tripCard(t, S, near = '') {
   return `<button type="button" class="tripcard" data-act="open" data-id="${esc(t.id)}" data-done="${t.status === '已完成' || t.status === '已封存'}"${t.status === '已封存' ? ' style="opacity:.55"' : ''}>
     ${coverHtml(t, false, S.covers[t.id])}
     <span class="tc-body">
       <span class="grow"><h3>${esc(t.name)}</h3><span class="place">${esc(t.place)}</span><span class="small muted num">${esc(slashDate(t.start))} – ${esc(slashDate(t.end))}</span>
-        <span class="tagrow"><span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">🫧 ${t.tanks} 瓶</span>` : ''}</span></span>
+        <span class="tagrow">${near ? `<span class="tag near">${near}</span>` : ''}<span class="tag${t.type === '自由行' ? ' accent' : ''}">${ti(t.type)}</span>${t.type === '潛旅' && t.tanks ? `<span class="tanktag num">🫧 ${t.tanks} 瓶</span>` : ''}</span></span>
       <span class="stub"><b>${esc(t.code || (t.city || t.country || '').slice(0, 3))}</b><small>${ti(t.type)}</small></span>
     </span>
   </button>`;
@@ -362,7 +376,9 @@ export function renderHome(S) {
   const q = S.q.trim().toLowerCase();
   const list = trips.filter(t => (S.filter === '全部' || t.type === S.filter) && (!q || `${t.name}${t.place}`.toLowerCase().includes(q)));
   const years = [...new Set(trips.map(t => (t.start || '未知').slice(0, 4)))].sort().reverse();
-  const loading = S.loadingTrips;
+  const loading = S.loadingTrips, today = todayString();
+  // 搜尋或篩選時只看下面的年份列表，近期區塊先收起來，避免同一趟出現兩次
+  const near = loading || q || S.filter !== '全部' ? [] : nearTrips(trips, today);
   return `
   ${S.offline ? `<div class="banner" role="status"><b>離線中</b><span>${S.localOnly ? `只顯示下載到${S.wide ? '這台電腦' : '這支手機'}的旅程，只能查看。` : '只能查看，暫時不能修改。'}</span></div>` : ''}
   <header class="appbar" id="appbar">
@@ -374,23 +390,27 @@ export function renderHome(S) {
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips.filter(t => t.status !== '已封存')))}
-    ${loading ? '' : statsHtml(S, st)}
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
     ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載鈕（離線行程）。</div>' : ''}
     ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，或先看一趟填好的示範旅程。<br><button type="button" class="btn sm" data-act="demoTrip" style="margin-top:8px" ${S.offline ? 'disabled' : ''}>載入示範旅程</button></div>` : ''}
+    ${near.length ? `<section class="nearbox" aria-label="近期旅程"><div class="nearh"><h3>近期旅程</h3><span class="tag">${near.length} 趟</span></div>
+      <div class="list">${near.map(t => tripCard(t, S, nearTag(t, today))).join('')}</div></section>` : ''}
+    ${near.length && years.length ? '<p class="small muted yearsh">歷年旅程（點年份展開）</p>' : ''}
     ${years.map(y => {
       // 已封存的旅程排在那年最後面，名稱很像的新舊旅程比較不會點錯
       const ts = list.filter(t => (t.start || '未知').startsWith(y)).sort((a, b) => (a.status === '已封存') - (b.status === '已封存'));
-      const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (S.wide || y === years[0]));
+      // 有近期旅程時歷年都先收起；沒有近期旅程才展開最新一年
+      const open = q || S.filter !== '全部' ? true : (S.years[y] ?? (!near.length && y === years[0]));
       const ytot = st.yearTotals[y] || 0;
       return `<section class="year" data-open="${open}">
         <button type="button" data-act="year" data-y="${esc(y)}" aria-expanded="${open}"><span class="chev">${ICON.chev}</span><h3>${esc(y)}</h3><span class="tag">${ts.length} 趟</span><span class="ytotal">年度旅程總支出 <b class="num">$${money(ytot)}</b></span></button>
         ${open ? (ts.length ? `<div class="list">${ts.map(t => tripCard(t, S)).join('')}</div>` : '<div class="empty">沒有符合的旅程</div>') : ''}
       </section>`;
     }).join('')}
-    ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">篩選只影響列表，上方統計不變</p>' : ''}
+    ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">搜尋和篩選只影響旅程列表，不影響下方統計</p>' : ''}
+    ${loading ? '' : `<p class="eyebrow">旅行回顧</p>${statsHtml(S, st)}`}
     ${S.hideInstall || S.standalone || S.visits < 2 ? '' : `<div class="install" role="note">${ICON.phone}<span class="grow">可以加到手機主畫面，像 App 一樣開啟</span><button type="button" class="linkbtn" data-act="install">怎麼加</button><button type="button" class="x" data-act="hideInstall" aria-label="不再顯示">×</button></div>`}
   </div>`;
 }

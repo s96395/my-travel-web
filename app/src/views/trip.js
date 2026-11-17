@@ -47,7 +47,7 @@ function offBanner(S, t) {
 const avatar = (p, i) => `<span class="avatar${p.uid ? '' : ' unbound'}" data-c="${i % 3}" title="${esc(p.name)}">${esc((p.name || '?').slice(0, 1))}</span>`;
 
 // noCover：手機行程分頁不放封面，第一個畫面留給行程；封面改放在更多分頁
-// mini：電腦版行程分頁只留 44px 一列，封面縮成左邊小圖，點小圖開原本的更換封面
+// mini：電腦版工作分頁（行程、交通住宿、待辦、支出…）只留 44px 一列，封面縮成左邊小圖，點小圖開原本的更換封面；大封面只放在「更多」
 function tripHead(S, t, noCover = false, mini = false) {
   const people = participantsOf(t.raw).filter(p => p.status !== 'inactive');
   const range = t.start ? `${monthDay(t.start)} – ${monthDay(t.end || t.start)}` : '還沒設定日期';
@@ -115,7 +115,7 @@ export function renderTrip(S) {
   <header class="appbar" id="appbar">${back}<h1>${esc(t.name)}</h1><button type="button" class="iconbtn" id="undoBtn" data-act="undo" hidden aria-label="復原">${UNDO_ICO}</button>${themeBtn()}<button type="button" class="iconbtn" data-act="quick" aria-label="快速選單" title="外觀、加到手機行事曆、使用小技巧">${ICON.sliders}</button>${dlBtn(S, t)}</header>
   ${S.wide ? `<nav class="toptabs" aria-label="旅程分頁">${tabButtons(t, tab)}</nav>` : ''}
   <div class="wrap">
-    ${S.wide ? tripHead(S, t, false, tab === 'plan') : tab === 'plan' ? tripHead(S, t, true) : tab === 'more' ? tripHead(S, t) : ''}
+    ${S.wide ? tripHead(S, t, false, tab !== 'more') : tab === 'plan' ? tripHead(S, t, true) : tab === 'more' ? tripHead(S, t) : ''}
     ${body}
   </div>`;
 }

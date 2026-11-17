@@ -1254,3 +1254,12 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .menulist .moreacts summary{color:var(--muted)}
 .menulist .moreacts>button{display:flex;align-items:center;gap:12px;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:12px 0;text-align:left;color:var(--fg);cursor:pointer}
 .device.wide .dayhead.mday h3{flex:none}
+
+/* 首頁「近期旅程」：旅行中、還沒出發、剛回國的旅程排在歷年列表前面；狀態標籤用橘底深字（不只靠顏色，標籤本身有文字） */
+.nearbox{display:grid;gap:10px}
+.nearh{display:flex;align-items:center;gap:8px}
+.nearh h3{font-size:15px}
+.tag.near,:root[data-style] .tripcard .tag.near{background:var(--warm);color:#10233d;font-weight:700;backdrop-filter:none}
+.yearsh{margin:4px 0 -4px}
+@media (min-width:1000px){ .device.wide .nearbox .list{grid-template-columns:repeat(3,1fr)} }
+.nearbox .tripcard::before{display:none} /* 時間軸圓點只給歷年列表用 */
