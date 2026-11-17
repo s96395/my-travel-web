@@ -64,6 +64,7 @@ const S = {
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], mside: 'plan', // 想去清單（匯入的 Google 地圖收藏）；手機版看行程還是想去清單
   wishOpen: false, // 電腦版想去清單蓋在地圖上，平常收著
+  wq: '', wstat: '', wlist: '', wopen: new Set(), // 想去清單的搜尋、未安排／已安排、匯入清單篩選，與展開中的區域
   wbox: null, wboxList: '', // 搜尋此區域：按下時的地圖範圍；想去清單只列範圍內（'in'）或沒有位置的（'noxy'）
   side: store.get('side') === 'list' ? 'list' : 'map', mapFocus: '', mapArea: '', areaOpen: {}, // 電腦版右半邊在看地圖或清單、地圖正在看哪個地點、只看哪個區域、哪些區域卡片展開
   here: null, hours: new Map(), // 附近模式：目前位置、地點 id → 現在有沒有營業
@@ -116,7 +117,7 @@ function render() {
   const device = $('#device');
   device.classList.toggle('wide', S.wide);
   const active = document.activeElement;
-  const keepQ = active?.id === 'q' ? [active.selectionStart, active.selectionEnd] : null;
+  const keepQ = ['q', 'wq'].includes(active?.id) ? [active.id, active.selectionStart, active.selectionEnd] : null;
   let html;
   if (!S.ready) html = '<div class="boot"><div class="brand">沈迷旅行</div><div class="spin" aria-hidden="true"></div><p>載入中…</p></div>';
   else if (S.view === 'join') { maybeLoadJoin(); html = renderJoin(S); }
@@ -134,7 +135,7 @@ function render() {
     ? `<nav class="tabbar" aria-label="旅程分頁">${tabButtons(trip, S.tab)}</nav>` : '';
   $('#fabSlot').innerHTML = S.user && S.view === 'home' && !S.wide
     ? `<button type="button" class="fab" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>` : '';
-  if (keepQ) { const q = $('#q'); q.focus(); q.setSelectionRange(...keepQ); }
+  if (keepQ) { const q = document.getElementById(keepQ[0]); if (q) { q.focus(); q.setSelectionRange(keepQ[1], keepQ[2]); } }
   // 日期列重畫後會回到最左邊；天數多時把選到的那天捲到中間
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
@@ -355,7 +356,7 @@ function syncItineraryWatch() {
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
   undoList.length = 0; // 換旅程就不留上一趟的復原
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -1049,6 +1050,10 @@ const actions = {
   tab(el) { S.tab = el.dataset.v; render(); window.scrollTo(0, 0); },
   day(el) { S.days[+el.dataset.d] = el.getAttribute('aria-expanded') !== 'true'; render(); },
   // 電腦版：想去清單蓋在地圖右邊，按「想去清單」打開或收起
+  // 「全部」同時清掉清單篩選；清單再按一次取消
+  wstat(el) { S.wstat = el.dataset.v; if (!el.dataset.v) S.wlist = ''; render(); },
+  wlist(el) { S.wlist = S.wlist === el.dataset.v ? '' : el.dataset.v; render(); },
+  wgToggle(el) { const a = el.dataset.area; if (S.wopen.has(a)) S.wopen.delete(a); else S.wopen.add(a); render(); },
   wishOpen() { S.wishOpen = !S.wishOpen; if (!S.wishOpen) S.wboxList = ''; render(); },
   // 搜尋此區域：只篩已載入的收藏，不查 Google；行程欄和面板維持原樣，按「看清單」才打開想去清單
   wboxRun(el) { const [s, w, n, e, z] = el.dataset.box.split(',').map(Number); S.wbox = { s, w, n, e, z }; S.wboxList = ''; render(); },
@@ -1945,6 +1950,7 @@ document.addEventListener('input', ev => {
   if (!ev.isComposing) onDraftInput(t);
   if (t.id === 'joinName' && S.join) S.join.newName = t.value;
   if (t.id === 'q' && !ev.isComposing) { S.q = t.value; render(); }
+  if (t.id === 'wq' && !ev.isComposing) { S.wq = t.value; render(); }
   if (t.dataset?.ap) fillAirport(t);
   if (['ff-fromCity', 'ff-toCity'].includes(t.id)) delete t.dataset.auto;
   // 日期改了，有夏令時間的機場要重算時區
@@ -1982,6 +1988,7 @@ document.addEventListener('change', ev => {
 });
 document.addEventListener('compositionend', ev => {
   if (ev.target.id === 'q') { S.q = ev.target.value; render(); }
+  if (ev.target.id === 'wq') { S.wq = ev.target.value; render(); }
   if (ev.target.dataset?.f) onDraftInput(ev.target);
 });
 document.addEventListener('submit', async ev => {
