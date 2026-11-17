@@ -705,19 +705,39 @@ export async function districtOf(p) {
   await loadApi();
   const { Place } = await window.google.maps.importLibrary('places');
   try {
+    let comps = null;
     if (p.placeId) {
       const pl = new Place({ id: p.placeId, requestedLanguage: 'zh-TW' });
       await pl.fetchFields({ fields: ['addressComponents'] });
-      const d = pickDistrict(pl.addressComponents);
-      if (d) return d;
+      comps = pl.addressComponents;
     }
-    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return '';
-    const { places } = await Place.searchNearby({ locationRestriction: { center: { lat: p.lat, lng: p.lng }, radius: 50 }, fields: ['addressComponents'], maxResultCount: 1, rankPreference: 'DISTANCE', language: 'zh-TW' });
-    return pickDistrict(places?.[0]?.addressComponents);
+    if (!pickDistrict(comps)) {
+      if (!Number.isFinite(p.lat) || !Number.isFinite(p.lng)) return '';
+      const { places } = await Place.searchNearby({ locationRestriction: { center: { lat: p.lat, lng: p.lng }, radius: 50 }, fields: ['addressComponents'], maxResultCount: 1, rankPreference: 'DISTANCE', language: 'zh-TW' });
+      comps = places?.[0]?.addressComponents;
+    }
+    return await zhDistrict(comps, Place);
   } catch (err) {
     console.error(err);
     return /not been used|disabled|not authorized|PERMISSION_DENIED|REQUEST_DENIED/i.test(String(err?.message || err)) ? 'off' : '';
   }
+}
+// 韓國等地 Google 給的區名常是英文（Haeundae、Busanjin District）：改用韓文的區名（含城市）查一次中文名稱（海雲臺區）
+// 同一個區只查一次；查不到中文時用原本的名稱
+const HAN = /^[\u4e00-\u9fff]+$/, zhMemo = new Map();
+async function zhDistrict(comps, Place) {
+  const d = pickDistrict(comps);
+  if (!d || HAN.test(d)) return d;
+  const city = (comps || []).find(x => x.types?.includes('administrative_area_level_1'))?.longText || '';
+  const k = `${city}|${d}`;
+  if (!zhMemo.has(k)) {
+    zhMemo.set(k, (async () => {
+      const { places } = await Place.searchByText({ textQuery: `${d} ${city}`.trim(), fields: ['displayName', 'types'], maxResultCount: 1, language: 'zh-TW' });
+      const pl = places?.[0], name = pl?.displayName || '';
+      return pl?.types?.some(t => DIST_TYPES.includes(t)) && HAN.test(name) ? name : d;
+    })().catch(err => { console.error(err); zhMemo.delete(k); return d; }));
+  }
+  return zhMemo.get(k);
 }
 
 // 區域名稱：查這區中心 800 公尺內熱門的景點、車站、市場，挑一個中文地名（例如「青沙浦」「廣安」）；查不到回傳空字串
