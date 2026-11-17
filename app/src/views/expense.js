@@ -54,14 +54,16 @@ export function renderExp(S, trip) {
   // 電腦：左邊固定是明細，右邊一次只看「分攤」或「結算」，和手機的分頁一致
   if (S.wide) {
     const seg = ['settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'share';
-    return `${segs(S, [['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
-    ${seg === 'fund' ? `<div class="narrowcol">${expFund(S, c)}</div>`
+    return `${segs(S, [['share', '分攤'], ['settle', '結算']], seg === 'fund' ? 'settle' : seg)}
+    ${seg === 'fund' ? `<div class="narrowcol">${FUND_BACK}${expFund(S, c)}</div>`
       : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${seg === 'settle' ? expSettle(S, c) : expShare(S, c)}</div></div>`}`;
   }
   const seg = ['list', 'share', 'settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'list';
-  return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算'], ['fund', '公費']], seg)}
-  ${{ list: expList, share: expShare, settle: expSettle, fund: expFund }[seg](S, c)}`;
+  return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算']], seg === 'fund' ? 'settle' : seg)}
+  ${seg === 'fund' ? FUND_BACK : ''}${{ list: expList, share: expShare, settle: expSettle, fund: expFund }[seg](S, c)}`;
 }
+// 公費不放在上方分頁，從「結算」最下面進去；公費頁上方可以回結算
+const FUND_BACK = '<button type="button" class="linkbtn" data-act="expSeg" data-v="settle" style="justify-self:start;font-size:14px">‹ 回到結算</button>';
 
 const segs = (S, list, cur) => `<div class="seg" style="justify-self:start;max-width:100%;overflow-x:auto">${list.map(s => `<button type="button" data-act="expSeg" data-v="${s[0]}" aria-pressed="${cur === s[0]}">${s[1]}</button>`).join('')}</div>`;
 
@@ -86,6 +88,7 @@ function expList(S, c) {
     <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
     <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
   </div>
+  ${c.active.length < 2 && c.trip.raw.ownerId === S.user.uid ? `<div class="card row" role="note" style="gap:10px;align-items:center;padding:12px 14px"><span class="grow small">${c.active.length ? '目前只有你一人' : '還沒有同行者'}。要分攤費用，先把一起去的人加進來（沒有帳號也可以）。</span><button type="button" class="btn sm" data-act="addPerson" ${off(S)}>${ICON.plus}新增同行者</button></div>` : ''}
   <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day ? monthDay(g.day) : '沒填消費日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
 }
 
@@ -171,7 +174,10 @@ function expSettle(S, c) {
       }).join('')}
     </div>
     <p class="small muted" style="margin:8px 0 0">${c.fund.on ? `已付包含放進公費的錢。公費還剩 ${money(s.balance)}，在保管人${esc(c.name(c.fund.keeper))}手上，所以從保管人的差額扣掉。` : '這趟沒有開公費。'}</p>
-  </section>`;
+  </section>
+  ${c.fund.on ? `<section class="card"><div class="sec-h"><h2>公費</h2><span class="small muted">餘額 <b class="num">${money(fundIn(c.deposits) - fundOut(c.expenses))}</b></span></div>
+    <button type="button" class="btn sm" data-act="expSeg" data-v="fund" style="justify-self:start;margin-top:8px">放入紀錄、保管人</button></section>`
+    : '<p class="small muted" style="margin:0">大家想先湊一筆錢付共同花費？<button type="button" class="linkbtn" data-act="expSeg" data-v="fund">設定公費</button></p>'}`;
 }
 
 function expFund(S, c) {
@@ -328,6 +334,8 @@ export function expSheetHtml(S, trip, d) {
   const cats = CATS.includes(d.cat) ? CATS : [...CATS, d.cat], pays = PAYS.includes(d.pay) ? PAYS : [...PAYS, d.pay];
   const inactive = c.people.filter(p => p.status === 'inactive').map(p => p.name);
   const m = fmt(d);
+  // 付款方式、備註是進階選項：平常收起，按了才展開；看別人記的或已經填了備註就直接攤開
+  const more = d.more || !d.edit || !!d.note;
   // 表單上方一句話說明目前套用的付款人與分攤方式（例如「我付・平均分給 3 人」），下面改了會跟著變
   const who = d.payWay === 'fund' ? '公費付' : d.payWay === 'none' ? '還不確定誰付' : !payNames.length ? '還沒填誰付'
     : payNames.length === 1 ? `${payNames[0]}付` : payNames.length <= 3 ? `${payNames.join('、')}一起付` : `${payNames.length} 人一起付`;
@@ -351,9 +359,6 @@ export function expSheetHtml(S, trip, d) {
       ${d.payWay === 'none' ? '<p class="small muted" style="margin:0">還不確定誰付的，這筆先不算進結算。</p>'
         : d.payWay === 'fund' ? '<p class="small muted" style="margin:0">這筆從公費扣，不算任何人付的。</p>' : payerRows(c, d, paid, dis, m)}
     </div>
-    <div class="field"><span class="label">付款方式</span>
-      <div class="chips" role="radiogroup" aria-label="付款方式">${pays.map((x, i) => `<label class="chip"><input type="radio" name="x-pay" id="x-pay-${i}" data-f="pay" value="${esc(x)}" ${d.pay === x ? 'checked' : ''} ${dis}>${esc(x)}</label>`).join('')}</div>
-    </div>
     <div class="field"><span class="label">費用分攤</span>
       <div class="seg" style="justify-self:start">${[['equal', '平均'], ['custom', '自訂金額'], ['none', '先不分攤']].map(m => `<button type="button" data-act="expMode" data-v="${m[0]}" aria-pressed="${d.mode === m[0]}" ${dis}>${m[1]}</button>`).join('')}</div>
     </div>
@@ -371,7 +376,10 @@ export function expSheetHtml(S, trip, d) {
       </label>`).join('')}</div>
     ${chk.html}`}
     ${d.mode !== 'none' && inactive.length ? `<p class="small muted" style="margin:0">${esc(inactive.join('、'))}已停用，不列入新支出。</p>` : ''}
-    <div class="field"><label for="x-note">備註</label><input class="input" id="x-note" data-f="note" maxlength="200" value="${esc(d.note)}" ${dis}></div>
+    ${more ? `<div class="field"><span class="label">付款方式</span>
+      <div class="chips" role="radiogroup" aria-label="付款方式">${pays.map((x, i) => `<label class="chip"><input type="radio" name="x-pay" id="x-pay-${i}" data-f="pay" value="${esc(x)}" ${d.pay === x ? 'checked' : ''} ${dis}>${esc(x)}</label>`).join('')}</div>
+    </div>
+    <div class="field"><label for="x-note">備註</label><input class="input" id="x-note" data-f="note" maxlength="200" value="${esc(d.note)}" ${dis}></div>` : `<button type="button" class="linkbtn" data-act="expMore" style="justify-self:start;font-size:14px">付款方式（${esc(d.pay || '未填')}）、備註 ▸</button>`}
     ${d.confirmDel ? `<div class="confirm"><span>確定刪除「${esc(d.name)}」？刪除後無法復原。</span><div class="row"><button type="button" class="btn sm" data-act="noDelExp">取消</button><button type="button" class="btn sm danger" data-act="yesDelExp">刪除</button></div></div>` : ''}
     ${d.edit ? `<div class="row">
       ${d.id && !S.offline ? '<button type="button" class="btn danger" data-act="askDelExp">刪除</button>' : ''}
@@ -447,6 +455,34 @@ export function draftFields(S, trip, d) {
     personalShares: shares && (d.mode === 'equal' ? equalSplit(twd, ids) : allocate(twd, shares)),
     fx: { cur: d.cur, amount, rate, date: d.rateState === 'manual' ? '' : d.rateDate, shares: d.mode === 'custom' ? shares : null, payers },
   };
+}
+
+// 新增同行者之後：列出平均分攤、還沒算到這個人的支出，勾選的可以一次加進去
+// 原本是全部人一起平均的預設勾選；只有部分人平均的（例如兩人一起吃）預設不勾
+export function mateLeft(S, trip, pid) {
+  const c = ctxOf(S, trip), before = c.active.filter(p => p.id !== pid).map(p => p.id);
+  return (c.expenses || []).filter(e => modeOf(e, c.people) === 'equal' && !(pid in (sharesOf(e, c.people) || {})))
+    .map(e => { const s = sharesOf(e, c.people); return { e, all: before.every(id => id in s) }; });
+}
+export function mateCheckSheet(S, trip, pid, name) {
+  const list = mateLeft(S, trip, pid);
+  if (!list.length) return false;
+  openSheet(`${head(`已新增「${esc(name)}」`)}
+    <p style="margin:0">這趟有 ${list.length} 筆平均分攤的支出還沒算到${esc(name)}。要一起分攤的勾起來，會重新平均。</p>
+    <div class="split-who divide">${list.map(({ e, all }) => `<label class="r"><input type="checkbox" data-mate="${esc(e.id)}" ${all ? 'checked' : ''}>
+      <span class="grow">${esc(e.name)}<span class="small muted">　${esc(spentDay(e) ? monthDay(spentDay(e)) : '沒填日期')}・目前 ${Object.keys(sharesOf(e, ctxOf(S, trip).people)).length} 人平均</span></span><b class="num">${money(amountOf(e))}</b></label>`).join('')}</div>
+    <p class="small muted" style="margin:0">原本全部人一起平均的已先勾好；只有部分人分的請自己確認。改完可以復原。</p>
+    <div class="row"><button type="button" class="btn grow" data-act="close">先不用</button><button type="button" class="btn primary grow" data-act="mateApply" data-id="${esc(pid)}">加進勾選的支出</button></div>`);
+  return true;
+}
+// 勾選的支出加上新同行者後重新平均：回傳 [支出 ID, 新分攤, 舊分攤]
+export function mateShares(S, trip, pid, ids) {
+  const c = ctxOf(S, trip);
+  // 已經有這位同行者的（重試、別人剛好也加了）跳過，免得同一人算兩次
+  return (c.expenses || []).filter(e => ids.includes(e.id) && !(pid in (sharesOf(e, c.people) || {}))).map(e => {
+    const s = sharesOf(e, c.people) || {};
+    return [e.id, equalSplit(amountOf(e), [...Object.keys(s), pid]), e.personalShares];
+  });
 }
 
 export function depositSheet(S, trip) {

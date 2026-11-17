@@ -851,7 +851,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .wishes{gap:0}
 .wishes .item.wrow{align-items:center;gap:8px;background:none;border:0;border-radius:0;padding:9px 2px;box-shadow:none}
 .wishes .item.wrow + .item.wrow{border-top:1px solid var(--line)}
-.wrow .wadd{flex:none;width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:grid;place-items:center;padding:0;cursor:pointer}
+.wrow .wadd{flex:none;height:32px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--accent);display:inline-flex;align-items:center;gap:2px;padding:0 10px 0 8px;font-size:13px;font-weight:700;white-space:nowrap;cursor:pointer}
 .wrow .wadd:hover{border-color:var(--accent)}
 .wrow .wadd .ic,.wrow .wadd svg{width:16px;height:16px;margin:0}
 .wrow .wadd:disabled{opacity:.4;cursor:default}
