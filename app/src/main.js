@@ -54,7 +54,7 @@ const S = {
   env: '', user: null, nickname: '', ready: false,
   trips: [], expenses: new Map(), loadingTrips: true,
   view: 'home', tripId: null,
-  tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
+  tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false, openIt: '', live: null,
   flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], tkImg: '', loadingMove: false, reveal: {},
   todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', loadingTodo: false,
   diveDocs: [], loadingDive: false,
@@ -357,7 +357,7 @@ function syncItineraryWatch() {
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
   undoList.length = 0; // 換旅程就不留上一趟的復原
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], openIt: '', live: null, flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -1129,6 +1129,19 @@ const actions = {
       closeSheet(); toast('已排回時間軸');
     } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
     S.busy = false;
+  },
+  // 點一站：在卡片下方展開，即時查 Google 資訊（只放在畫面上，收起就丟掉）；再點一次收起
+  async itemOpen(el) {
+    const id = el.dataset.id, it = findItem(id), t = curTrip();
+    if (S.offline || !it) return;
+    if (S.openIt === id) { S.openIt = ''; S.live = null; render(); return; }
+    const canDel = !!(t && canDelRecord(t, it)), xy = Number.isFinite(it.lat) && Number.isFinite(it.lng);
+    S.openIt = id; S.live = { id, st: mapsKey && xy ? 'load' : 'none', canDel }; render();
+    if (!mapsKey || !xy) return;
+    let d = null;
+    try { d = await (await import('./ui/map.js')).placeLive(it); } catch (err) { console.error(err); }
+    if (S.openIt !== id) return;
+    S.live = { id, st: d ? 'ok' : 'none', d, canDel }; render();
   },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
@@ -1967,7 +1980,7 @@ document.addEventListener('click', ev => {
     // 區域卡片裡有很多地點：只認點到的那一個地點（.aplace），點到區域卡片其他地方不動作
     const row = ev.target.closest('.item[data-iid]');
     const box = row && (row.classList.contains('areacard') ? ev.target.closest('.aplace') : row);
-    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"], .wname[data-act="itemMenu"]');
+    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip, .ilive') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"], .wname[data-act="itemOpen"]');
     if (name) actions[name.dataset.act](name, ev);
     return;
   }

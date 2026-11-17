@@ -751,6 +751,48 @@ export async function openNow(p) {
   }
 }
 
+// 時間軸點開一站時，即時查 Google 的照片、地址、評分、電話、網站、今天營業時間；只在畫面上顯示，不存
+// 有地點代碼就用代碼查；沒有就用名稱在座標附近找（找到的離座標超過 500 公尺就不算）。查不到回傳 null
+const LIVE_FIELDS = ['formattedAddress', 'rating', 'userRatingCount', 'regularOpeningHours', 'currentOpeningHours', 'utcOffsetMinutes', 'photos', 'nationalPhoneNumber', 'websiteURI', 'businessStatus'];
+export async function placeLive(p) {
+  await loadApi();
+  const { Place } = await window.google.maps.importLibrary('places');
+  let pl = null;
+  if (p.placeId) {
+    pl = new Place({ id: p.placeId, requestedLanguage: 'zh-TW' });
+    await pl.fetchFields({ fields: LIVE_FIELDS });
+  } else {
+    const { places } = await Place.searchByText({ textQuery: p.title, fields: [...LIVE_FIELDS, 'location'], locationBias: { center: { lat: p.lat, lng: p.lng }, radius: 300 }, maxResultCount: 1, language: 'zh-TW' });
+    const loc = places?.[0]?.location;
+    if (loc && distanceKm(p, { lat: loc.lat(), lng: loc.lng() }) <= 0.5) pl = places[0];
+  }
+  if (!pl) return null;
+  const hours = pl.currentOpeningHours?.periods?.length ? pl.currentOpeningHours : pl.regularOpeningHours;
+  const ph = pl.photos?.[0];
+  return {
+    addr: pl.formattedAddress || '',
+    rating: pl.rating ?? null, ratingN: pl.userRatingCount || 0,
+    phone: pl.nationalPhoneNumber || '', web: pl.websiteURI || '',
+    photo: ph ? ph.getURI({ maxWidth: 240, maxHeight: 240 }) : '',
+    photoBy: ph?.authorAttributions?.[0]?.displayName || '',
+    open: pl.businessStatus === 'CLOSED_PERMANENTLY' ? { on: false, text: '已歇業' } : hours ? hoursNow(hours.periods, pl.utcOffsetMinutes) : null,
+  };
+}
+// 今天營業時間：營業中寫幾點打烊，沒營業寫幾點開門（24 小時內）；一整天沒開寫「今天休息」
+function hoursNow(periods, off) {
+  if (!Array.isArray(periods) || !periods.length || !Number.isFinite(off)) return null;
+  if (periods.some(p => p.open && !p.close)) return { on: true, text: '24 小時營業' };
+  const WEEK = 7 * 1440, local = new Date(Date.now() + off * 60000);
+  const t = local.getUTCDay() * 1440 + local.getUTCHours() * 60 + local.getUTCMinutes();
+  const at = x => x.day * 1440 + (x.hour || 0) * 60 + (x.minute || 0);
+  const hm = m => `${String(Math.floor((m % 1440) / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  const spans = periods.filter(p => p.open && p.close).flatMap(p => { const a = at(p.open), b = at(p.close) <= a ? at(p.close) + WEEK : at(p.close); return [[a, b], [a - WEEK, b - WEEK], [a + WEEK, b + WEEK]]; });
+  const now = spans.find(([a, b]) => t >= a && t < b);
+  if (now) return { on: true, text: `${hm(now[1])} 打烊` };
+  const next = spans.filter(([a]) => a > t).sort((x, y) => x[0] - y[0])[0];
+  return { on: false, text: next && next[0] - t < 1440 ? `${hm(next[0])} 開門` : '今天休息' };
+}
+
 // 地點所在的行政區（例如「海雲臺區」「東山區」）：有地點代碼就查代碼，沒有就查座標旁邊最近的地點；查不到回傳空字串
 // 只拿區名來當區域名稱，不存 Google 的地點資料
 const DIST_TYPES = ['sublocality_level_1', 'ward', 'locality', 'administrative_area_level_2'];
