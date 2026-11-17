@@ -54,7 +54,7 @@ const S = {
   env: '', user: null, nickname: '', ready: false,
   trips: [], expenses: new Map(), loadingTrips: true,
   view: 'home', tripId: null,
-  tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false,
+  tab: 'plan', days: {}, pday: 1, items: [], loadingItems: false, openIt: '', live: null,
   flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], tkImg: '', loadingMove: false, reveal: {},
   todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', loadingTodo: false,
   diveDocs: [], loadingDive: false,
@@ -357,7 +357,7 @@ function syncItineraryWatch() {
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
   undoList.length = 0; // 換旅程就不留上一趟的復原
-  Object.assign(S, { items: [], flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], openIt: '', live: null, flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -1130,6 +1130,19 @@ const actions = {
     } catch (err) { console.error(err); toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
+  // 點一站：在卡片下方展開，即時查 Google 資訊（只放在畫面上，收起就丟掉）；再點一次收起
+  async itemOpen(el) {
+    const id = el.dataset.id, it = findItem(id), t = curTrip();
+    if (S.offline || !it) return;
+    if (S.openIt === id) { S.openIt = ''; S.live = null; render(); return; }
+    const canDel = !!(t && canDelRecord(t, it)), xy = Number.isFinite(it.lat) && Number.isFinite(it.lng);
+    S.openIt = id; S.live = { id, st: mapsKey && xy ? 'load' : 'none', canDel }; render();
+    if (!mapsKey || !xy) return;
+    let d = null;
+    try { d = await (await import('./ui/map.js')).placeLive(it); } catch (err) { console.error(err); }
+    if (S.openIt !== id) return;
+    S.live = { id, st: d ? 'ok' : 'none', d, canDel }; render();
+  },
   mapFocus(el) {
     // 再按同一個地點：先清掉再設回去，地圖才會重新打開它的說明
     if (S.mapFocus && S.mapFocus === el.dataset.id) { S.mapFocus = ''; render(); }
@@ -1369,7 +1382,7 @@ const actions = {
   async saveQuickTime(el) {
     const v = readQuickTime(), it = findItem(el.dataset.id), tid = S.tripId;
     if (!v || !it || S.busy) return;
-    const old = { reservationTime: it.time || '', timeText: it.timeText || '', stay: it.stay || 0 };
+    const old = { reservationTime: it.time || '', timeText: it.timeText || '' };
     S.busy = true; el.disabled = true;
     try {
       await updateItem(tid, it.id, v, S.user, S.nickname);
@@ -1484,6 +1497,8 @@ const actions = {
     const day = +el.dataset.d, id = el.dataset.id, tid = S.tripId;
     S.busy = true; el.disabled = true;
     try {
+      // 從候選地點選了新地點：區域改用新地址的區
+      if ('lat' in form) { const d = await districtArea(form); if (d) form.area = d; }
       // 改了地址，舊的座標就不準了
       const old = id && findItem(id);
       if (id) await updateItem(S.tripId, id, old && old.address !== form.address && old.lat !== null && !('lat' in form) ? { ...form, lat: null, lng: null, exact: false, placeId: '', geoAt: 0 } : form, S.user, S.nickname);
@@ -1503,6 +1518,7 @@ const actions = {
     const url = isMapLink(form.address) ? form.address : placeUrl(form.address || form.title);
     S.busy = true; el.disabled = true;
     try {
+      if (exact) { const d = await districtArea(form); if (d) form.area = d; }
       const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url, list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
       closeSheet();
       undoable(tid, '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id));
@@ -1967,8 +1983,8 @@ document.addEventListener('click', ev => {
     // 區域卡片裡有很多地點：只認點到的那一個地點（.aplace），點到區域卡片其他地方不動作
     const row = ev.target.closest('.item[data-iid]');
     const box = row && (row.classList.contains('areacard') ? ev.target.closest('.aplace') : row);
-    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"]');
-    if (name) actions.mapFocus(name, ev);
+    const name = box && !ev.target.closest('a, button, summary, details, input, label, .grip, .ilive') && Date.now() - pressAt < 400 && box.querySelector('.wname[data-act="mapFocus"], .wname[data-act="itemOpen"]');
+    if (name) actions[name.dataset.act](name, ev);
     return;
   }
   if (el.disabled) return;
