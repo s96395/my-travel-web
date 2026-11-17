@@ -3,6 +3,8 @@
 import { esc, ICON, openSheet } from '../ui/dom.js';
 import { participantsOf } from '../lib/trips.js';
 import { memberUids, boundTo } from '../lib/people.js';
+import { COPY_PARTS, NOT_COPIED, copyEnd } from '../lib/copy.js';
+import { monthDay } from '../lib/dates.js';
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const avatar = (p, i) => `<span class="avatar${p?.uid ? '' : ' unbound'}" data-c="${i % 3}">${esc((p?.name || '?').slice(0, 1))}</span>`;
@@ -35,10 +37,11 @@ export function renderMore(S, trip) {
     <p class="small muted" style="margin:8px 0 0">虛線圈＝沒有帳號的人</p>
     ${owner && !ownerHasP ? `<button type="button" class="btn sm" data-act="createOwnerP" ${off} style="margin-top:8px">建立我的同行者</button>` : ''}
   </section>
-  ${owner ? `<section class="card menulist">
-    <button type="button" data-act="editTrip" ${off}><span>${ICON.edit}</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>
-    <button type="button" class="danger" data-act="delTrip" ${off}><span>${ICON.trash}</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>
-  </section>` : ''}
+  <section class="card menulist">
+    ${owner ? `<button type="button" data-act="editTrip" ${off}><span>${ICON.edit}</span><span class="grow"><b>編輯旅程名稱與日期</b></span>${ICON.chev}</button>` : ''}
+    <button type="button" data-act="copyTrip" ${off}><span>${ICON.copy}</span><span class="grow"><b>複製成新的旅程</b><span class="small muted">換個日期再去一次，或拿來當範本</span></span>${ICON.chev}</button>
+    ${owner ? `<button type="button" class="danger" data-act="delTrip" ${off}><span>${ICON.trash}</span><span class="grow"><b>刪除這趟旅程</b></span>${ICON.chev}</button>` : ''}
+  </section>
   </div>
   <section class="card">
     <div class="sec-h"><h2>共編成員</h2></div>
@@ -95,6 +98,26 @@ export function personSheet(p, companions = [], t = null) {
 export function confirmSheet(title, body, act, label, id = '') {
   openSheet(`${head(title)}<p style="margin:0">${body}</p>
     <div class="row"><button type="button" class="btn grow" data-act="close">取消</button><button type="button" class="btn danger grow" data-act="${act}" data-id="${esc(id)}">${label}</button></div>`);
+}
+
+// 複製旅程：選新的出發日與要帶過去的資料；counts 是每種資料目前有幾筆，0 筆的不列
+export function copyTripSheet(trip, counts, hasCover) {
+  const r = trip.raw, len = r.startDate && r.endDate ? Math.round((new Date(r.endDate) - new Date(r.startDate)) / 86400000) + 1 : 1;
+  const people = participantsOf(r).filter(p => p.status !== 'inactive').length;
+  const rows = [...COPY_PARTS.filter(([k]) => counts[k] > 0).map(([k, label]) => [k, `${label}（${counts[k]} 筆）`]),
+    ...(people > 1 ? [['people', `同行者名單（${people} 人）`]] : []), ...(hasCover ? [['cover', '封面照']] : [])];
+  openSheet(`${head('複製成新的旅程')}
+    <div class="field"><label for="cp-title">新旅程名稱</label><input class="input" id="cp-title" maxlength="40" value="${esc(`${r.title || ''}（複製）`.slice(0, 40))}"></div>
+    <div class="field"><label for="cp-start">新的出發日</label><input class="input" id="cp-start" type="date" value="${esc(r.startDate || '')}">
+      <span class="small muted" id="cp-end">${copyEndText(r, r.startDate)}</span></div>
+    ${rows.length ? `<p class="label" style="margin:4px 0 0">要一起帶過去的資料</p>
+    <div class="divide">${rows.map(([k, label]) => `<label class="todo"><input type="checkbox" data-cp="${k}" checked><span class="grow">${label}</span></label>`).join('')}</div>` : ''}
+    <p class="small muted" style="margin:0">共 ${len} 天，班機、住宿、交通的日期會跟著新的出發日往後挪。待辦和行李會變回沒打勾，「已預約」改回「要預約」。${NOT_COPIED}不會帶過去；${people > 1 ? '其他同行者只帶名字，要一起編輯請再從常用旅伴綁定。' : ''}原本這趟不會有任何改變。</p>
+    <p class="small err-text" id="cp-err" role="alert" hidden></p>
+    <button type="button" class="btn primary" data-act="yesCopyTrip">建立新的旅程</button>`);
+}
+export function copyEndText(r, start) {
+  return start ? `回程日：${monthDay(copyEnd(r, start))}` : '';
 }
 
 export function delTripSheet(trip) {
