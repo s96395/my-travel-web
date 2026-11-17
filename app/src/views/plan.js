@@ -34,13 +34,11 @@ export const dayOpts = (S, trip, sel) => dayList(S, trip).filter(Boolean).map(n 
 // 「幾個地方」只算真的要去的站：區域卡片是分組標題、備案掛在別站下面，都不算
 const stopCount = (S, d) => itemsOfDay(S.items, d).filter(it => it.kind !== 'area').length;
 
-// 時間：填了幾點就顯示幾點；沒有時顯示自己寫的時段（午餐、看完夕陽後）；都沒有才用推算的大約時間
-const whenOf = (it, r) => (it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> `
-  : it.timeText ? `<span class="whentxt">${esc(it.timeText)}</span> `
-    : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '');
+// 時間：只顯示「已預約」填的時間；系統推算的大約時間、自己寫的時段不放在卡片上（舊資料照存）
+const whenOf = it => (it.time && it.book === 'done' ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> ` : '');
 // 時間軸上已經有的時間（填的或推算的）可以直接點來改時間、停留多久；沒有時間的不多放按鈕，從 ⋯ 編輯補
-function timeBtn(S, it, r) {
-  const w = whenOf(it, r);
+function timeBtn(S, it) {
+  const w = whenOf(it);
   if (!w || S.offline || it.kind === 'area') return w;
   return `<button type="button" class="whenbtn" data-act="quickTime" data-id="${esc(it.id)}" aria-label="改「${esc(it.title)}」的時間與停留">${w.trim()}</button> `;
 }
@@ -96,34 +94,31 @@ function bookTag(it, cls = 'tag') {
 
 // 「必去／想去／有空再去」收斂成一個「⭐ 重點」：只有原本是必去的顯示；想去、有空再去的舊資料照存，不顯示標籤
 const STAR_TAG = '<span class="tag star">⭐ 重點</span>';
-// 票券標記：一個寫名稱，兩個以上只寫幾張，點開資訊卡再看
-const ticketTag = it => (!it.tickets.length ? '' : it.tickets.length === 1 ? `<span class="tag">🎫 ${esc(it.tickets[0])}</span>` : `<span class="tag" title="${esc(it.tickets.join('、'))}">🎫 ${it.tickets.length} 張票券</span>`);
 
-// 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
+// 卡片上的一行說明：有一句提示就放提示，沒有就放備註的第一行
+const lineOf = it => it.tip || noteOf(it).split('\n').map(x => x.trim()).find(Boolean) || '';
+// 時間軸上的一站：號碼、名稱、一行說明，右邊導航、給司機看、拖曳把手（停留多久、訂位、票券、⋯ 都收進編輯畫面）
 function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
-  const when = timeBtn(S, it, r), note = noteOf(it);
-  // 舊資料的「有空再去」照樣不算進後面的時間，但卡片不再多一個標籤（優先度只顯示 ⭐ 重點）
-  const sub = it.stay ? `停留 ${stayText(it.stay)}` : '';
-  return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
+  const when = timeBtn(S, it), line = lineOf(it);
+  const star = it.priority === 'must' ? '<span class="istar" title="重點" aria-label="重點">⭐</span> ' : '';
+  const name = `${star}${nameHtml(it)}`;
+  return `<div class="item slim" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
     ${r.pin ? `<button type="button" class="ico pinno" data-act="mapFocus" data-id="${esc(it.id)}" aria-pressed="${S.mapFocus === it.id}" aria-label="地圖上第 ${r.pin} 個，按一下在地圖上看">${r.pin}</button>` : `<span class="ico" role="img" aria-label="${ITEM_LABEL[it.type]}">${ITEM_ICON[it.type]}</span>`}
-    <div class="grow" style="flex:1">
-      <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${nameHtml(it, !!r.pin)}</button>` : nameHtml(it, !!r.pin)}</h4>
-      ${it.tip ? `<p class="itip">${esc(it.tip)}</p>` : ''}
-      ${sub ? `<p>${esc(sub)}</p>` : ''}
-      ${note ? `<details class="inote"><summary>備註</summary><p style="white-space:pre-line">${esc(note)}</p></details>` : ''}
-      <div class="tags">${r.late ? '<span class="tag bad">前面排太滿，可能來不及</span>' : ''}${r.early ? `<span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span>` : ''}${it.priority === 'must' ? STAR_TAG : ''}${bookTag(it)}${ticketTag(it)}${S.wide && onMap(it) && !S.offline && !(sideMap(S) && hasXY(it)) ? `<a class="tag" href="${esc(placeHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.pin}地圖</a>` : ''}${S.wide && S.offline ? drvLink('day', it.id, 'tag', '🚕 ') : ''}</div>
+    <div class="grow" style="flex:1;min-width:0">
+      <h4>${when}${sideMap(S) && hasXY(it) && !S.offline ? `<button type="button" class="wname" data-act="mapFocus" data-id="${esc(it.id)}" title="在地圖上看">${name}</button>` : name}</h4>
+      ${line ? `<p class="iline">${esc(line)}</p>` : ''}
+      ${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}
       ${backupRows(S, trip, it)}
     </div>
-    ${S.wide ? GRIP : quickBtns(S, trip, it)}
-    <button type="button" class="more" data-act="itemMenu" data-id="${esc(it.id)}" ${S.offline ? 'disabled' : ''} aria-label="移動或編輯">⋯</button>
+    ${quickBtns(S, trip, it)}${GRIP}
   </div>`;
 }
-// 手機每站右邊只留「導航」；給司機看收進資訊卡的詳細資訊（沒網路不能導航時才露出給司機看）；拖曳改成長按整列
+// 每站右邊：🧭 導航、🚕 給司機看（都用符號）；電腦版點名稱開資訊卡，只在沒網路時放 🚕
 const TAXI_ICO = '<span aria-hidden="true">🚕</span>';
 function quickBtns(S, trip, it) {
-  const nav = onMap(it) && !S.offline ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${ICON.map}</a>` : '';
-  const drv = S.offline ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
+  const nav = onMap(it) && !S.offline && !S.wide ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航"><span aria-hidden="true">🧭</span></a>` : '';
+  const drv = onMap(it) && (S.offline || !S.wide) ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
   return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
 
@@ -144,7 +139,7 @@ function areaCard(it, S, trip, r) {
   const km = p => { const k = here && hasXY(p) ? distanceKm(here, p) : null; return k !== null && k <= NEAR_KM ? k : null; };
   const away = here && places.some(hasXY) && !places.some(p => km(p) !== null);
   if (here) places = [...places].sort((a, b) => !!a.visited - !!b.visited || (km(a) ?? Infinity) - (km(b) ?? Infinity));
-  const when = whenOf(it, r);
+  const when = whenOf(it);
   const seen = places.filter(p => p.visited).length;
   const sub = [places.length ? `${places.length} 個點` : '這區還沒有地點', must ? `${must} 個排進時間軸` : '', seen ? `逛過 ${seen} 個` : '', it.note].filter(Boolean).map(esc).join('・');
   const row = p => {
@@ -258,8 +253,7 @@ function dayItems(S, trip, d) {
   // 有右邊地圖時，時間軸上的圓圈換成和地圖針一樣的號碼
   const far = farOf(S), pinNo = sideMap(S) ? new Map(pinsOf(its).filter(it => !far.has(it.id)).map((it, i) => [it.id, i + 1])) : new Map();
   rows.forEach(r => { if (r.kind === 'item') r.pin = pinNo.get(r.it.id) || 0; });
-  let n = -1;
-  const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? (n++, (d && areaLine(S, its, n) || '') + legHtml(r) + itemHtml(r.it, S, trip, r)) : eventHtml(r))).join('');
+  const html = rows.map((r, k) => (k === now ? nowLine : '') + (r.kind === 'item' ? legHtml(r) + itemHtml(r.it, S, trip, r) : eventHtml(r))).join('');
   return `<div class="items">
     ${html ? html + (now === rows.length ? nowLine : '') : none}
   </div>${d ? '' : moveToWish(S)}`;
@@ -280,18 +274,6 @@ const mDayHead = (S, trip, d) => {
   const areas = S.wide && d ? dayAreas(S.items, d).join('・') : '';
   return `<div class="dayhead mday"><h3>${d ? `第 ${d} 天` : '還沒排天數'}</h3><span class="small muted num">${areas ? `${esc(areas)}・` : ''}${dayMeta(S, trip, d, stopCount(S, d), true)}</span></div>`;
 };
-
-// 一天跑好幾個區域時，在每段區域前面標出區域名稱
-function areaLine(S, its, i) {
-  const a = its[i].area;
-  // 前一段有區域、這站沒有：標出來，免得看起來像是前一區的
-  if (!a && its[i - 1]?.area && !['transport', 'stay'].includes(its[i].type) && new Set(its.map(x => x.area).filter(Boolean)).size >= 2) return '<div class="arealine"><b class="muted">還沒分區域</b></div>';
-  if (!a || its[i].kind === 'area' || its[i - 1]?.area === a || new Set(its.map(x => x.area).filter(Boolean)).size < 2) return '';
-  // 這天已有這區的區域卡片，卡片就是這區的標題，不再多標一次
-  if (its.some(x => x.kind === 'area' && x.area === a)) return '';
-  // 整區移到別天或移除放在每站的 ⋯ 選單裡，這裡只標區域名
-  return `<div class="arealine"><b>${esc(a)}</b></div>`;
-}
 
 // 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
 // 同一個地點可以排進好幾天：只藏起已排在「這一天」的（地圖上已經是行程針），排在別天的標出第幾天
@@ -539,9 +521,7 @@ function infoCard(S, trip, d, mini = false) {
     if (mini) return miniCard(it.kind === 'area' ? it.title : nameText(it), `${onMap(it) ? `<a class="btn sm primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}<button type="button" class="btn sm grow" data-act="${it.kind === 'area' ? 'areaSheet' : 'editItem'}" ${it.kind === 'area' ? `data-area="${esc(it.area)}"` : `data-id="${esc(it.id)}"`}>編輯</button>`);
     const its = itemsOfDay(S.items, it.day), far = farOf(S);
     const no = pinsOf(its).filter(x => !far.has(x.id)).findIndex(x => x.id === it.id) + 1;
-    const rows = it.day ? buildDay(its, evOf(S, trip, dayIso(trip, it.day), its), S.legs) : [];
-    const r = rows.find(x => x.kind === 'item' && x.it.id === it.id) || {};
-    const when = [timeBtn(S, it, r).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
+    const when = [timeBtn(S, it).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
     const id = esc(it.id), main = it.backupOf && S.items.find(x => x.id === it.backupOf);
     const areaN = it.area ? its.filter(x => x.area === it.area).length : 0;
     const more = [
