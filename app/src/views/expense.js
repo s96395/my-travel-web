@@ -4,8 +4,7 @@ import { esc, ICON, TYPE_ICO, money, openSheet, store, $ } from '../ui/dom.js';
 import { TWD, CURRENCIES, curInfo, tripCurrencies, fxMoney, toTwd, allocate } from '../lib/fx.js';
 import { participantsOf, myParticipantId } from '../lib/trips.js';
 import { isMember } from '../lib/people.js';
-import { todayString, toDateString, parseDate, monthDay } from '../lib/dates.js';
-import { tripDays } from '../lib/trips.js';
+import { todayString, monthDay } from '../lib/dates.js';
 import {
   CATS, PAYS, FUND, MULTI, paidOf, amountOf, payMethodOf, equalSplit, sharesOf, isSplit, modeOf, perPerson, byCategory,
   fundOf, fundIn, fundOut, settlement, repaidKey,
@@ -15,20 +14,14 @@ const head = title => `<div class="head"><h2>${title}</h2><button type="button" 
 const avatar = (p, i) => `<span class="avatar${p?.uid ? '' : ' unbound'}" data-c="${i % 3}">${esc((p?.name || '?').slice(0, 1))}</span>`;
 const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : Infinity); // 剛新增還沒寫進伺服器的排最前面
 const off = S => (S.offline ? 'disabled' : '');
-// 消費日期（2027-02-20）：有填就用填的；舊資料沒有這個欄位，用新增那天；空字串＝還沒填
-export const spentDay = e => (typeof e.spentOn === 'string' ? e.spentOn : e.createdAt?.toDate ? todayString(e.createdAt.toDate()) : '');
-// 列表排序：消費日期新的在前，沒填日期的放最後；同一天再依新增時間
+// 支出歸在哪一天：表單已經不填消費日期，用新增那天；以前填過消費日期的舊資料照填的日期；剛新增還沒寫進伺服器的算今天
+export const spentDay = e => (typeof e.spentOn === 'string' && e.spentOn ? e.spentOn : e.createdAt?.toDate ? todayString(e.createdAt.toDate()) : todayString());
+// 列表排序：日期新的在前；同一天再依新增時間
 const byDay = (a, b) => {
   const x = spentDay(a), y = spentDay(b);
   if (x !== y) return !x ? 1 : !y ? -1 : y.localeCompare(x);
   return ms(b.createdAt) - ms(a.createdAt);
 };
-// 旅程的每一天（給消費日期快速選），太長的旅程只用日期欄
-function tripDates(trip) {
-  const n = tripDays(trip);
-  if (!n || n > 10) return [];
-  return Array.from({ length: n }, (_, i) => { const d = parseDate(trip.start); d.setDate(d.getDate() + i); return toDateString(d); });
-}
 
 // 這趟旅程的同行者、名字與顏色
 export function ctxOf(S, trip) {
@@ -89,10 +82,10 @@ function expList(S, c) {
     <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
   </div>
   ${c.active.length < 2 && c.trip.raw.ownerId === S.user.uid ? `<div class="card row" role="note" style="gap:10px;align-items:center;padding:12px 14px"><span class="grow small">${c.active.length ? '目前只有你一人' : '還沒有同行者'}。要分攤費用，先把一起去的人加進來（沒有帳號也可以）。</span><button type="button" class="btn sm" data-act="addPerson" ${off(S)}>${ICON.plus}新增同行者</button></div>` : ''}
-  <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day ? monthDay(g.day) : '沒填消費日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
+  <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(monthDay(g.day))}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
 }
 
-// 依消費日期分組（列表已經照日期排好）
+// 依日期分組（列表已經照日期排好）
 function groups(list) {
   const out = [];
   for (const e of list) {
@@ -217,9 +210,7 @@ export function expDraft(S, trip, e) {
   // 新的一筆：幣別用這趟上次選的，沒有就用旅程國家的幣別；匯率等打開表單後再查
   if (!e) {
     const cur = store.get(`fxCur:${trip.id}`) || tripCurrencies(trip.raw.country)[0] || TWD;
-    // 消費日期：旅行中預設今天；出發前或回國後補記不自動帶，避免全記到今天
-    const today = todayString(), during = trip.start && trip.end && trip.start <= today && today <= trip.end;
-    return { id: null, name: '', amt: '', spentOn: during ? today : '', logged: '', cur, rate: '', rateDate: '', rateState: '', cat: '餐飲', pay: '現金', payWay: 'people', paid: {}, autoPay: c.me || '', payAll: false, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
+    return { id: null, name: '', amt: '', spentOn: '', cur, rate: '', rateDate: '', rateState: '', cat: '餐飲', pay: '現金', payWay: 'people', paid: {}, autoPay: c.me || '', payAll: false, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
   }
   const s = sharesOf(e, c.people) || {}, mode = modeOf(e, c.people), fx = e.fx?.cur ? e.fx : null;
   const custom = {}, paid = {};
@@ -230,7 +221,7 @@ export function expDraft(S, trip, e) {
   if (e.payerId === MULTI) { const pd = fx?.payers || paidOf(e); for (const k in pd) paid[k] = String(pd[k]); }
   return {
     id: e.id, name: e.name || '', amt: String((fx ? fx.amount : amountOf(e)) || ''),
-    spentOn: spentDay(e), logged: e.createdAt?.toDate ? todayString(e.createdAt.toDate()) : '',
+    spentOn: typeof e.spentOn === 'string' ? e.spentOn : '', // 舊資料填過的消費日期原樣保留，表單不再顯示
     cur: fx ? fx.cur : TWD, rate: fx ? String(fx.rate) : '', rateDate: fx?.date || '', rateState: fx ? 'saved' : '',
     cat: e.category || '其他', pay: payMethodOf(e) || '其他',
     payWay, paid, autoPay: e.payerId && e.payerId !== FUND && e.payerId !== MULTI ? e.payerId : payWay === 'none' ? c.me || '' : '', payAll: false, mode, sel: new Set(mode === 'none' ? active : Object.keys(s)), custom, note: e.note || '',
@@ -351,7 +342,6 @@ export function expSheetHtml(S, trip, d) {
       ${foreign(d) ? rateLine(d, dis) : ''}
       <input class="namein" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
     </div>
-    ${dayField(trip, d, dis)}
     <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div>
     <div class="field"><span class="label">誰付的錢</span>
       <div class="seg" style="justify-self:start">${[['people', '填每人金額'], ...(c.fund.on || d.payWay === 'fund' ? [['fund', c.fund.on ? '公費付' : '公費付（已關閉）']] : []), ['none', '還不確定']]
@@ -387,20 +377,6 @@ export function expSheetHtml(S, trip, d) {
     </div>` : ''}
     ${d.by ? `<p class="small muted" style="margin:0;text-align:center">${esc(d.by)} 新增</p>` : ''}`;
 }
-
-// 消費日期：旅程每一天可以直接點，其他日期（出發前訂票、回國後補記）用日期欄
-function dayField(trip, d, dis) {
-  const days = tripDates(trip);
-  const note = spentNote(d);
-  return `<div class="field"><label class="label" for="x-spent">消費日期</label>
-    ${days.length ? `<div class="chips" style="flex-wrap:wrap">${days.map((x, i) => `<button type="button" class="chip" data-act="expDay" data-v="${x}" aria-pressed="${d.spentOn === x}" ${dis}>第 ${i + 1} 天 ${esc(monthDay(x))}</button>`).join('')}</div>` : ''}
-    <input class="input" type="date" id="x-spent" data-f="spentOn" value="${esc(d.spentOn)}" ${dis} style="justify-self:start">
-    <p class="small muted" id="x-spent-note" style="margin:0" ${note ? '' : 'hidden'}>${esc(note)}</p>
-  </div>`;
-}
-// 消費日期下面那行說明；日期欄打字時只改這行和按鈕，不重畫整個表單（重畫會把打到一半的日期清掉）
-export const spentNote = d => (!d.spentOn ? '還沒選日期，明細會列在「沒填消費日期」'
-  : d.logged && d.logged !== d.spentOn ? `${monthDay(d.logged)} 記錄` : '');
 
 // 幣別選單：這趟旅程國家的幣別排最前面，再來是新台幣和其他常用幣別
 function curPicker(trip, d, dis) {
@@ -445,7 +421,7 @@ export function draftFields(S, trip, d) {
   const paid = d.payWay === 'people' ? payersNow(d) : [];
   const payerId = d.payWay === 'fund' ? FUND : d.payWay === 'none' ? '' : paid.length > 1 ? MULTI : paid[0]?.[0] || '';
   const payers = payerId === MULTI ? Object.fromEntries(paid) : null;
-  const base = { name: d.name.trim(), spentOn: d.spentOn || '', category: d.cat, payMethod: d.pay, note: d.note.trim(), payerId, splitMode: shares ? d.mode : null };
+  const base = { name: d.name.trim(), ...(d.spentOn ? { spentOn: d.spentOn } : {}), category: d.cat, payMethod: d.pay, note: d.note.trim(), payerId, splitMode: shares ? d.mode : null };
   if (!foreign(d)) return { ...base, amount, payers, personalShares: shares, fx: null };
   // 外幣：表單填的都是外幣，存檔時換成新台幣；平均分攤用新台幣重新平均，其他照比例分
   const rate = num(d.rate), twd = toTwd(amount, rate);
@@ -470,7 +446,7 @@ export function mateCheckSheet(S, trip, pid, name) {
   openSheet(`${head(`已新增「${esc(name)}」`)}
     <p style="margin:0">這趟有 ${list.length} 筆平均分攤的支出還沒算到${esc(name)}。要一起分攤的勾起來，會重新平均。</p>
     <div class="split-who divide">${list.map(({ e, all }) => `<label class="r"><input type="checkbox" data-mate="${esc(e.id)}" ${all ? 'checked' : ''}>
-      <span class="grow">${esc(e.name)}<span class="small muted">　${esc(spentDay(e) ? monthDay(spentDay(e)) : '沒填日期')}・目前 ${Object.keys(sharesOf(e, ctxOf(S, trip).people)).length} 人平均</span></span><b class="num">${money(amountOf(e))}</b></label>`).join('')}</div>
+      <span class="grow">${esc(e.name)}<span class="small muted">　${esc(monthDay(spentDay(e)))}・目前 ${Object.keys(sharesOf(e, ctxOf(S, trip).people)).length} 人平均</span></span><b class="num">${money(amountOf(e))}</b></label>`).join('')}</div>
     <p class="small muted" style="margin:0">原本全部人一起平均的已先勾好；只有部分人分的請自己確認。改完可以復原。</p>
     <div class="row"><button type="button" class="btn grow" data-act="close">先不用</button><button type="button" class="btn primary grow" data-act="mateApply" data-id="${esc(pid)}">加進勾選的支出</button></div>`);
   return true;
