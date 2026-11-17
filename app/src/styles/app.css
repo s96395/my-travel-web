@@ -1028,7 +1028,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mcats button[aria-pressed="true"]::before{background:#fff}
 .mcats button[hidden]{display:none}
 .mcats .mnearopen::before{display:none}
-.mcats .mnearopen::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-3px 0 0 2px}
+.mcats .mnearopen[data-near]::after{content:"";width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);margin:-3px 0 0 2px}
 .mcats .mnearopen[aria-expanded="true"]{background:#1f2937;color:#fff}
 .mcats .mnearopen[aria-expanded="true"]::after{transform:rotate(-135deg);margin:3px 0 0 2px}
 .mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}

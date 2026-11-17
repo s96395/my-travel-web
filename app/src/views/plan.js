@@ -193,7 +193,7 @@ export function mapData(S, trip) {
   // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
   // 結果條：範圍內亮著的收藏數、這天還沒排又沒有位置的收藏數（有區域篩選時只算那一區）
   const stat = box && { ...box, area: S.mapArea, cnt: points.filter(p => p.kind === 'wish' && !p.dim).length, noxy: wishLeft(S, d).filter(p => !hasXY(p) && (!S.mapArea || p.area === S.mapArea)).length };
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, wishN: S.wishDocs.some(hasXY) };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, dest: trip ? [trip.city, trip.country].filter(Boolean).join(' ') : '', destCity: !!trip?.city, wishN: S.wishDocs.some(hasXY) };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
