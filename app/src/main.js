@@ -14,7 +14,7 @@ import { sceneUrl } from './ui/scene.js';
 import { itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
 import { parseSavedList, findCoords, coordsFromUrl, clusterNear, farOff } from './lib/places.js';
 import { watchItinerary, addItem, updateItem, deleteItem, restoreItem, saveMoves } from './data/itinerary.js';
-import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf } from './lib/itinerary.js';
+import { normalizeItem, planMove, stepTarget, planAreaMove, nextOrder, itemsOfDay, isMapLink, onMap, geoKey, sameName, afterArea, bestSpot, centerOf, placeUrl } from './lib/itinerary.js';
 import { legOf } from './lib/timeline.js';
 import { maskTime, normTime, joinDateTime } from './lib/time24.js';
 import { initDrag } from './ui/drag.js';
@@ -1467,9 +1467,11 @@ const actions = {
     const form = readItemForm();
     if (!form || S.busy) return;
     const tid = S.tripId, { lat, lng, exact, placeId, geoAt } = form;
+    // 想去清單靠連結對應行程（判斷已排第幾天、加入時帶地址），手打地址或只有名稱就換成 Google 地圖搜尋連結
+    const url = isMapLink(form.address) ? form.address : placeUrl(form.address || form.title);
     S.busy = true; el.disabled = true;
     try {
-      const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url: isMapLink(form.address) ? form.address : '', list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
+      const ref = await addRecord(tid, 'wishlist', { title: form.title, note: [form.tip, form.note].filter(Boolean).join('\n'), url, list: '', area: form.area, ...(exact ? { lat, lng, exact, placeId, geoAt } : {}) }, S.user, S.nickname);
       closeSheet();
       undoable(tid, '已放進想去清單', t => deleteRecord(t, 'wishlist', ref.id));
     } catch (err) { console.error(err); el.disabled = false; toast('沒有加成功，請稍後再試'); }
