@@ -1627,6 +1627,8 @@ const actions = {
     expSheet();
   },
   payAll() { if (S.draft) { S.draft.payAll = true; expSheet(); } },
+  // 消費日期點旅程的某一天；再點一次同一天就清掉
+  expDay(el) { const d = S.draft; if (!d) return; d.spentOn = d.spentOn === el.dataset.v ? '' : el.dataset.v; d.dirty = true; expSheet(); },
   async saveExp(el) {
     const d = S.draft, trip = curTrip();
     if (!d || !trip || S.busy || S.offline || el.disabled) return;
@@ -1902,7 +1904,7 @@ function onDraftInput(t) {
     if (['amt', 'rate'].includes(f) && t.value !== v) t.value = v;
     if (f === 'rate') d.rateState = 'manual';
     if (f === 'cur') { d.rate = ''; d.rateDate = ''; d.rateState = ''; loadRate(d); }
-    if (['amt', 'rate', 'cur', 'cat', 'pay'].includes(f)) expSheet();
+    if (['amt', 'rate', 'cur', 'cat', 'pay', 'spentOn'].includes(f)) expSheet();
     else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
   }
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }

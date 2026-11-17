@@ -3,6 +3,7 @@ import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
 import { clockOf } from '../lib/time24.js';
 import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
 import { amountOf } from '../lib/expenses.js';
+import { spentDay } from './expense.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays } from './move.js';
 import { tripDays } from '../lib/trips.js';
@@ -239,7 +240,7 @@ function dayItems(S, trip, d) {
 // short：手機版，不寫幾個地方（時間軸一眼就看得到）
 function dayMeta(S, trip, d, n, short = false) {
   const date = dayIso(trip, d);
-  const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => e.createdAt?.toDate && todayString(e.createdAt.toDate()) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
+  const spent = date ? (S.expenses.get(S.tripId) || []).filter(e => spentDay(e) === date).reduce((s, e) => s + amountOf(e), 0) : 0;
   const left = d === 1 && trip.start && todayString() < trip.start ? S.todoDocs.filter(t => !t.done).length : 0;
   return [dayDate(trip, d), n && !short ? `${n} 個地方` : '', spent ? `花費 NT$${money(spent)}` : ''].filter(Boolean).join('・')
     + (left ? `・<button type="button" class="linkbtn" data-act="tab" data-v="todo">待辦還有 ${left} 件</button>` : '');
