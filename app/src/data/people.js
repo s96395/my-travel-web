@@ -6,11 +6,15 @@ import { newShareKey } from './trips.js';
 
 const tripRef = id => doc(db, 'trips', id);
 
-// 新增同行者；建立者自己還沒有同行者時，帶入自己的帳號
-export const addParticipant = (trip, name, uid = '') => updateDoc(tripRef(trip.id), {
-  [`participants.${doc(collection(db, 'trips')).id}`]: { name: cleanName(name), uid, order: nextOrder(trip), status: 'active' },
-  updatedAt: serverTimestamp(),
-});
+// 新增同行者；建立者自己還沒有同行者時，帶入自己的帳號。回傳新同行者的 ID
+export async function addParticipant(trip, name, uid = '') {
+  const id = doc(collection(db, 'trips')).id;
+  await updateDoc(tripRef(trip.id), {
+    [`participants.${id}`]: { name: cleanName(name), uid, order: nextOrder(trip), status: 'active' },
+    updatedAt: serverTimestamp(),
+  });
+  return id;
+}
 // 只改指定欄位，例如 { 'b.status': 'inactive', 'a.order': 2 }
 export function patchParticipants(tripId, fields) {
   const out = { updatedAt: serverTimestamp() };

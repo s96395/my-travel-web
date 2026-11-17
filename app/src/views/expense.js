@@ -86,6 +86,7 @@ function expList(S, c) {
     <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
     <button type="button" class="chip" data-act="expFilter" data-v="none" aria-pressed="${S.expFilter === 'none'}">尚未分攤 ${notSplit}</button>
   </div>
+  ${c.active.length < 2 && c.trip.raw.ownerId === S.user.uid ? `<div class="card row" role="note" style="gap:10px;align-items:center;padding:12px 14px"><span class="grow small">${c.active.length ? '目前只有你一人' : '還沒有同行者'}。要分攤費用，先把一起去的人加進來（沒有帳號也可以）。</span><button type="button" class="btn sm" data-act="addPerson" ${off(S)}>${ICON.plus}新增同行者</button></div>` : ''}
   <div class="list exprows">${groups(list).map(g => `<div class="dgroup"><span>${esc(g.day ? monthDay(g.day) : '沒填消費日期')}</span><span class="num">${money(g.sum)}</span></div>${g.list.map(e => expRow(c, e)).join('')}`).join('') || `<div class="empty">${S.expFilter === 'none' ? '沒有尚未分攤的支出' : '還沒有支出，按「記一筆」開始記帳'}</div>`}</div>`;
 }
 
@@ -447,6 +448,33 @@ export function draftFields(S, trip, d) {
     personalShares: shares && (d.mode === 'equal' ? equalSplit(twd, ids) : allocate(twd, shares)),
     fx: { cur: d.cur, amount, rate, date: d.rateState === 'manual' ? '' : d.rateDate, shares: d.mode === 'custom' ? shares : null, payers },
   };
+}
+
+// 新增同行者之後：列出平均分攤、還沒算到這個人的支出，勾選的可以一次加進去
+// 原本是全部人一起平均的預設勾選；只有部分人平均的（例如兩人一起吃）預設不勾
+export function mateLeft(S, trip, pid) {
+  const c = ctxOf(S, trip), before = c.active.filter(p => p.id !== pid).map(p => p.id);
+  return (c.expenses || []).filter(e => modeOf(e, c.people) === 'equal' && !(pid in (sharesOf(e, c.people) || {})))
+    .map(e => { const s = sharesOf(e, c.people); return { e, all: before.every(id => id in s) }; });
+}
+export function mateCheckSheet(S, trip, pid, name) {
+  const list = mateLeft(S, trip, pid);
+  if (!list.length) return false;
+  openSheet(`${head(`已新增「${esc(name)}」`)}
+    <p style="margin:0">這趟有 ${list.length} 筆平均分攤的支出還沒算到${esc(name)}。要一起分攤的勾起來，會重新平均。</p>
+    <div class="split-who divide">${list.map(({ e, all }) => `<label class="r"><input type="checkbox" data-mate="${esc(e.id)}" ${all ? 'checked' : ''}>
+      <span class="grow">${esc(e.name)}<span class="small muted">　${esc(spentDay(e) ? monthDay(spentDay(e)) : '沒填日期')}・目前 ${Object.keys(sharesOf(e, ctxOf(S, trip).people)).length} 人平均</span></span><b class="num">${money(amountOf(e))}</b></label>`).join('')}</div>
+    <p class="small muted" style="margin:0">原本全部人一起平均的已先勾好；只有部分人分的請自己確認。改完可以復原。</p>
+    <div class="row"><button type="button" class="btn grow" data-act="close">先不用</button><button type="button" class="btn primary grow" data-act="mateApply" data-id="${esc(pid)}">加進勾選的支出</button></div>`);
+  return true;
+}
+// 勾選的支出加上新同行者後重新平均：回傳 [支出 ID, 新分攤, 舊分攤]
+export function mateShares(S, trip, pid, ids) {
+  const c = ctxOf(S, trip);
+  return (c.expenses || []).filter(e => ids.includes(e.id)).map(e => {
+    const s = sharesOf(e, c.people) || {};
+    return [e.id, equalSplit(amountOf(e), [...Object.keys(s), pid]), e.personalShares];
+  });
 }
 
 export function depositSheet(S, trip) {

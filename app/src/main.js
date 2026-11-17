@@ -22,7 +22,7 @@ import { watchRecords, addRecord, updateRecord, deleteRecord, restoreRecord } fr
 import { ticketFormSheet, readTicketForm, ticketSheet } from './views/move.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate, missingPack } from './lib/todos.js';
-import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord, spentNote } from './views/expense.js';
+import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord, spentNote, mateCheckSheet, mateShares } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
@@ -1002,7 +1002,7 @@ const actions = {
       S.years[form.startDate.slice(0, 4)] = true;
       closeSheet();
       go(`#/trip/${id}`);
-      toast('已建立旅程');
+      toast('已建立旅程，一起去的人可以在「更多」新增');
     } catch (err) {
       console.error(err); el.disabled = false; toast('建立失敗，請稍後再試');
     }
@@ -1346,6 +1346,21 @@ const actions = {
     if (it && trip && !S.offline) itemMenuSheet(S, trip, it, canDelRecord(trip, it));
   },
   moveTo(el) { closeSheet(); moveItem(el.dataset.id, { day: +el.dataset.d }); },
+  // 新增同行者後，把勾選的平均分攤支出加上這個人重新平均；可以復原
+  async mateApply(el) {
+    const trip = curTrip(), pid = el.dataset.id, tid = S.tripId;
+    const ids = [...document.querySelectorAll('[data-mate]:checked')].map(x => x.dataset.mate);
+    if (!trip || S.busy) return;
+    if (!ids.length) { closeSheet(); return; }
+    const list = mateShares(S, trip, pid, ids);
+    S.busy = true; el.disabled = true;
+    try {
+      await Promise.all(list.map(([id, now]) => updateRecord(tid, 'expenses', id, { personalShares: now, splitMode: 'equal' }, S.user, S.nickname)));
+      closeSheet();
+      undoable(tid, `已加進 ${list.length} 筆支出`, t => Promise.all(list.map(([id, , old]) => updateRecord(t, 'expenses', id, { personalShares: old }, S.user, S.nickname))));
+    } catch (err) { console.error(err); el.disabled = false; toast('沒有更新成功，請稍後再試'); }
+    S.busy = false;
+  },
   // 時間軸上直接點時間：只改時間與停留多久，改完可以復原
   quickTime(el) { const it = findItem(el.dataset.id); if (it && !S.offline) quickTimeSheet(it); },
   async saveQuickTime(el) {
@@ -1735,9 +1750,11 @@ const actions = {
     if (!trip || S.busy) return;
     S.busy = true; el.disabled = true;
     try {
+      const pid = el.dataset.id ? '' : await addParticipant(trip.raw, name);
       if (el.dataset.id) await patchParticipants(trip.id, { [`${el.dataset.id}.name`]: name });
-      else await addParticipant(trip.raw, name);
-      closeSheet(); toast(el.dataset.id ? '已改名' : `已新增「${name}」`);
+      closeSheet();
+      // 新增後：已經有平均分攤的支出，問要不要把新的人加進去，免得漏算
+      if (!pid || !mateCheckSheet(S, { ...trip, raw: { ...trip.raw, participants: { ...trip.raw.participants, [pid]: { name, uid: '', order: 999, status: 'active' } } } }, pid, name)) toast(el.dataset.id ? '已改名' : `已新增「${name}」`);
     } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
