@@ -138,6 +138,7 @@ function render() {
   // 日期列重畫後會回到最左邊；天數多時把選到的那天捲到中間
   const pill = $('.dpill[aria-current="true"]');
   if (pill) { const row = pill.parentNode; row.scrollLeft += pill.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - pill.offsetWidth) / 2; }
+  syncDayArrows();
   // 地圖只在用到時才載入
   tourCheck();
   fetchLegs();
@@ -145,6 +146,19 @@ function render() {
   fillAreas();
   if ($('#mapslot')) import('./ui/map.js').then(async m => { const t = curTrip(); if (!t) return; await m.syncMap(mapData(S, t), el => actions[el.dataset.act]?.(el), placeAct, openCard); exactCoords(m); }).catch(err => { console.error(err); toast('Google 地圖載入失敗，請稍後再試'); });
 }
+
+// 天數列兩邊的箭頭：左邊還有天數才出現 ‹，右邊還有才出現 ›
+function syncDayArrows() {
+  document.querySelectorAll('.dpwrap').forEach(w => {
+    const row = w.querySelector('.dpills');
+    if (!row) return;
+    const [l, r] = w.querySelectorAll('.dparrow');
+    l.hidden = row.scrollLeft <= 2;
+    r.hidden = row.scrollLeft + row.clientWidth >= row.scrollWidth - 2;
+  });
+}
+document.addEventListener('scroll', ev => { if (ev.target.classList?.contains('dpills')) syncDayArrows(); }, true);
+window.addEventListener('resize', syncDayArrows);
 
 // 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
 const tried = new Set();
@@ -1039,6 +1053,8 @@ const actions = {
   },
   wboxClear() { S.wbox = null; S.wboxList = ''; render(); },
   pday(el) { S.pday = +el.dataset.d; S.mapFocus = ''; render(); },
+  // 天數列的 ‹ ›：一次捲大約七成寬
+  dpScroll(el) { const row = el.parentNode.querySelector('.dpills'); row?.scrollBy({ left: +el.dataset.v * row.clientWidth * 0.7, behavior: 'smooth' }); },
   // 資訊卡：關閉；Google 地點的「加入行程」先問哪一天，「加入想去清單」直接加
   cardClose() { closeCard(); },
   // 給司機看：蓋在資訊卡上的視窗，關掉後資訊卡、日期、清單捲動位置都不變；只用現有資料，不查 Google 地點資料

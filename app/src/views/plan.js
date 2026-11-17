@@ -387,7 +387,8 @@ function dayPill(trip, d) {
 }
 
 // short：電腦版三欄左邊窄，直接寫「第 N 天」和日期，不放區域名稱
-const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
+// 天數多、一排放不下時左右可以滑，兩邊的箭頭（main.js syncDayArrows 控制顯示）按了往前、往後捲
+const dayPills = (S, trip, days, sel, short) => `<div class="dpwrap"><button type="button" class="dparrow l" data-act="dpScroll" data-v="-1" aria-label="前面的天數" hidden>‹</button><div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
   const p = dayPill(trip, d);
   const cur = d === sel ? 'aria-current="true"' : '';
   if (short) return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><b>${d ? `第 ${d} 天` : '未排'}</b><span class="num">${d && p.w ? `${p.n} 日（${p.w}）` : ''}</span></button>`;
@@ -395,7 +396,7 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
   const areas = d ? dayAreas(S.items, d).filter(a => !/^新區域( \d+)?$/.test(a)) : [];
   const label = d ? areas.slice(0, 2).join('、') || `第 ${d} 天` : '天數';
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur} title="${esc(areas.length ? `第 ${d} 天：${areas.join('、')}` : '')}"><span>${p.w}</span><b class="num">${p.n}</b><span class="dparea">${esc(label)}</span></button>`;
-}).join('')}</div>`;
+}).join('')}</div><button type="button" class="dparrow r" data-act="dpScroll" data-v="1" aria-label="後面的天數" hidden>›</button></div>`;
 
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
