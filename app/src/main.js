@@ -22,12 +22,13 @@ import { watchRecords, addRecord, updateRecord, deleteRecord, restoreRecord } fr
 import { ticketFormSheet, readTicketForm, ticketSheet } from './views/move.js';
 import { allFlights, allStays, flightFormSheet, stayFormSheet, transitFormSheet, readTransitForm, readFlightForm, readStayForm, updateDuration, updateNights, fillAirport } from './views/move.js';
 import { missingTemplate, missingPack } from './lib/todos.js';
-import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord, spentNote, mateCheckSheet, mateShares } from './views/expense.js';
+import { renderExpSheet, expDraft, draftFields, draftCheck, shareList, depositSheet, ctxOf, canEdit as canEditRecord, mateCheckSheet, mateShares } from './views/expense.js';
 import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
-import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf, quickSheet } from './views/more.js';
+import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf, quickSheet, copyTripSheet, copyEndText } from './views/more.js';
+import { readCopySource, copyTrip } from './data/copy.js';
 import { renderJoin } from './views/join.js';
 import { addParticipant, patchParticipants, removeMember, kickMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
 import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.js';
@@ -1679,8 +1680,6 @@ const actions = {
   },
   payAll() { if (S.draft) { S.draft.payAll = true; expSheet(); } },
   expMore() { if (S.draft) { S.draft.more = true; expSheet(); } },
-  // 消費日期點旅程的某一天；再點一次同一天就清掉
-  expDay(el) { const d = S.draft; if (!d) return; d.spentOn = d.spentOn === el.dataset.v ? '' : el.dataset.v; d.dirty = true; expSheet(); },
   async saveExp(el) {
     const d = S.draft, trip = curTrip();
     if (!d || !trip || S.busy || S.offline || el.disabled) return;
@@ -1854,6 +1853,37 @@ const actions = {
     S.busy = false;
   },
   delTrip() { const trip = curTrip(); if (trip && !S.offline) delTripSheet(trip); },
+  // 複製旅程：數量用目前畫面上的資料，真正複製時重讀一次原始資料
+  copyTrip() {
+    const trip = curTrip();
+    if (!trip || S.offline) return;
+    const counts = { itinerary: S.items.length, wishlist: S.wishDocs.length, flights: allFlights(S, trip).length, stays: allStays(S, trip).length, transits: S.transitDocs.length, todos: S.todoDocs.length, packing: S.packDocs.filter(p => p.uid === S.user.uid).length };
+    const c = S.covers[trip.id];
+    copyTripSheet(trip, counts, !!(c && (c.src || (c.style && c.style !== 'auto'))));
+  },
+  async yesCopyTrip(el) {
+    const trip = curTrip();
+    if (!trip || S.busy) return;
+    const title = ($('#cp-title').value || '').trim(), startDate = $('#cp-start').value;
+    const fail = (id, msg) => { $(`#${id}`).classList.add('err'); $(`#${id}`).focus(); const box = $('#cp-err'); box.textContent = msg; box.hidden = false; };
+    if (!title) return fail('cp-title', '請填旅程名稱');
+    if (!startDate) return fail('cp-start', '請選出發日');
+    const on = k => !!$(`#layer [data-cp="${k}"]`)?.checked;
+    const parts = new Set(['itinerary', 'wishlist', 'flights', 'stays', 'transits', 'todos', 'packing'].filter(on));
+    S.busy = true; el.disabled = true; el.textContent = '複製中…';
+    try {
+      const subs = await readCopySource(trip.id);
+      const id = await copyTrip({ id: trip.id, ...trip.raw }, subs, { title, startDate, parts, people: on('people'), cover: on('cover') }, S.user, S.nickname);
+      S.years[startDate.slice(0, 4)] = true;
+      closeSheet(); go(`#/trip/${id}`);
+      toast('已複製成新的旅程');
+    } catch (err) {
+      console.error(err);
+      if (err.tripId) { closeSheet(); go(`#/trip/${err.tripId}`); toast('旅程已建立，但有部分資料沒有複製成功，請檢查'); }
+      else { el.disabled = false; el.textContent = '建立新的旅程'; toast('複製失敗，請稍後再試'); }
+    }
+    S.busy = false;
+  },
   async yesDelTrip(el) {
     const trip = curTrip(), input = $('#delname');
     if (!trip || input.value.trim() !== trip.name) { input.classList.add('err'); input.focus(); return; }
@@ -1959,11 +1989,6 @@ function onDraftInput(t) {
     if (f === 'rate') d.rateState = 'manual';
     if (f === 'cur') { d.rate = ''; d.rateDate = ''; d.rateState = ''; loadRate(d); }
     if (['amt', 'rate', 'cur', 'cat', 'pay'].includes(f)) expSheet();
-    else if (f === 'spentOn') {
-      // 日期欄不重畫：只更新旅程天數按鈕的選取和下面的說明
-      document.querySelectorAll('[data-act="expDay"]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
-      const n = $('#x-spent-note'); if (n) { n.textContent = spentNote(d); n.hidden = !n.textContent; }
-    }
     else if (t.dataset.f === 'name') { const b = $('[data-act="saveExp"]'); if (b) b.disabled = S.offline || !draftCheck(d, shareList(ctxOf(S, curTrip()), d)).ok; }
   }
   if (t.dataset.cust) { d.custom[t.dataset.cust] = cleanAmt(t.value); d.dirty = true; expSheet(); }
@@ -2007,6 +2032,7 @@ document.addEventListener('input', ev => {
   if (t.id === 'ff-arr') fillAirport($('#ff-to'));
   if (['ff-dep', 'ff-arr'].includes(t.id)) updateDuration();
   if (['sf-in', 'sf-out'].includes(t.id)) updateNights();
+  if (t.id === 'cp-start' && curTrip()) $('#cp-end').textContent = copyEndText(curTrip().raw, t.value);
 });
 document.addEventListener('change', ev => {
   const t = ev.target, key = t.dataset?.dt || t.id;
