@@ -387,7 +387,8 @@ function dayPill(trip, d) {
 }
 
 // short：電腦版三欄左邊窄，直接寫「第 N 天」和日期，不放區域名稱
-const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
+// 天數多、一排放不下時左右可以滑，兩邊的箭頭（main.js syncDayArrows 控制顯示）按了往前、往後捲
+const dayPills = (S, trip, days, sel, short) => `<div class="dpwrap"><button type="button" class="dparrow l" data-act="dpScroll" data-v="-1" aria-label="前面的天數" hidden>‹</button><div class="dpills${short ? ' short' : ''}" role="group" aria-label="選擇天數">${days.map(d => {
   const p = dayPill(trip, d);
   const cur = d === sel ? 'aria-current="true"' : '';
   if (short) return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur}><b>${d ? `第 ${d} 天` : '未排'}</b><span class="num">${d && p.w ? `${p.n} 日（${p.w}）` : ''}</span></button>`;
@@ -395,7 +396,7 @@ const dayPills = (S, trip, days, sel, short) => `<div class="dpills${short ? ' s
   const areas = d ? dayAreas(S.items, d).filter(a => !/^新區域( \d+)?$/.test(a)) : [];
   const label = d ? areas.slice(0, 2).join('、') || `第 ${d} 天` : '天數';
   return `<button type="button" class="dpill" data-act="pday" data-d="${d}" data-dropd="${d}" ${cur} title="${esc(areas.length ? `第 ${d} 天：${areas.join('、')}` : '')}"><span>${p.w}</span><b class="num">${p.n}</b><span class="dparea">${esc(label)}</span></button>`;
-}).join('')}</div>`;
+}).join('')}</div><button type="button" class="dparrow r" data-act="dpScroll" data-v="1" aria-label="後面的天數" hidden>›</button></div>`;
 
 // 手機按「＋」：整個畫面都是地圖，上面只有搜尋框和關閉鈕
 const fullMap = (S, d) => `<div class="mapfull" role="dialog" aria-label="地圖">${mapBox(S, d, null, true)}<button type="button" class="mapclose" data-act="mapClose" aria-label="關閉地圖">×</button></div>`;
@@ -532,13 +533,14 @@ function infoCard(S, trip, d, mini = false) {
   const p = c.p;
   if (!p) return '';
   const pd = addDay(S, trip);
-  if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
+  if (mini) return miniCard(p.where ? `${p.title}（${p.where.split('・')[0]}）` : p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
   // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
   const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
   const today = p.hours?.[(local + 6) % 7];
   const rate = Number.isFinite(p.rating) ? `★ ${p.rating.toFixed(1)}${p.ratingN ? `（${p.ratingN.toLocaleString()} 則評論）` : ''}` : '';
   return wrap(['Google 地點', ITEM_LABEL[p.type] || ''], `${p.photo ? `<img src="${esc(p.photo)}" alt="" onerror="this.remove()" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px;display:block;flex:none">` : ''}
     <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
+    ${p.where ? `<p class="small muted" style="margin:-6px 0 0;flex:none">${esc(p.where)}</p>` : ''}
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
     <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>${drvBtn('place', '')}</div>
     ${cardLinks([extLink(navTo(p, trip.country), '導航'), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
