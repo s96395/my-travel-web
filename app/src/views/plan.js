@@ -115,10 +115,12 @@ function itemHtml(it, S, trip, r = {}) {
     ${quickBtns(S, trip, it)}${GRIP}
   </div>`;
 }
-// 每站右邊：🧭 導航、🚕 給司機看（都用符號）；電腦版點名稱開資訊卡，只在沒網路時放 🚕
-const TAXI_ICO = '<span aria-hidden="true">🚕</span>';
+// 每站右邊：導航（指南針）、給司機看（計程車），和旅館、交通一樣用線條圖示；電腦版點名稱開資訊卡，只在沒網路時放計程車
+const lineIco = d => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const NAV_ICO = lineIco('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>');
+const TAXI_ICO = lineIco('<path d="M10 4.5h4M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3.5" y="11" width="17" height="6" rx="2"/><path d="M6 17v2M18 17v2"/><circle cx="7.5" cy="14" r=".6"/><circle cx="16.5" cy="14" r=".6"/>');
 function quickBtns(S, trip, it) {
-  const nav = onMap(it) && !S.offline && !S.wide ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航"><span aria-hidden="true">🧭</span></a>` : '';
+  const nav = onMap(it) && !S.offline && !S.wide ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${NAV_ICO}</a>` : '';
   const drv = onMap(it) && (S.offline || !S.wide) ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
   return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
