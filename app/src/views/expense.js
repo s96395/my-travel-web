@@ -478,7 +478,8 @@ export function mateCheckSheet(S, trip, pid, name) {
 // 勾選的支出加上新同行者後重新平均：回傳 [支出 ID, 新分攤, 舊分攤]
 export function mateShares(S, trip, pid, ids) {
   const c = ctxOf(S, trip);
-  return (c.expenses || []).filter(e => ids.includes(e.id)).map(e => {
+  // 已經有這位同行者的（重試、別人剛好也加了）跳過，免得同一人算兩次
+  return (c.expenses || []).filter(e => ids.includes(e.id) && !(pid in (sharesOf(e, c.people) || {}))).map(e => {
     const s = sharesOf(e, c.people) || {};
     return [e.id, equalSplit(amountOf(e), [...Object.keys(s), pid]), e.personalShares];
   });
