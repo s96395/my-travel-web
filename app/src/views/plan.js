@@ -38,6 +38,30 @@ const stopCount = (S, d) => itemsOfDay(S.items, d).filter(it => it.kind !== 'are
 const whenOf = (it, r) => (it.time ? `<span class="data" style="color:var(--accent)">${esc(it.time)}</span> `
   : it.timeText ? `<span class="whentxt">${esc(it.timeText)}</span> `
     : r.est ? `<span class="data est" title="依前一站時間加停留推算">約 ${hmOf(r.at)}</span> ` : '');
+// 時間軸上已經有的時間（填的或推算的）可以直接點來改時間、停留多久；沒有時間的不多放按鈕，從 ⋯ 編輯補
+function timeBtn(S, it, r) {
+  const w = whenOf(it, r);
+  if (!w || S.offline || it.kind === 'area') return w;
+  return `<button type="button" class="whenbtn" data-act="quickTime" data-id="${esc(it.id)}" aria-label="改「${esc(it.title)}」的時間與停留">${w.trim()}</button> `;
+}
+// 直接改時間與停留的小視窗
+export function quickTimeSheet(it) {
+  const when = it.time || it.timeText || '';
+  openSheet(`${head('時間與停留')}
+    <p class="small muted" style="margin:0">${esc(it.title)}</p>
+    <div class="field"><label for="qt-time">幾點到</label><input class="input tany" id="qt-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30，留空就依前一站推算" value="${esc(when)}"></div>
+    <p class="small err-text" id="qt-time-err" hidden>看不懂這個時間，請寫 14:30 或 下午2點</p>
+    <div class="field"><span class="label">停留多久</span>
+      <div class="chips" role="radiogroup" aria-label="停留多久" style="flex-wrap:wrap">${[0, ...STAY_MINS].map(m => `<label class="chip"><input type="radio" name="qt-stay" value="${m}" ${m === (it.stay || 0) ? 'checked' : ''}>${m ? stayText(m) : '依類型推算'}</label>`).join('')}</div></div>
+    <button type="button" class="btn primary" data-act="saveQuickTime" data-id="${esc(it.id)}">儲存</button>`);
+}
+// 讀小視窗；時間看不懂時標示並回傳 null
+export function readQuickTime() {
+  const tm = $('#qt-time'), tv = tm.value.trim(), hm = clockOf(tv);
+  $('#qt-time-err').hidden = hm !== null;
+  if (hm === null) { tm.classList.add('err'); tm.focus(); return null; }
+  return { reservationTime: hm, timeText: hm ? '' : tv, stay: +($('input[name="qt-stay"]:checked')?.value || 0) };
+}
 
 // 名稱前面自動加類型圖示（icon）和餐別「〔午餐〕」，使用者不用自己在名稱裡打 emoji 或「午餐｜」
 // 餐別的表情符號：時間軸、資訊卡、編輯畫面一起用
@@ -78,7 +102,7 @@ const ticketTag = it => (!it.tickets.length ? '' : it.tickets.length === 1 ? `<s
 // 時間軸上的一站：類型圓形圖示、時間、名稱，下面是停留多久與備註
 function itemHtml(it, S, trip, r = {}) {
   if (it.kind === 'area') return areaCard(it, S, trip, r);
-  const when = whenOf(it, r), note = noteOf(it);
+  const when = timeBtn(S, it, r), note = noteOf(it);
   // 舊資料的「有空再去」照樣不算進後面的時間，但卡片不再多一個標籤（優先度只顯示 ⭐ 重點）
   const sub = it.stay ? `停留 ${stayText(it.stay)}` : '';
   return `<div class="item" data-iid="${esc(it.id)}" data-type="${esc(it.type)}">
@@ -517,7 +541,7 @@ function infoCard(S, trip, d, mini = false) {
     const no = pinsOf(its).filter(x => !far.has(x.id)).findIndex(x => x.id === it.id) + 1;
     const rows = it.day ? buildDay(its, evOf(S, trip, dayIso(trip, it.day), its), S.legs) : [];
     const r = rows.find(x => x.kind === 'item' && x.it.id === it.id) || {};
-    const when = [whenOf(it, r).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
+    const when = [timeBtn(S, it, r).trim(), it.stay ? `停留 ${esc(stayText(it.stay))}` : ''].filter(Boolean).join('・');
     const id = esc(it.id), main = it.backupOf && S.items.find(x => x.id === it.backupOf);
     const areaN = it.area ? its.filter(x => x.area === it.area).length : 0;
     const more = [
