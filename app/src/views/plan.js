@@ -1,4 +1,4 @@
-// 行程分頁：上面一排日期一次看一天，電腦版右邊是想去清單和地圖（規格書 F20–F22、U06）
+// 行程分頁：上面一排日期一次看一天，電腦版右邊是收藏和地圖（規格書 F20–F22、U06）
 import { esc, ICON, openSheet, $, money } from '../ui/dom.js';
 import { clockOf } from '../lib/time24.js';
 import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js';
@@ -146,7 +146,7 @@ function quickBtns(S, trip, it) {
   return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
 
-// 區域卡片：一個區域在時間軸上只佔一張卡，展開看這區想去清單的地點，按「加入」才排進時間軸
+// 區域卡片：一個區域在時間軸上只佔一張卡，展開看這區收藏的地點，按「加入」才排進時間軸
 const GRIP = '<span class="grip" title="長按拖曳" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span>';
 const inDayOf = (S, d, p) => S.items.some(it => it.day === d && it.kind !== 'area' && ((p.url && it.address === p.url) || sameName(it.title, p.title)));
 // 步行時間用直線距離粗估：路會繞，乘 1.3；每小時走 4.5 公里
@@ -190,7 +190,7 @@ function areaCard(it, S, trip, r) {
   </div>`;
 }
 
-// 電腦版右半邊：「地圖｜清單」兩個分頁。地圖上想去清單和當天行程（編號）都插針，點針可加到這天或開 Google 地圖
+// 電腦版右半邊：「地圖｜清單」兩個分頁。地圖上收藏和當天行程（編號）都插針，點針可加到這天或開 Google 地圖
 // 地圖和行程同時看得到（電腦版在右邊，手機版在上方）
 const sideMap = S => !S.offline && !!mapsKey;
 const hasXY = p => Number.isFinite(p.lat) && Number.isFinite(p.lng);
@@ -203,10 +203,11 @@ const mapBox = (S, d, trip, bare) => {
   const far = farOf(S), lost = itemsOfDay(S.items, d).filter(it => onMap(it) && (!hasXY(it) || far.has(it.id))).length;
   const odd = S.wishDocs.filter(p => far.has(p.id)).length;
   const note = [lost ? `第 ${d} 天有 ${lost} 個地點還找不到位置` : '', odd ? `${odd} 個收藏位置有誤，正在重查` : ''].filter(Boolean).join('・');
-  // 電腦版想去清單蓋在地圖上；手機底部面板自己有「行程｜想去清單」切換，地圖上方就不再放按鈕
-  // 地圖上方不放區域標籤；要只看某區，從想去清單的區域名稱或時間軸的區域卡片點
+  // 電腦版收藏蓋在地圖上；手機底部面板自己有「行程｜收藏」切換，地圖上方就不再放按鈕
+  // 地圖上方不放區域標籤；要只看某區，從收藏的區域名稱或時間軸的區域卡片點
   const wishOn = S.wide ? !!S.wishOpen : S.mside === 'wish';
-  const wishBtn = trip && (S.wide || !sideMap(S)) ? `<button type="button" class="mwishbtn" ${S.wide ? 'data-act="wishOpen"' : `data-act="mside" data-v="${wishOn ? 'plan' : 'wish'}"`} aria-pressed="${wishOn}">想去清單 <span class="num">${S.wishDocs.length}</span></button>` : '';
+  // 電腦版的「收藏」按鈕放進地圖左上那一排（和「搜尋此區域」同一排），地圖上方不再多一列，上下緣和左邊兩欄對齊
+  const wishBtn = trip && !S.wide && !sideMap(S) ? `<button type="button" class="mwishbtn" data-act="mside" data-v="${wishOn ? 'plan' : 'wish'}" aria-pressed="${wishOn}">收藏 <span class="num">${S.wishDocs.length}</span></button>` : '';
   const bar = wishBtn ? `<div class="mbar"><div class="grow"></div>${wishBtn}</div>` : '';
   // 還沒匯入過收藏時，地圖下方放一張說明卡；放在下方才不會擋住左上角的搜尋框
   const cta = none && !S.offline && !pts.length ? `<div class="mapcta low"><b>在左上角搜尋，或點地圖上的店家、景點</b><span class="small">選好就能直接加到某一天。也可以把 Google 地圖收藏一次匯進來。</span><button type="button" class="btn" data-act="importSheet">${ICON.plus}匯入 Google 地圖收藏</button></div>` : '';
@@ -217,18 +218,18 @@ const mapBox = (S, d, trip, bare) => {
 const pinsOf = its => its.filter(hasXY);
 // 位置明顯有誤（離整趟旅程其他地點太遠）的先不插針、不編號，免得整張地圖被拉到世界地圖；地圖載入後會重查
 const farOf = S => farOff([...S.wishDocs, ...S.items]);
-// 想去清單裡位置可疑的：離整趟旅程中心超過 2000 公里（包括 Google 查到同名、但在別國的地點），清單上標出來
+// 收藏裡位置可疑的：離整趟旅程中心超過 2000 公里（包括 Google 查到同名、但在別國的地點），清單上標出來
 const oddOf = S => { const c = farOf(S).center; return new Set(c ? S.wishDocs.filter(p => hasXY(p) && distanceKm(c, p) > 2000).map(p => p.id) : []); };
 
-// 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，想去清單放還沒排進這天的
+// 給 ui/map.js 的插針資料：當天行程有座標的照順序編號，收藏放還沒排進這天的
 export function mapData(S, trip) {
   const days = trip ? dayList(S, trip) : [];
   const d = trip ? (days.includes(S.pday) ? S.pday : days[0]) : S.pday;
   const far = farOf(S);
   const its = itemsOfDay(S.items, d), pins = pinsOf(its).filter(it => !far.has(it.id));
-  // 想去清單裡和當天行程同一個地方的（名稱一樣或幾乎同一點）不再插一次，免得一個地方兩根針
+  // 收藏裡和當天行程同一個地方的（名稱一樣或幾乎同一點）不再插一次，免得一個地方兩根針
   const dup = p => its.some(it => sameName(it.title, p.title)) || pins.some(it => distanceKm(it, p) < 0.05);
-  // 地圖平常只放當天行程；打開想去清單（或點某個區域名稱）要安排時，才把想去的地點放上去
+  // 地圖平常只放當天行程；打開收藏（或點某個區域名稱）要安排時，才把想去的地點放上去
   // 從區域卡片點某個收藏的名稱時，只把那一個放上去
   // 按了「搜尋此區域」也把收藏放上去：範圍內的照常，範圍外的變淡
   const wishOn = (S.wide ? !!S.wishOpen : S.mside === 'wish') || !!S.mapArea;
@@ -238,10 +239,10 @@ export function mapData(S, trip) {
     ...pins.map((it, i) => ({ id: it.id, kind: 'day', n: i + 1, lat: it.lat, lng: it.lng, title: it.title, sub: d ? `第 ${d} 天第 ${i + 1} 站` : '還沒排天數', url: isMapLink(it.address) ? it.address : '' })),
     ...nearDay(wishLeft(S, d).filter(p => shown(p) && (!S.mapArea || p.area === S.mapArea)), its).filter(hasXY).filter(p => !dup(p) && !far.has(p.id)).map(p => ({ id: 'w:' + p.id, kind: 'wish', lat: p.lat, lng: p.lng, title: p.title, sub: [p.area, d && p.km !== null && p.km >= 1 ? `離第 ${d} 天行程 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).join('・'), url: p.url, d: d || addDay(S, trip), area: p.area || '', ...(box ? { dim: !inBox(box, p) } : {}) })),
   ];
-  // 有行程針時只在行程針數量變了才重新框，放一個想去清單的地點不會讓地圖跳走
+  // 有行程針時只在行程針數量變了才重新框，放一個收藏的地點不會讓地圖跳走
   // 結果條：範圍內亮著的收藏數、這天還沒排又沒有位置的收藏數（有區域篩選時只算那一區）
   const stat = box && { ...box, area: S.mapArea, cnt: points.filter(p => p.kind === 'wish' && !p.dim).length, noxy: wishLeft(S, d).filter(p => !hasXY(p) && (!S.mapArea || p.area === S.mapArea)).length };
-  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, dest: trip ? [trip.city, trip.country].filter(Boolean).join(' ') : '', destCity: !!trip?.city, wishN: S.wishDocs.some(hasXY) };
+  return { points, fit: `${S.tripId}:${d}:${S.mapArea}:${S.mapArea || !pins.length ? 'all' + points.length : 'day' + pins.length}`, fitAll: !!S.mapArea, focus: S.mapFocus, opts: trip ? dayOpts(S, trip, d) : '', card: !!S.wide || !S.mapFull, box: stat || null, dest: trip ? [trip.city, trip.country].filter(Boolean).join(' ') : '', destCity: !!trip?.city, wishN: S.wishDocs.some(hasXY), wishBtn: trip && S.wide && sideMap(S) ? { n: S.wishDocs.length, on: !!S.wishOpen } : null };
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
@@ -299,7 +300,7 @@ const mDayHead = (S, trip, d) => {
   return `<div class="dayhead mday"><h3>${d ? `第 ${d} 天` : '還沒排天數'}</h3><span class="small muted num">${areas ? `${esc(areas)}・` : ''}${dayMeta(S, trip, d, stopCount(S, d), true)}</span></div>`;
 };
 
-// 想去清單：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
+// 收藏：匯入的收藏地點先放這裡；還沒排進行程的依離這天行程的遠近排，按「加到第 N 天」或拖到行程裡才排進去
 // 同一個地點可以排進好幾天：只藏起已排在「這一天」的（地圖上已經是行程針），排在別天的標出第幾天
 export const wishLeft = (S, d) => { const inDay = new Set(itemsOfDay(S.items, d).map(it => it.address).filter(Boolean)); return S.wishDocs.filter(p => !inDay.has(p.url)); };
 const usedDays = S => { const m = new Map(); S.items.forEach(it => { if (it.address && it.day) m.set(it.address, [...new Set([...(m.get(it.address) || []), it.day])].sort((a, b) => a - b)); }); return m; };
@@ -335,7 +336,7 @@ function wishPanel(S, trip, d) {
   const row = p => `<div class="item wrow" data-iid="w:${esc(p.id)}">
       ${S.wide ? GRIP : ''}<div class="grow">${name(p)}${odd(p)}${(m => m ? `<span class="small muted">${m}</span>` : '')([used.has(p.url) ? `已排第 ${used.get(p.url).join('、')} 天` : '', !far.has(p.id) && p.km !== null && p.km >= 1 ? `離這天 ${kmText(p.km)}` : '', noteOf(p)].filter(Boolean).map(esc).join('・'))}</div>
       <button type="button" class="wadd" data-act="wishPick" data-id="${esc(p.id)}" data-d="${addDay(S, trip)}" ${off} aria-label="加入第 ${addDay(S, trip)} 天：「${esc(p.title)}」，可再選天數與排在哪" title="加入第 ${addDay(S, trip)} 天，按了可再選天數與排在哪">${ICON.plus}第 ${addDay(S, trip)} 天</button>
-      <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從想去清單移除「${esc(p.title)}」">×</button>
+      <button type="button" class="more" data-act="wishDel" data-id="${esc(p.id)}" ${off} aria-label="從收藏移除「${esc(p.title)}」">×</button>
     </div>`;
   // 依行政區分區：有位置的地點查 Google 所在的區（例如「海雲臺區」），先列出改前改後再套用
   const geo = mapsKey && [...S.wishDocs, ...S.items].some(p => p.placeId || hasXY(p)) ? `<button type="button" class="btn sm" data-act="areaDist" ${off}>依行政區分區</button>` : '';
@@ -357,7 +358,7 @@ function wishPanel(S, trip, d) {
 // 「加入」都先跳出「要加在哪一天」，選好天數自動放在最順路的位置
 const addTo = (S, trip, d, off, attrs, text) => `<span class="addto"><button type="button" ${attrs} ${off}>${ICON.plus}${text}</button></span>`;
 
-// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入想去清單
+// 要加在哪一天：最順路的那天排第一個並標出來；kind 'place' 是地圖上搜到的點，可以改加入收藏
 // 單一地點（place、wish、moved）先選天、看會排在哪裡（可以改），按「加入」才寫入；區域卡片點了天數就直接加
 export function daySheet(S, trip, p, kind) {
   // 有 Google 連結的地點只看連結判斷「已經排了」，同名的不同分店才加得進同一天
@@ -382,7 +383,7 @@ export function daySheet(S, trip, p, kind) {
     <div class="daypick">${rows.map(r => `<button type="button" class="dayopt${cls(r)}" data-act="${two ? 'dayChoose' : 'dayPick'}" data-d="${r.day}" ${r.has ? 'disabled' : ''} ${two ? `aria-pressed="${r.day === sel}"` : ''}>
       <span class="grow"><b>第 ${r.day} 天${dayDate(trip, r.day) ? `　${dayDate(trip, r.day)}` : ''}</b><small class="muted">${esc(sub(r))}</small></span>${tag(r)}</button>`).join('')}</div>
     ${two && sel ? `<div style="position:sticky;bottom:0;display:grid;gap:8px;background:var(--surface);padding-top:4px">${spotPick(S, p, sel, kind === 'moved' ? p.id : '', bad)}<button type="button" class="btn primary" data-act="dayPick" data-d="${sel}">${verb}第 ${sel} 天</button></div>` : ''}
-    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">改加入想去清單</button>' : kind === 'moved' ? '<button type="button" class="linkbtn" data-act="addedUndo">不加了（復原）</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在想去清單</button>'}`);
+    ${kind === 'place' ? '<button type="button" class="linkbtn" data-act="pickWish">改加入收藏</button>' : kind === 'moved' ? '<button type="button" class="linkbtn" data-act="addedUndo">不加了（復原）</button>' : '<button type="button" class="linkbtn" data-act="close">先不排，留在收藏</button>'}`);
 }
 // 會排在哪裡：預設最順路的位置，可以改成這天任何一站後面；選項的值是「排在哪一站前面」（空的是最後面）
 function spotPick(S, p, day, self, bad) {
@@ -398,10 +399,10 @@ function spotPick(S, p, day, self, bad) {
 // 這個區域的卡片排在哪幾天
 const cardDays = (S, area) => { const ds = [...new Set(S.items.filter(it => it.kind === 'area' && it.area === area && it.day).map(it => it.day))].sort((a, b) => a - b); return area && ds.length ? `・已排第 ${ds.join('、')} 天` : ''; };
 
-// 先前匯入時放在「還沒排天數」的收藏地點，可以一次搬到想去清單
+// 先前匯入時放在「還沒排天數」的收藏地點，可以一次搬到收藏
 function moveToWish(S) {
   const n = S.items.filter(it => it.day === 0 && isMapLink(it.address)).length;
-  return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到想去清單，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到想去清單</button></div>` : '';
+  return n && !S.offline ? `<div class="tip"><span>這裡有 ${n} 個 Google 地圖地點，可以搬到收藏，排行程時再一個個加進每天。</span><button type="button" class="btn sm" data-act="wishMove">搬到收藏</button></div>` : '';
 }
 
 // 右下角的「＋」：有地圖時直接打開地圖（搜尋或點地圖加地點）；沒有地圖金鑰時才跳選單
@@ -410,7 +411,7 @@ function addFab(S, d) {
   if (mapsKey) return `<div class="addfab"><button type="button" class="fabbtn" data-act="mapSearch" aria-label="從地圖加地點">${ICON.plus}</button></div>`;
   const wish = S.wide ? 'data-act="side" data-v="list"' : 'data-act="mside" data-v="wish"';
   return `<details class="addfab"><summary aria-label="新增景點">${ICON.plus}</summary><div class="fabmenu">
-    <button type="button" ${wish}>${ICON.pin}從想去清單選</button>
+    <button type="button" ${wish}>${ICON.pin}從收藏選</button>
     <button type="button" data-act="importSheet">${ICON.map}匯入 Google 地圖收藏</button>
     <button type="button" data-act="addItem" data-d="${d || 1}">${ICON.note}自己輸入</button>
   </div></details>`;
@@ -476,10 +477,10 @@ function planSheet(S, trip, days, sel) {
   const h = SHEET_H.includes(S.sheet) ? S.sheet : 'half';
   const card = infoCard(S, trip, sel, h === 'peek');
   const wish = S.mside === 'wish';
-  const seg = `<div class="mseg" role="group" aria-label="行程或想去清單"><button type="button" data-act="mside" data-v="plan" aria-pressed="${!wish}">行程</button><button type="button" data-act="mside" data-v="wish" aria-pressed="${wish}">想去清單 <span class="num">${S.wishDocs.length || ''}</span></button></div>`;
+  const seg = `<div class="mseg" role="group" aria-label="行程或收藏"><button type="button" data-act="mside" data-v="plan" aria-pressed="${!wish}">行程</button><button type="button" data-act="mside" data-v="wish" aria-pressed="${wish}">收藏 <span class="num">${S.wishDocs.length || ''}</span></button></div>`;
   const n = stopCount(S, sel);
   const list = wish
-    ? `<section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`
+    ? `<section class="day wishview"><div class="wishhead"><h3>收藏 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`
     : `<section class="day" id="day${sel}" data-open="true" data-dropd="${sel}">
       ${mDayHead(S, trip, sel)}
       ${dayItems(S, trip, sel)}
@@ -495,7 +496,7 @@ function planSheet(S, trip, days, sel) {
   </div>`;
 }
 
-// 手機：上面地圖（約半個畫面，固定在上方）、下面當天行程；想去清單從地圖上方的按鈕切換
+// 手機：上面地圖（約半個畫面，固定在上方）、下面當天行程；收藏從地圖上方的按鈕切換
 function planNarrow(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
@@ -505,7 +506,7 @@ function planNarrow(S, trip) {
   const top = !S.offline && !full ? `<div class="mtop">${mapBox(S, sel, trip)}</div>` : '';
   const wish = S.mside === 'wish' && !S.offline && !full;
   if (wish) return `${dayPills(S, trip, days, sel)}${top}
-  <section class="day wishview"><div class="wishhead"><h3>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
+  <section class="day wishview"><div class="wishhead"><h3>收藏 <span class="muted num">${S.wishDocs.length || ''}</span></h3><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button></div>${S.wishDocs.length ? wishPanel(S, trip, sel) : ''}</section>`;
   return `
   ${dayPills(S, trip, days, sel)}
   ${top}
@@ -577,7 +578,7 @@ function infoCard(S, trip, d, mini = false) {
   const p = c.p;
   if (!p) return '';
   const pd = addDay(S, trip);
-  if (mini) return miniCard(p.where ? `${p.title}（${p.where.split('・')[0]}）` : p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button>`);
+  if (mini) return miniCard(p.where ? `${p.title}（${p.where.split('・')[0]}）` : p.title, `<button type="button" class="btn sm primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn sm grow" data-act="cardPlace" data-k="placeWish">加入收藏</button>`);
   // 營業時間照當地的星期幾（和「營業中」標籤用同一個時區），不是看的人所在地的星期幾
   const local = Number.isFinite(p.off) ? new Date(Date.now() + p.off * 60000).getUTCDay() : new Date().getDay();
   const today = p.hours?.[(local + 6) % 7];
@@ -586,7 +587,7 @@ function infoCard(S, trip, d, mini = false) {
     <h3 style="margin:0;flex:none">${esc(p.title)}</h3>
     ${p.where ? `<p class="small muted" style="margin:-6px 0 0;flex:none">${esc(p.where)}</p>` : ''}
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
-    <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入想去清單</button></div>
+    <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入收藏</button></div>
     ${cardLinks([extLink(navTo(p, trip.country), '導航'), drvLink('place', '', 'linkbtn', '🚕 '), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
     ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
 }
@@ -647,7 +648,7 @@ export function driverSheet(d, offline) {
     ${d.google || d.local ? '<p class="small muted" style="margin:0">資料來源：Google Maps</p>' : ''}`);
 }
 
-// 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和想去清單
+// 電腦：上面一排日期，下面左邊看那一天、右邊是地圖和收藏
 function planWide(S, trip) {
   const days = dayList(S, trip);
   const sel = days.includes(S.pday) ? S.pday : days[0];
@@ -659,9 +660,9 @@ function planWide(S, trip) {
     </section>`;
   // 沒有地圖（離線、沒金鑰）時維持一欄
   if (!sideMap(S)) return `${dayPills(S, trip, days, sel)}<div class="planwide">${day}</div>${addFab(S, sel)}`;
-  // 電腦版兩欄：左邊當天行程、右邊地圖；按「想去清單」才在行程旁多開一欄（視窗較窄時改成浮在地圖上），可直接拖到左邊行程
-  const wish = S.wishOpen ? `<aside class="wishover" aria-label="想去清單">
-      <div class="wishcolhead"><b>想去清單 <span class="muted num">${S.wishDocs.length || ''}</span></b><span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button><button type="button" class="iconbtn" data-act="wishOpen" aria-label="關閉想去清單">×</button></span></div>
+  // 電腦版兩欄：左邊當天行程、右邊地圖；按「收藏」才在行程旁多開一欄（視窗較窄時改成浮在地圖上），可直接拖到左邊行程
+  const wish = S.wishOpen ? `<aside class="wishover" aria-label="收藏">
+      <div class="wishcolhead"><b>收藏 <span class="muted num">${S.wishDocs.length || ''}</span></b><span class="row" style="gap:6px"><button type="button" class="btn sm" data-act="importSheet">${ICON.plus}匯入收藏</button><button type="button" class="iconbtn" data-act="wishOpen" aria-label="關閉收藏">×</button></span></div>
       <p class="small muted" style="margin:0">長按地點拖到左邊行程，放在想去的位置</p>
       <div class="wishpane">${wishPanel(S, trip, sel)}</div>
     </aside>` : '';
@@ -702,10 +703,10 @@ export function areaMoveSheet(S, trip, area, from) {
     <div class="chips" style="flex-wrap:wrap">${days.map(d => `<button type="button" class="chip" data-act="moveArea" data-area="${esc(area)}" data-from="${from}" data-d="${d}" aria-pressed="${from === d}">第 ${d} 天</button>`).join('')}</div>
     <p class="label">或從這天拿掉</p>
     <button type="button" class="btn danger" data-act="areaDrop" data-area="${esc(area)}" data-d="${from}">從第 ${from} 天移除這 ${n} 個行程</button>
-    <p class="small muted" style="margin:0">地點還留在想去清單，移除後也可以按「復原」。</p>`);
+    <p class="small muted" style="margin:0">地點還留在收藏，移除後也可以按「復原」。</p>`);
 }
 
-// 新增或編輯區域：取名字，再勾哪些想去清單的地點放在這區；已在這區的排最前面，其次是還沒分區域的
+// 新增或編輯區域：取名字，再勾哪些收藏的地點放在這區；已在這區的排最前面，其次是還沒分區域的
 // wid：從資訊卡「放進新的區域」打開時，先勾好那個收藏並排在最前面
 export function areaSheet(S, area = '', wid = '') {
   const rank = p => (p.id === wid || (area && p.area === area) ? 0 : p.area ? 2 : 1);
@@ -785,8 +786,8 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
   }
 }
 
-// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到想去清單：先教怎麼匯出，選檔後勾要的地點
-// have：網址 → { label, moveId }；已在清單或已排進某天的不能勾，放在「還沒排天數」的勾了會搬到想去清單
+// 匯入 Google 地圖收藏清單（Google 匯出的「已儲存」CSV）到收藏：先教怎麼匯出，選檔後勾要的地點
+// have：網址 → { label, moveId }；已在清單或已排進某天的不能勾，放在「還沒排天數」的勾了會搬到收藏
 export function importSheet(places = null, have = new Map()) {
   const rows = (places || []).map((p, i) => {
     const h = have.get(p.url);
@@ -805,7 +806,7 @@ export function importSheet(places = null, have = new Map()) {
     <label class="btn${places ? '' : ' primary'}"><input type="file" id="imp-file" accept=".csv,text/csv" multiple hidden>${places ? '換其他檔案' : '選擇 CSV 檔'}</label>
     ${places ? (rows ? `<div style="max-height:45vh;overflow:auto">${rows}</div>` : '<div class="empty">檔案裡沒有地點</div>') : ''}
     ${places && n ? areaPick(places) : ''}
-    ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入想去清單</button>` : ''}`);
+    ${places ? `<button type="button" class="btn primary" data-act="doImport" ${n ? '' : 'disabled'}>加入收藏</button>` : ''}`);
 }
 
 // 匯入時順便分區域：用收藏清單的名稱（一個 CSV 一區），或依 Google 行政區分組

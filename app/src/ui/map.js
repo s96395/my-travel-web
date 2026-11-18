@@ -1,4 +1,4 @@
-// Google 地圖（Maps JavaScript API，要金鑰）：想去清單與當天行程插針
+// Google 地圖（Maps JavaScript API，要金鑰）：收藏與當天行程插針
 // 畫面每次重畫都會換掉 HTML，所以地圖放在一個固定的區塊，重畫後搬回 #mapslot，縮放位置不會跑掉
 import { esc } from './dom.js';
 import { mapsKey } from '../firebase.js';
@@ -31,7 +31,7 @@ function loadApi() {
   return ready;
 }
 
-// 針的顏色不跟著網站主題走：行程橘色號碼、想去清單粉紅愛心（WISH_PINK）、搜尋到的地點紅色大頭針，在街道、綠地和海上都看得清楚
+// 針的顏色不跟著網站主題走：行程橘色號碼、收藏粉紅愛心（WISH_PINK）、搜尋到的地點紅色大頭針，在街道、綠地和海上都看得清楚
 const DAY = '#e8792b', WISH = '#e03131';
 // 導航：用 Google 地圖從目前位置導航到這個座標
 // 韓國的地點（看座標）導航改開 Naver 地圖，不放「在地圖開啟」
@@ -49,7 +49,7 @@ function popup(p, onAct) {
   return el;
 }
 
-// 搜尋到或在地圖上點到的地點：先插一根紅色大頭針，彈出框可以直接加入行程，或加入想去清單
+// 搜尋到或在地圖上點到的地點：先插一根紅色大頭針，彈出框可以直接加入行程，或加入收藏
 // 目前看的那天（天數選單裡選中的那個）
 const curDay = () => +(/value="(\d+)" selected/.exec(dayOptsHtml)?.[1] || 1);
 function placePopup(p) {
@@ -57,7 +57,7 @@ function placePopup(p) {
   el.className = 'mpop';
   el.innerHTML = `${p.where || p.addr ? `<span class="mpopsub">${esc(p.where || p.addr)}</span>` : ''}
     ${dayOptsHtml ? `<div class="mpoprow"><button type="button" class="btn sm primary" data-pact="placePick" data-d="${curDay()}">加入第 ${curDay()} 天 ▾</button></div>` : ''}
-    <div class="mpoplinks"><button type="button" data-pact="placeWish">加入想去清單</button>${navLink(p)}${gmapLink(p)}</div>`;
+    <div class="mpoplinks"><button type="button" data-pact="placeWish">加入收藏</button>${navLink(p)}${gmapLink(p)}</div>`;
   // 擋掉往上傳，免得畫面共用的點擊處理再執行一次
   el.querySelectorAll('[data-pact]').forEach(b => b.addEventListener('click', ev => {
     ev.stopPropagation();
@@ -242,11 +242,14 @@ function startNear(cat) {
 function nearControls(g, bar) {
   nearBar = document.createElement('div');
   nearBar.className = 'mcats';
-  nearBar.innerHTML = `<button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false" hidden>收起店家</button><button type="button" class="mnearopen" data-fitday hidden>看當天全部景點</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
+  nearBar.innerHTML = `<button type="button" class="mnearopen mwish" data-act="wishOpen" aria-pressed="false" hidden>收藏 <span class="num"></span></button><button type="button" class="wbtn" data-wbox aria-pressed="false" hidden><span class="h">♥</span> 搜尋此區域</button><button type="button" class="mnearopen" data-near aria-expanded="false" hidden>收起店家</button><button type="button" class="mnearopen" data-fitday hidden>看當天全部景點</button>` + NEAR_CATS.map(([k, label, color]) => `<button type="button" data-cat="${k}" aria-pressed="false" style="--c:${color}" hidden>${label}</button>`).join('');
   wBtn = nearBar.querySelector('[data-wbox]');
   nearBar.addEventListener('click', ev => {
     // 「搜尋此區域」：只看地圖範圍內有哪些收藏
     if (ev.target.closest('[data-wbox]')) { ev.stopPropagation(); runBox(); return; }
+    // 電腦版「收藏」：打開或收起收藏清單
+    const wb = ev.target.closest('[data-act="wishOpen"]');
+    if (wb) { ev.stopPropagation(); onActRef?.(wb); return; }
     // 看當天全部景點：把當天行程的針都放進畫面
     if (ev.target.closest('[data-fitday]')) { ev.stopPropagation(); view0 = null; fitTo(lastDayPts); return; }
     // 「收起店家」：收起分類鈕，同時清掉找到的店家
@@ -477,8 +480,8 @@ function showInList(id) {
   else { const top = document.querySelector('.mtop'); window.scrollTo({ top: el.getBoundingClientRect().top + scrollY - (top ? top.getBoundingClientRect().bottom : 80) - 12, behavior: 'smooth' }); }
   el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
 }
-// 想去清單的點：粉紅色愛心圓點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
-// 想去清單照 Google 地圖收藏「最愛」的樣子：粉紅色圓形、白邊、白色愛心，使用者一看就知道是自己收藏的
+// 收藏的點：粉紅色愛心圓點；縮小地圖時相近的點合併成一個數字圓圈，放大再散開
+// 收藏照 Google 地圖收藏「最愛」的樣子：粉紅色圓形、白邊、白色愛心，使用者一看就知道是自己收藏的
 const WISH_PINK = '#e8577a', CELL = 44;
 const WISH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><circle cx="14" cy="14" r="12" fill="${WISH_PINK}" stroke="#fff" stroke-width="2.5"/><path d="M14 20.2s-5.8-3.6-5.8-7.6a3.1 3.1 0 0 1 5.8-1.6 3.1 3.1 0 0 1 5.8 1.6c0 4-5.8 7.6-5.8 7.6z" fill="#fff"/></svg>`;
 const WISH_ICON = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(WISH_SVG);
@@ -505,7 +508,7 @@ function drawWish() {
     }
     const b = new g.LatLngBounds();
     list.forEach(p => b.extend({ lat: p.lat, lng: p.lng }));
-    const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, opacity: list[0].dim ? 0.3 : 1, title: `${list.length} 個想去的地點，點一下放大`,
+    const m = new g.Marker({ map, position: b.getCenter(), zIndex: 0, opacity: list[0].dim ? 0.3 : 1, title: `${list.length} 個收藏的地點，點一下放大`,
       icon: { path: g.SymbolPath.CIRCLE, scale: 11 + Math.min(6, list.length / 3), fillColor: WISH_PINK, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2 },
       label: { text: String(list.length), color: '#fff', fontSize: '12px', fontWeight: '700' } });
     m.addListener('click', () => { map.fitBounds(b, 60); if (map.getZoom() <= z) map.setZoom(z + 2); });
@@ -513,7 +516,7 @@ function drawWish() {
   }
 }
 
-// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連想去清單一起框）, focus, opts }
+// data：{ points: [{ id, kind: 'day'|'wish', n, lat, lng, title, sub, url, opts（天數下拉選項）, color }], fit, fitAll（只看某區域時連收藏一起框）, focus, opts }
 // onPlace(動作 'placeAdd'|'placeWish', 地點, 第幾天)：搜尋或點地圖上的地點後按加入，成功回傳 true
 // 深色模式的底圖：顏色接近頁面深藍底，路名、地名維持看得清楚
 const DARK = [
@@ -651,11 +654,13 @@ export async function syncMap(data, onAct, onPlace, onCard) {
   drawWish();
   syncBox(data);
   // 換天或地點數量變了，把所有針放進畫面
-  // 當天有行程針時只框住行程針，想去清單的點在附近才會看到，不會把畫面拉到整座城市
+  // 當天有行程針時只框住行程針，收藏的點在附近才會看到，不會把畫面拉到整座城市
   const dayPts = data.points.filter(p => p.kind === 'day'), fitPts = dayPts.length && !data.fitAll ? dayPts : data.points;
   // 「搜尋此區域」進行中不自動框範圍，地圖停在搜尋的那一帶（打開清單、多放上收藏都不會跳走）
   if (data.box) lastFit = data.fit;
   lastDayPts = dayPts;
+  const wishBtn = nearBar?.querySelector('[data-act="wishOpen"]');
+  if (wishBtn) { wishBtn.hidden = !data.wishBtn; if (data.wishBtn) { wishBtn.setAttribute('aria-pressed', data.wishBtn.on); wishBtn.querySelector('.num').textContent = data.wishBtn.n; } }
   const fitBtn = nearBar?.querySelector('[data-fitday]');
   if (fitBtn) fitBtn.hidden = dayPts.length < 2;
   if (data.fit !== lastFit && fitPts.length) {

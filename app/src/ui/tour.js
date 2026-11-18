@@ -58,10 +58,10 @@ export function tripTour(wide) {
   run([
     { element: tabs, title: '旅程分頁', text: '一趟旅程分成行程、交通住宿、待辦、支出和更多，點一下就能切換。' },
     wide
-      ? { element: '.mappane', title: '地圖和想去清單', text: '右邊的地圖會插上每天的行程。按「匯入收藏」可以把 Google 地圖收藏的地點匯進想去清單，再排進每一天。' }
+      ? { element: '.mappane', title: '地圖和收藏', text: '右邊的地圖會插上每天的行程。按「匯入收藏」可以把 Google 地圖收藏的地點匯進來，再排進每一天。' }
       : { element: '.dpills', title: '每一天', text: '上面一排是每一天，點一下切換。長按行程右邊的 ⋮⋮ 可以換順序，或拖到別天。' },
-    { element: '.addfab', title: '新增景點', text: '按右下角的 ＋，可以自己輸入、從想去清單選，或匯入 Google 地圖收藏。' },
-    ...(wide ? [] : [{ element: '[data-act="mside"][data-v="wish"]', title: '想去清單', text: '把 Google 地圖收藏的地點匯進來，再一個個排進每一天，名稱和位置都不會錯。' }]),
+    { element: '.addfab', title: '新增景點', text: '按右下角的 ＋，可以自己輸入、從收藏選，或匯入 Google 地圖收藏。' },
+    ...(wide ? [] : [{ element: '[data-act="mside"][data-v="wish"]', title: '收藏', text: '把 Google 地圖收藏的地點匯進來，再一個個排進每一天，名稱和位置都不會錯。' }]),
     { element: '.dlbtn', title: '離線行程', text: '出國前按一下，把這趟存到裝置上，沒有網路也能看。' },
     { element: `${tabs} [data-v="exp"]`, title: '支出', text: '記下每筆花費，選誰付、怎麼分。沒有帳號的同行者也能一起分攤。' },
     { element: '[data-act="quick"]', title: '快速選單', text: '切換淺色、深色，把行程加到手機行事曆，也可以在「使用小技巧」重看這段導覽。旁邊的月亮（太陽）按一下就能直接換外觀。' },

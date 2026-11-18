@@ -34,7 +34,7 @@ export function normalizeItem(raw) {
   const stale = !!raw.geoq && raw.geoq !== geoKey({ title: raw.title || raw.activity, address: raw.address });
   return {
     id: raw.id,
-    // kind 'area'：整個區域排進這天，只佔一張卡片，底下的地點留在想去清單，到當地再挑
+    // kind 'area'：整個區域排進這天，只佔一張卡片，底下的地點留在收藏，到當地再挑
     kind: raw.kind === 'area' ? 'area' : '',
     day: day && day >= 1 && Number.isInteger(day) ? day : 0,
     order: num(raw.order),
@@ -165,7 +165,7 @@ export const geoKey = it => (it.address && !isMapLink(it.address) ? String(it.ad
 export const placeQuery = (it, city = '') => (it.address && !isMapLink(it.address) ? it.address : [storeName(it.title), it.area, city].filter(Boolean).join(' '));
 // 交通、其他（例如「搭新幹線」「自由活動」）沒填地址就不放進路線
 export const onMap = it => !!it.address || !['transport', 'other'].includes(it.type);
-// 有座標（從想去清單加進來的）就用座標，位置最準
+// 有座標（從收藏加進來的）就用座標，位置最準
 export const routeStops = (items, city) => items.filter(onMap).map(it => (Number.isFinite(it.lat) && Number.isFinite(it.lng) ? `${it.lat},${it.lng}` : placeQuery(it, city)));
 // 韓國的地點改開 Naver 地圖（Google 地圖在韓國不能開車、步行導航）
 // 有座標就看座標在不在南韓範圍（大致的多邊形，避開對馬、福岡）；沒有座標就看旅程國家

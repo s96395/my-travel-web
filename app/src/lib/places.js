@@ -98,7 +98,7 @@ export function distanceKm(a, b) {
 
 const hasXY = p => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
 
-// 想去清單依「離這天行程多近」排序：每個地點算到這天最近一個行程的距離；這天沒有座標就維持原順序
+// 收藏依「離這天行程多近」排序：每個地點算到這天最近一個行程的距離；這天沒有座標就維持原順序
 export function nearDay(places, dayItems) {
   const anchors = dayItems.filter(hasXY);
   const list = places.map((p, i) => ({ ...p, km: anchors.length && hasXY(p) ? Math.min(...anchors.map(a => distanceKm(a, p))) : null, i }));
@@ -152,7 +152,7 @@ export function openAt(periods, offsetMin, now = new Date()) {
   });
 }
 
-// 這個行程點屬於哪個區域：1 公里內最近、已分區域的想去清單地點的區域；沒有就是空字串
+// 這個行程點屬於哪個區域：1 公里內最近、已分區域的收藏地點的區域；沒有就是空字串
 export function nearArea(p, wish, km = 1) {
   if (!hasXY(p)) return '';
   let best = null;
