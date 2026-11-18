@@ -5,7 +5,7 @@ import { airportTz } from './flights.js';
 // 可以選要不要帶過去的資料（子集合名稱 → 畫面上的名稱）；支出、公費、票券、潛水日誌不帶
 export const COPY_PARTS = [
   ['itinerary', '每日行程'],
-  ['wishlist', '想去清單'],
+  ['wishlist', '收藏'],
   ['flights', '班機'],
   ['stays', '住宿'],
   ['transits', '其他交通'],

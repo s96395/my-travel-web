@@ -40,7 +40,7 @@ test('查座標：同時查、查不到的留空', async () => {
   assert.deepEqual(await findCoords(places, fake), [{ lat: 1, lng: 2 }, null, null, { lat: 1.5, lng: 2.5 }]);
 });
 
-test('想去清單依離這天行程的距離排序', async () => {
+test('收藏依離這天行程的距離排序', async () => {
   const { distanceKm, nearDay, kmText } = await import('../src/lib/places.js');
   assert.ok(Math.abs(distanceKm({ lat: 25.0478, lng: 121.5170 }, { lat: 25.0330, lng: 121.5654 }) - 5.1) < 0.2); // 台北車站到 101
   const day = [{ lat: 26.21, lng: 127.68 }];
