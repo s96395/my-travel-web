@@ -203,6 +203,8 @@ a.btn:not(.primary){color:var(--fg)}
 :root:is([data-style="e"],[data-style="i"]) .flight .top{background:var(--accent);color:var(--accent-fg)}
 :root:is([data-style="e"],[data-style="i"]) .flight .top .muted,:root:is([data-style="e"],[data-style="i"]) .flight .top .more{color:inherit;opacity:.8}
 :root:is([data-style="e"],[data-style="i"]) .flight .port b{color:var(--accent);font-size:30px}
+/* 起降時間放深藍色塊，在機場一眼找到（參考登機證） */
+:root:is([data-style="e"],[data-style="i"]) .flight .port .t{display:inline-block;background:var(--accent);color:var(--accent-fg);font-weight:700;font-size:17px;padding:1px 10px;border-radius:4px;margin:4px 0 2px}
 :root:is([data-style="e"],[data-style="i"]) .flight .mid .line{border-top-color:var(--warm)}
 :root:is([data-style="e"],[data-style="i"]) .tag{border-radius:4px}
 
