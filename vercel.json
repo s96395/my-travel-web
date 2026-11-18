@@ -2,6 +2,13 @@
   "installCommand": "cd app && npm ci",
   "buildCommand": "cd app && npm run build",
   "outputDirectory": "app/dist",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "next": true
+    }
+  },
   "crons": [
     {
       "path": "/api/geo-cleanup",

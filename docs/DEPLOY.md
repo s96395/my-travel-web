@@ -12,3 +12,7 @@
 2. 再送一個小改動到 `next`，合併後再開一次 `next` → `main` 並合併，讓 `main` 有新的 commit。
 
 手機上加到主畫面的 App，更新後要整個關掉再開，才會換成新版。
+
+## 只有 main 和 next 會自動部署
+
+`vercel.json` 的 `git.deploymentEnabled` 設定只替 `main`、`next` 自動部署，其他分支（例如 `claude/…`、`codex/…`）不再自動建立預覽版，避免撞到 Vercel 免費方案每天的部署上限。要看某個分支的預覽版，可到 Vercel 後台用「Create Deployment」手動建立。
