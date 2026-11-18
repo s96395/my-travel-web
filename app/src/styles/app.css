@@ -843,7 +843,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .eyebrow::before{content:"";width:28px;border-top:1px solid currentColor;flex:none}
 .hero.bpi .bp-top{font-family:var(--font-label);font-weight:500}
 
-/* 想去清單：電腦版在右半邊分頁，手機版在日期下面切換；列也是 .item，才能長按拖到行程裡 */
+/* 收藏：電腦版在右半邊分頁，手機版在日期下面切換；列也是 .item，才能長按拖到行程裡 */
 .wishview{display:grid;gap:10px}
 .wishhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .wishhead h3{margin:0;font-size:17px}
@@ -873,7 +873,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .wrow .wname:focus-visible,.aplace .wname:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 .wrow .btn{white-space:nowrap}
 .wrow .more.sure{font-size:13px;color:var(--bad);white-space:nowrap}
-/* 想去清單：不再框裡有框，區域之間用留白分開，地點之間用細線 */
+/* 收藏：不再框裡有框，區域之間用留白分開，地點之間用細線 */
 .wgroup{display:grid;gap:0;padding:4px 0 6px}
 .wgroup + .wgroup{border-top:1px solid var(--line);padding-top:12px}
 .wghead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -887,7 +887,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .arealine{display:flex;align-items:baseline;gap:10px;margin:6px 2px 0;font-size:13px;color:var(--muted)}
 .arealine b{color:var(--fg)}
 .arealine .linkbtn{margin-left:auto;font-size:13px;color:var(--accent)}
-/* 開放地圖：當天行程是編號的橘色針，想去清單是藍色圓點 */
+/* 開放地圖：當天行程是編號的橘色針，收藏是藍色圓點 */
 .mapslot{position:relative;z-index:0;height:45vh;min-height:260px;border-radius:18px;overflow:hidden;background:var(--surface2)}
 .lmap{width:100%;height:100%}
 .mlegend{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:0}
@@ -1035,6 +1035,7 @@ button.mate:active .avatar{transform:scale(.92)}
 .mcats .mnearopen::before{display:none}
 .mcats .mnearopen[data-near]::after{content:"✕";font-size:12px}
 .mcats .mnearopen[aria-expanded="true"]{background:#1f2937;color:#fff}
+.mcats .mwish[aria-pressed="true"]{background:#1f2937;color:#fff}
 .mnear{margin:0 0 16px;border:0;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;font-weight:700;background:#fff;color:#1f2937;box-shadow:var(--sh-pop);cursor:pointer}
 .mnear[hidden]{display:none}
 .mnearlab{text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 3px #fff}
@@ -1099,15 +1100,18 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .mapcol{display:flex;flex-direction:column;gap:8px;min-height:0}
   .device.wide .mapcol .mapwrap{flex:1;min-height:0}
   .device.wide .mapcol .mapslot{flex:1;height:auto;min-height:0}
-  /* 想去清單：視窗較窄時浮在地圖右邊；1180px 以上改成行程旁的第二欄，地圖跟著縮窄 */
+  /* 地圖上方不再多一列：說明小字改浮在地圖左下，地圖上下緣和左邊兩欄對齊 */
+  .device.wide .mapcol{position:relative}
+  .device.wide .mapcol > .mlegend{position:absolute;left:10px;bottom:28px;z-index:2;max-width:calc(100% - 20px);background:var(--surface);border-radius:999px;padding:4px 12px;box-shadow:var(--sh-pop)}
+  /* 收藏：視窗較窄時浮在地圖右邊；1180px 以上改成行程旁的第二欄，地圖跟著縮窄 */
   .device.wide .planwide.two{position:relative}
-  .device.wide .wishover{position:absolute;top:44px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
+  .device.wide .wishover{position:absolute;top:10px;right:10px;bottom:10px;width:min(360px,45%);z-index:3;display:flex;flex-direction:column;gap:8px;background:var(--surface);border-radius:16px;box-shadow:var(--sh-pop);padding:12px 6px 12px 14px}
   .device.wide .wishcolhead{display:flex;align-items:center;gap:8px;justify-content:space-between;padding-right:8px}
   .device.wide .wishcolhead b{font-size:17px}
   .device.wide .wishover .wishpane{flex:1;overflow-y:auto;min-height:0;padding-right:8px;scrollbar-width:thin}
   .device.wide .wishover .wishpane:has(.lifted){overflow:visible}
   .device.wide .wishover .wishtop{flex-wrap:wrap}
-  /* 從想去清單拖出來的地點，拖曳時像一張卡片，蓋在行程上也看得清楚 */
+  /* 從收藏拖出來的地點，拖曳時像一張卡片，蓋在行程上也看得清楚 */
   .device.wide .wishes .item.wrow.lifted{background:var(--surface);border:1px solid var(--warm);border-radius:12px;padding:9px 12px}
   @media (min-width:1180px){
     .device.wide .planwide.two.wish{grid-template-columns:clamp(340px,28vw,420px) 340px minmax(0,1fr)}
@@ -1123,7 +1127,7 @@ button.mate:active .avatar{transform:scale(.92)}
   .device.wide .two > .day .dpill span{font-size:12px;white-space:nowrap}
   .device.wide .two > .day .dpill[aria-current="true"]{border-color:var(--warm)}
 }
-/* 地圖上方：區域篩選標籤（一行，太多時左右滑）＋想去清單按鈕 */
+/* 地圖上方：區域篩選標籤（一行，太多時左右滑）＋收藏按鈕 */
 .mbar{display:flex;align-items:center;gap:8px;min-width:0}
 .mchips{flex:1;min-width:0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
 .mchip{flex:none;max-width:12em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer}
@@ -1277,7 +1281,7 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .exptodo{display:grid;gap:8px;background:color-mix(in srgb,var(--warn) 12%,var(--surface));color:var(--fg)}
 .exptodo .row{display:flex;flex-wrap:wrap;gap:8px}
 
-/* 想去清單：搜尋、未安排／已安排、匯入清單篩選；區域預設收起，點左邊箭頭展開 */
+/* 收藏：搜尋、未安排／已安排、匯入清單篩選；區域預設收起，點左邊箭頭展開 */
 .wtools{display:grid;gap:8px}
 
 .wgfold{all:unset;flex:none;display:inline-grid;place-items:center;width:44px;height:44px;margin:-10px -8px -10px -12px;border-radius:10px;color:var(--muted);cursor:pointer}

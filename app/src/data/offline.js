@@ -40,7 +40,7 @@ function revive(v) {
 
 const rows = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
-// 整趟下載：旅程主檔與行程、班機、其他交通、住宿、待辦、行李清單、支出、公費、潛水紀錄、想去清單、封面照、票券
+// 整趟下載：旅程主檔與行程、班機、其他交通、住宿、待辦、行李清單、支出、公費、潛水紀錄、收藏、封面照、票券
 export async function downloadTrip(tripId, uid) {
   const tripSnap = await getDoc(doc(db, 'trips', tripId));
   if (!tripSnap.exists()) throw new Error('trip-missing');

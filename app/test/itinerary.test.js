@@ -123,7 +123,7 @@ test('自動查到的座標：名稱或地址改了就不算數', () => {
   assert.equal(geoKey({ title: '🍜 午餐｜海雲台市場' }), '午餐 海雲台市場');
 });
 
-test('行程和想去清單同名就當同一個地方', () => {
+test('行程和收藏同名就當同一個地方', () => {
   assert.equal(sameName('🐰 Miffy 海雲台商店｜買水手服米菲', 'Miffy 海雲台商店'), true);
   assert.equal(sameName('午餐｜海雲台傳統市場', '海雲台傳統市場'), false);
   assert.equal(sameName('', ''), false);

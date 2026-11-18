@@ -1,4 +1,4 @@
-// 首頁：主視覺（下一趟登機證／旅行足跡兩個頁籤）→ 我的旅程（近期在前，歷年收合）→ 旅行回顧統計
+// 首頁：主視覺（下一趟登機證／旅行足跡兩個頁籤）→ 旅行回顧統計 → 我的旅程（近期在前，歷年收合）
 import { esc, money, ICON, TYPE_ICO, themeBtn } from '../ui/dom.js';
 import { scene, art, coverHtml } from '../ui/scene.js';
 import { pickNextTrip, countdown, tripDays } from '../lib/trips.js';
@@ -390,6 +390,7 @@ export function renderHome(S) {
   <div class="wrap">
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
     ${loading ? '<div class="empty">正在讀取你的旅程…</div>' : (next => heroBox(S, worldFootprint(trips), next, hero(next, S)))(pickNextTrip(trips.filter(t => t.status !== '已封存')))}
+    ${loading ? '' : `<p class="eyebrow">旅行回顧</p>${statsHtml(S, st)}`}
     <p class="eyebrow">我的旅程</p>
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
@@ -409,8 +410,7 @@ export function renderHome(S) {
         ${open ? (ts.length ? `<div class="list">${ts.map(t => tripCard(t, S)).join('')}</div>` : '<div class="empty">沒有符合的旅程</div>') : ''}
       </section>`;
     }).join('')}
-    ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">搜尋和篩選只影響旅程列表，不影響下方統計</p>' : ''}
-    ${loading ? '' : `<p class="eyebrow">旅行回顧</p>${statsHtml(S, st)}`}
+    ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">搜尋和篩選只影響旅程列表，不影響上方統計</p>' : ''}
     ${S.hideInstall || S.standalone || S.visits < 2 ? '' : `<div class="install" role="note">${ICON.phone}<span class="grow">可以加到手機主畫面，像 App 一樣開啟</span><button type="button" class="linkbtn" data-act="install">怎麼加</button><button type="button" class="x" data-act="hideInstall" aria-label="不再顯示">×</button></div>`}
   </div>`;
 }
