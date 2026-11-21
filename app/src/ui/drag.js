@@ -6,7 +6,8 @@ const NO_DRAG = '.more, a, input, select, textarea, summary, label';
 // 拖到日期按鈕上要停一下才算換天，避免往上找位置時經過就被搬到別天
 const PILL_WAIT = 600;
 
-export function initDrag({ canEdit, onLocked, onDrop }) {
+export function initDrag({ canEdit, onLocked, onDrop, onSwapDays }) {
+  initDayDrag({ canEdit, onLocked, onSwapDays });
   document.addEventListener('pointerdown', e => {
     const it = e.target.closest('.item[data-iid]');
     if (!it || e.target.closest(NO_DRAG) || (e.button && e.button !== 0)) return;
@@ -59,8 +60,8 @@ export function initDrag({ canEdit, onLocked, onDrop }) {
   document.addEventListener('pointerup', () => endDrag(onDrop));
   document.addEventListener('pointercancel', () => endDrag(null));
   // 長按拖曳後放開，不要再觸發站名按鈕的點擊
-  document.addEventListener('click', e => { if (DR.eat && e.target.closest('.item[data-iid]')) { e.preventDefault(); e.stopPropagation(); } DR.eat = false; }, true);
-  document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid]')) e.preventDefault(); });
+  document.addEventListener('click', e => { if (DR.eat && e.target.closest('.item[data-iid], .dpill')) { e.preventDefault(); e.stopPropagation(); } DR.eat = false; }, true);
+  document.addEventListener('contextmenu', e => { if (e.target.closest('.item[data-iid], .dpill')) e.preventDefault(); });
 }
 
 // 拖到畫面上下緣時自動捲動；電腦版地圖旁的行程欄、手機底部面板的列表有自己的捲軸，拖到它的上下緣就捲它
@@ -125,4 +126,65 @@ function endDrag(onDrop) {
   el.classList.remove('lifted'); el.style.transform = '';
   document.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
   if (onDrop) onDrop(id, target);
+}
+
+// 日期按鈕長按拖到另一天的日期按鈕上：兩天的行程整天對調（「未排」不能拖，也不能當目標）
+// 日期列會左右捲動，按鈕本身拖不出去，所以拖的時候另外顯示一個跟著手指走的小卡
+const PD = { timer: null, el: null, d: 0, sx: 0, sy: 0, active: false, ghost: null, over: null, raf: null, px: 0 };
+const dayOf = el => +el.dataset.dropd || 0;
+
+function initDayDrag({ canEdit, onLocked, onSwapDays }) {
+  document.addEventListener('pointerdown', e => {
+    const pill = e.target.closest('.dpill[data-dropd]');
+    if (!pill || !dayOf(pill) || (e.button && e.button !== 0)) return;
+    PD.el = pill; PD.d = dayOf(pill); PD.sx = e.clientX; PD.sy = e.clientY;
+    PD.timer = setTimeout(() => {
+      if (!canEdit()) { onLocked(); PD.el = null; return; }
+      PD.active = true; pill.classList.add('lifted');
+      try { pill.setPointerCapture(e.pointerId); } catch { /* 有些瀏覽器不支援 */ }
+      if (navigator.vibrate) try { navigator.vibrate(15); } catch { /* 忽略 */ }
+      PD.ghost = document.createElement('div'); PD.ghost.className = 'dayghost';
+      PD.ghost.textContent = `第 ${PD.d} 天 ⇄ 拖到要對調的那天`;
+      document.body.appendChild(PD.ghost); moveGhost(e.clientX, e.clientY);
+      PD.px = e.clientX; rowScroll();
+    }, 400);
+  });
+
+  document.addEventListener('pointermove', e => {
+    if (!PD.el) return;
+    if (!PD.active) {
+      // 還沒到長按時間就移動，視為左右捲動日期列
+      if (Math.hypot(e.clientX - PD.sx, e.clientY - PD.sy) > 8) { clearTimeout(PD.timer); PD.el = null; }
+      return;
+    }
+    e.preventDefault(); PD.px = e.clientX; moveGhost(e.clientX, e.clientY);
+    const t = document.elementFromPoint(e.clientX, e.clientY)?.closest('.dpill[data-dropd]');
+    const ok = t && t !== PD.el && dayOf(t) ? t : null;
+    if (ok !== PD.over) { PD.over?.classList.remove('drop'); ok?.classList.add('drop'); PD.over = ok; }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', e => { if (PD.active) e.preventDefault(); }, { passive: false });
+  document.addEventListener('pointerup', () => endDayDrag(onSwapDays));
+  document.addEventListener('pointercancel', () => endDayDrag(null));
+}
+
+function moveGhost(x, y) { if (PD.ghost) PD.ghost.style.transform = `translate(${x + 12}px, ${y + 16}px)`; }
+
+// 拖到日期列左右兩端時自動捲動，天數多也拖得到
+function rowScroll() {
+  if (!PD.active) return;
+  const row = PD.el?.closest('.dpills'), r = row?.getBoundingClientRect();
+  if (r) { if (PD.px < r.left + 40) row.scrollLeft -= 6; else if (PD.px > r.right - 40) row.scrollLeft += 6; }
+  PD.raf = requestAnimationFrame(rowScroll);
+}
+
+function endDayDrag(onSwapDays) {
+  clearTimeout(PD.timer);
+  if (!PD.active) { PD.el = null; return; }
+  cancelAnimationFrame(PD.raf);
+  const from = PD.d, to = PD.over ? dayOf(PD.over) : 0;
+  PD.el.classList.remove('lifted'); PD.over?.classList.remove('drop'); PD.ghost?.remove();
+  PD.active = false; PD.el = null; PD.over = null; PD.ghost = null;
+  DR.eat = true; setTimeout(() => { DR.eat = false; }, 400);
+  if (onSwapDays && to && to !== from) onSwapDays(from, to);
 }
