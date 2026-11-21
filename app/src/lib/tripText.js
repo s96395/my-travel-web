@@ -1,6 +1,6 @@
 // 匯出行程文字：整趟旅程整理成純文字，方便貼給 ChatGPT 之類的工具討論
 // 訂位代號、確認碼、PIN 不放進去（和行事曆檔一樣），因為文字會貼到別的服務
-import { itemsOfDay, backupsOf, sameName, BOOK_LABEL } from './itinerary.js';
+import { itemsOfDay, backupsOf, sameName, planDays, BOOK_LABEL } from './itinerary.js';
 import { parseDate, toDateString, daysBetween, WEEKDAYS } from './dates.js';
 
 const md = s => { const d = parseDate(s); return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`; };
@@ -23,14 +23,16 @@ function stop(it, n, items) {
 // trip：畫面用的旅程（name、start、end、place）；items：normalizeItem 後的行程；wishes：收藏（還沒排進哪天的地點）
 export function buildTripText(trip, { items = [], flights = [], stays = [], transits = [], wishes = [] } = {}) {
   const out = [];
-  const days = trip.start && trip.end ? daysBetween(trip.start, trip.end) + 1 : Math.max(0, ...items.map(it => it.day));
+  // 和行程頁一樣：排到旅程日期之後的天數也要列出來
+  const span = trip.start && trip.end ? daysBetween(trip.start, trip.end) + 1 : 0;
+  const days = planDays(items, span);
   out.push(`【${trip.name}】`);
-  out.push([trip.start && trip.end ? `${trip.start.replaceAll('-', '/')}－${trip.end.replaceAll('-', '/')}，共 ${days} 天` : '', trip.place].filter(Boolean).join('，'));
+  out.push([span ? `${trip.start.replaceAll('-', '/')}－${trip.end.replaceAll('-', '/')}，共 ${span} 天` : '', trip.place].filter(Boolean).join('，'));
 
   const fl = flights.filter(f => f.dep).sort((a, b) => (a.dep > b.dep ? 1 : -1));
   if (fl.length) {
     out.push('', '■ 班機');
-    fl.forEach(f => out.push(`- ${md(f.dep.slice(0, 10))} ${[f.flightNo, `${f.fromCity || f.from || ''} → ${f.toCity || f.to || ''}`].filter(Boolean).join(' ')} ${hm(f.dep)} 起飛${f.arr ? `，${hm(f.arr)} 抵達` : ''}`));
+    fl.forEach(f => out.push(`- ${md(f.dep.slice(0, 10))} ${[f.flightNo, `${f.fromCity || f.from || ''} → ${f.toCity || f.to || ''}`].filter(Boolean).join(' ')} ${hm(f.dep)} 起飛${f.arr ? `，${f.arr.slice(0, 10) !== f.dep.slice(0, 10) ? `${md(f.arr.slice(0, 10))} ` : ''}${hm(f.arr)} 抵達` : ''}`));
   }
   const st = stays.filter(s => s.checkInDate).sort((a, b) => (a.checkInDate > b.checkInDate ? 1 : -1));
   if (st.length) {
