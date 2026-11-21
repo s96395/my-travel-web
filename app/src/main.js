@@ -692,6 +692,19 @@ async function moveArea(area, from, to) {
   try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('移動沒有儲存成功，請再試一次'); }
 }
 
+// 兩天的行程整天對調（長按日期拖到另一天）：每站只換天數，當天順序不變
+async function swapDays(a, b) {
+  if (S.offline || a === b) return;
+  const updates = S.items.filter(x => x.day === a || x.day === b).map(x => ({ id: x.id, day: x.day === a ? b : a, order: x.order }));
+  if (!updates.length) { toast(`第 ${a} 天和第 ${b} 天都還沒有行程`); return; }
+  const before = posOf(updates.map(u => u.id));
+  const byId = new Map(updates.map(u => [u.id, u]));
+  S.items = S.items.map(x => (byId.has(x.id) ? { ...x, ...byId.get(x.id) } : x));
+  S.pday = b; render();
+  undoable(S.tripId, `第 ${a} 天和第 ${b} 天的行程已對調`, undoMoves(before));
+  try { await saveMoves(S.tripId, updates, S.user, S.nickname); } catch (err) { console.error(err); toast('對調沒有儲存成功，請再試一次'); }
+}
+
 // 移動行程：先更新畫面，再寫回資料庫
 async function moveItem(id, target, quiet = false) {
   const it = findItem(id);
@@ -2161,6 +2174,7 @@ initDrag({
   canEdit: () => !S.offline,
   onLocked: () => toast('離線中只能查看，連上網路後才能修改'),
   onDrop,
+  onSwapDays: swapDays,
 });
 WIDE.addEventListener('change', e => { S.wide = e.matches; render(); });
 window.addEventListener('online', () => {
