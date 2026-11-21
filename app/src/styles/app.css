@@ -743,6 +743,9 @@ body:has(.tabbar) .envtag{bottom:calc(72px + env(safe-area-inset-bottom,0px))}
 .dpill[aria-current="true"]{background:var(--warm);color:#fff}
 .dpill[aria-current="true"] b{color:#fff}
 .dpill.drop{border-color:var(--warm);border-style:dashed}
+/* 長按日期拖到另一天：整天對調 */
+.dpill.lifted{border-color:var(--warm);opacity:.6}
+.dayghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;background:var(--warm);color:#fff;font-size:13px;font-weight:700;padding:6px 10px;border-radius:999px;box-shadow:var(--sh-pop);white-space:nowrap}
 .day>.dayhead.big{display:flex;align-items:flex-end;gap:12px;background:none;padding:4px 0 2px}
 :root:is([data-style="h"],[data-style="i"]) .dayhead.big .daynum{font-size:40px;line-height:1}
 .dayhead.big h3{font-size:20px;font-weight:800}
