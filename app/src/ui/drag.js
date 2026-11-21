@@ -130,7 +130,7 @@ function endDrag(onDrop) {
 
 // 日期按鈕長按拖到另一天的日期按鈕上：兩天的行程整天對調（「未排」不能拖，也不能當目標）
 // 日期列會左右捲動，按鈕本身拖不出去，所以拖的時候另外顯示一個跟著手指走的小卡
-const PD = { timer: null, el: null, d: 0, sx: 0, sy: 0, active: false, ghost: null, over: null, raf: null, px: 0 };
+const PD = { timer: null, el: null, d: 0, sx: 0, sy: 0, active: false, ghost: null, over: null, raf: null, px: 0, py: 0 };
 const dayOf = el => +el.dataset.dropd || 0;
 
 function initDayDrag({ canEdit, onLocked, onSwapDays }) {
@@ -146,7 +146,7 @@ function initDayDrag({ canEdit, onLocked, onSwapDays }) {
       PD.ghost = document.createElement('div'); PD.ghost.className = 'dayghost';
       PD.ghost.textContent = `第 ${PD.d} 天 ⇄ 拖到要對調的那天`;
       document.body.appendChild(PD.ghost); moveGhost(e.clientX, e.clientY);
-      PD.px = e.clientX; rowScroll();
+      PD.px = e.clientX; PD.py = e.clientY; rowScroll();
     }, 400);
   });
 
@@ -157,15 +157,20 @@ function initDayDrag({ canEdit, onLocked, onSwapDays }) {
       if (Math.hypot(e.clientX - PD.sx, e.clientY - PD.sy) > 8) { clearTimeout(PD.timer); PD.el = null; }
       return;
     }
-    e.preventDefault(); PD.px = e.clientX; moveGhost(e.clientX, e.clientY);
-    const t = document.elementFromPoint(e.clientX, e.clientY)?.closest('.dpill[data-dropd]');
-    const ok = t && t !== PD.el && dayOf(t) ? t : null;
-    if (ok !== PD.over) { PD.over?.classList.remove('drop'); ok?.classList.add('drop'); PD.over = ok; }
+    e.preventDefault(); PD.px = e.clientX; PD.py = e.clientY; moveGhost(e.clientX, e.clientY);
+    hitDay();
   }, { passive: false });
 
   document.addEventListener('touchmove', e => { if (PD.active) e.preventDefault(); }, { passive: false });
   document.addEventListener('pointerup', () => endDayDrag(onSwapDays));
   document.addEventListener('pointercancel', () => endDayDrag(null));
+}
+
+// 手指下面是哪一天；日期列自動捲動時手指沒動，日期會換，所以捲動時和放開前也要重新看一次
+function hitDay() {
+  const t = document.elementFromPoint(PD.px, PD.py)?.closest('.dpill[data-dropd]');
+  const ok = t && t !== PD.el && dayOf(t) ? t : null;
+  if (ok !== PD.over) { PD.over?.classList.remove('drop'); ok?.classList.add('drop'); PD.over = ok; }
 }
 
 function moveGhost(x, y) { if (PD.ghost) PD.ghost.style.transform = `translate(${x + 12}px, ${y + 16}px)`; }
@@ -174,14 +179,14 @@ function moveGhost(x, y) { if (PD.ghost) PD.ghost.style.transform = `translate($
 function rowScroll() {
   if (!PD.active) return;
   const row = PD.el?.closest('.dpills'), r = row?.getBoundingClientRect();
-  if (r) { if (PD.px < r.left + 40) row.scrollLeft -= 6; else if (PD.px > r.right - 40) row.scrollLeft += 6; }
+  if (r) { if (PD.px < r.left + 40) { row.scrollLeft -= 6; hitDay(); } else if (PD.px > r.right - 40) { row.scrollLeft += 6; hitDay(); } }
   PD.raf = requestAnimationFrame(rowScroll);
 }
 
 function endDayDrag(onSwapDays) {
   clearTimeout(PD.timer);
   if (!PD.active) { PD.el = null; return; }
-  cancelAnimationFrame(PD.raf);
+  cancelAnimationFrame(PD.raf); hitDay();
   const from = PD.d, to = PD.over ? dayOf(PD.over) : 0;
   PD.el.classList.remove('lifted'); PD.over?.classList.remove('drop'); PD.ghost?.remove();
   PD.active = false; PD.el = null; PD.over = null; PD.ghost = null;
