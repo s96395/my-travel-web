@@ -14,7 +14,7 @@ const head = title => `<div class="head"><h2>${title}</h2><button type="button" 
 const avatar = (p, i) => `<span class="avatar${p?.uid ? '' : ' unbound'}" data-c="${i % 3}">${esc((p?.name || '?').slice(0, 1))}</span>`;
 const ms = t => (t && typeof t.toMillis === 'function' ? t.toMillis() : Infinity); // 剛新增還沒寫進伺服器的排最前面
 const off = S => (S.offline ? 'disabled' : '');
-// 支出歸在哪一天：表單已經不填消費日期，用新增那天；以前填過消費日期的舊資料照填的日期；剛新增還沒寫進伺服器的算今天
+// 支出歸在哪一天：記帳時選的日期（預設今天）；沒存日期的舊資料用新增那天；剛新增還沒寫進伺服器的算今天
 export const spentDay = e => (typeof e.spentOn === 'string' && e.spentOn ? e.spentOn : e.createdAt?.toDate ? todayString(e.createdAt.toDate()) : todayString());
 // 列表排序：日期新的在前；同一天再依新增時間
 const byDay = (a, b) => {
@@ -210,7 +210,8 @@ export function expDraft(S, trip, e) {
   // 新的一筆：幣別用這趟上次選的，沒有就用旅程國家的幣別；匯率等打開表單後再查
   if (!e) {
     const cur = store.get(`fxCur:${trip.id}`) || tripCurrencies(trip.raw.country)[0] || TWD;
-    return { id: null, name: '', amt: '', spentOn: '', cur, rate: '', rateDate: '', rateState: '', cat: '餐飲', pay: '現金', payWay: 'people', paid: {}, autoPay: c.me || '', payAll: false, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
+    // 哪天花的：預設今天；半夜補記前一天的帳可以改
+    return { id: null, name: '', amt: '', spentOn: todayString(), cur, rate: '', rateDate: '', rateState: '', cat: '餐飲', pay: '現金', payWay: 'people', paid: {}, autoPay: c.me || '', payAll: false, mode: 'equal', sel: new Set(active), custom: {}, note: '', by: '', edit: true, dirty: false };
   }
   const s = sharesOf(e, c.people) || {}, mode = modeOf(e, c.people), fx = e.fx?.cur ? e.fx : null;
   const custom = {}, paid = {};
@@ -221,7 +222,7 @@ export function expDraft(S, trip, e) {
   if (e.payerId === MULTI) { const pd = fx?.payers || paidOf(e); for (const k in pd) paid[k] = String(pd[k]); }
   return {
     id: e.id, name: e.name || '', amt: String((fx ? fx.amount : amountOf(e)) || ''),
-    spentOn: typeof e.spentOn === 'string' ? e.spentOn : '', // 舊資料填過的消費日期原樣保留，表單不再顯示
+    spentOn: spentDay(e), // 沒填過日期的舊資料，顯示新增那天
     cur: fx ? fx.cur : TWD, rate: fx ? String(fx.rate) : '', rateDate: fx?.date || '', rateState: fx ? 'saved' : '',
     cat: e.category || '其他', pay: payMethodOf(e) || '其他',
     payWay, paid, autoPay: e.payerId && e.payerId !== FUND && e.payerId !== MULTI ? e.payerId : payWay === 'none' ? c.me || '' : '', payAll: false, mode, sel: new Set(mode === 'none' ? active : Object.keys(s)), custom, note: e.note || '',
@@ -342,6 +343,7 @@ export function expSheetHtml(S, trip, d) {
       ${foreign(d) ? rateLine(d, dis) : ''}
       <input class="namein" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
     </div>
+    <div class="row" style="gap:10px;align-items:center;justify-content:center"><label class="label" for="x-spent" style="margin:0">哪天花的</label><input class="input" type="date" id="x-spent" data-f="spentOn" value="${esc(d.spentOn)}" ${dis} style="width:auto"></div>
     <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div>
     <div class="field"><span class="label">誰付的錢</span>
       <div class="seg" style="justify-self:start">${[['people', '填每人金額'], ...(c.fund.on || d.payWay === 'fund' ? [['fund', c.fund.on ? '公費付' : '公費付（已關閉）']] : []), ['none', '還不確定']]
