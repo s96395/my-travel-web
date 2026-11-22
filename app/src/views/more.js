@@ -57,11 +57,12 @@ export function renderMore(S, trip) {
   </div>`;
 }
 
-// 標題列的快速選單：外觀、加到手機行事曆、使用小技巧，在旅程的哪個分頁都能打開
+// 標題列的快速選單：外觀、複製行程文字、加到手機行事曆、使用小技巧，在旅程的哪個分頁都能打開
 export function quickSheet(S) {
   openSheet(`${head('快速選單')}
     <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
     <div class="menulist">
+      <button type="button" data-act="exportText"><span>${ICON.copy}</span><span class="grow"><b>複製行程文字</b><span class="small muted">整趟行程變成文字，可以貼給 ChatGPT 討論；訂位代號不會放進去</span></span>${ICON.chev}</button>
       <button type="button" data-act="exportIcs"><span>${ICON.cal}</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
       <details>
         <summary><span>${ICON.bulb}</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
@@ -126,4 +127,11 @@ export function delTripSheet(trip) {
     <div class="field"><label for="delname">請輸入旅程名稱「${esc(trip.name)}」確認</label><input class="input" id="delname" autocomplete="off"></div>
     <p class="small err-text" id="del-err" role="alert" hidden></p>
     <div class="row"><button type="button" class="btn grow" data-act="close">取消</button><button type="button" class="btn danger grow" data-act="yesDelTrip">刪除旅程</button></div>`);
+}
+
+// 沒辦法自動複製時（有些瀏覽器擋剪貼簿），把文字放在框裡讓使用者自己全選複製
+export function tripTextSheet(text) {
+  openSheet(`${head('行程文字')}
+    <p class="small muted" style="margin:0">沒辦法自動複製，請長按下面的文字，選「全選」後複製。</p>
+    <textarea class="input" id="trip-text" readonly rows="14" style="font-size:13px;line-height:1.5">${esc(text)}</textarea>`);
 }
