@@ -27,7 +27,7 @@ import { saveExpense, updateTrip, setRepaid } from './data/expenses.js';
 import { TWD, getRate } from './lib/fx.js';
 import { equalSplit, amountOf } from './lib/expenses.js';
 import { diveFormSheet, readDiveForm, totalTanks, tanksByPerson } from './views/dive.js';
-import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf, quickSheet, copyTripSheet, copyEndText } from './views/more.js';
+import { renderMore, personSheet, confirmSheet, delTripSheet, inviteUrl, companionsOf, quickSheet, copyTripSheet, copyEndText, tripTextSheet } from './views/more.js';
 import { readCopySource, copyTrip } from './data/copy.js';
 import { renderJoin } from './views/join.js';
 import { addParticipant, patchParticipants, removeMember, kickMember, updateTripInfo, userName, readJoinTrip, joinAsMember, sharesNow, bindParticipant, deleteTripAll, deleteAccountData, addCompanion, bindCompanion } from './data/people.js';
@@ -35,6 +35,7 @@ import { moveUp, boundTo, isMember, memberUids, cleanName } from './lib/people.j
 import { perPerson } from './lib/expenses.js';
 import { participantsOf } from './lib/trips.js';
 import { buildIcs } from './lib/ics.js';
+import { buildTripText } from './lib/tripText.js';
 import { accountSheet, installSheet, privacySheet, delAccountSheet, newTripSheet, readTripForm } from './views/sheets.js';
 import { downloadTrip, listOffline, removeOffline, saveAccount, readAccount, clearOffline } from './data/offline.js';
 import { shrinkImage, loadCover, saveCover } from './data/cover.js';
@@ -966,6 +967,14 @@ const actions = {
   quick: () => quickSheet(S),
   install: () => installSheet(),
   privacy: () => privacySheet(),
+  async exportText() {
+    const trip = curTrip();
+    if (!trip) return;
+    if (S.loadingItems || S.loadingMove) { toast('行程還在讀取，請稍等一下再複製'); return; }
+    const text = buildTripText(trip, { items: S.items, flights: allFlights(S, trip), stays: allStays(S, trip), transits: S.transitDocs, wishes: S.wishDocs });
+    try { await navigator.clipboard.writeText(text); closeSheet(); toast('已複製行程文字，可以直接貼上'); }
+    catch { tripTextSheet(text); }
+  },
   exportIcs() {
     const trip = curTrip();
     if (!trip) return;
