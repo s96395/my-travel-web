@@ -167,23 +167,34 @@ window.addEventListener('resize', syncDayArrows);
 const tried = new Set();
 let locating = false, placesOff = false;
 // 住宿沒有存地點和座標：打開旅程時用名稱＋地址請 Google 查一次，結果只放在這次開著的網頁（S.stayGeo，不存資料庫），
-// 住宿的導航（韓國開 Naver）和給司機看（自動查韓文）才能和行程一樣；名稱或地址改了會重查
-const stayTried = new Set();
+// 住宿的導航（韓國開 Naver）和給司機看（自動查韓文）才能和行程一樣
+// stayMemo 用「旅程、住宿、名稱、地址」記查過的結果：回到列表再進來直接用；名稱或地址改了就是新的一筆，舊的位置不會沿用
+const stayMemo = new Map();
+const staySig = (tid, s) => `${tid}|${s.id}|${s.name}|${s.address}`;
 async function locateStays() {
   const t = curTrip();
-  if (!t || !mapsKey || placesOff || S.offline) return;
-  const todo = allStays(S, t).map(s => ({ s, k: `${s.id}|${s.name}|${s.address}` })).filter(({ s, k }) => s.name && !stayTried.has(k));
-  if (!todo.length) return;
-  todo.forEach(({ k }) => stayTried.add(k));
-  const m = await import('./ui/map.js');
+  if (!t) return;
+  const stays = allStays(S, t);
   let hit = false;
-  for (const { s } of todo) {
-    const addr = s.address && !isMapLink(s.address) ? s.address : '';
-    const xy = await m.locate({ title: [s.name, addr || t.city].filter(Boolean).join(' ') }).catch(() => null);
-    if (xy === 'off') { placesOff = true; break; }
-    if (xy && S.tripId === t.id) { S.stayGeo[s.id] = xy; hit = true; }
+  for (const s of stays) {
+    const k = staySig(t.id, s), v = stayMemo.get(k);
+    const want = v && v !== 'busy' ? v : undefined;
+    if (S.stayGeo[s.id] !== want) { if (want) S.stayGeo[s.id] = want; else delete S.stayGeo[s.id]; hit = true; }
   }
   if (hit) render();
+  if (!mapsKey || placesOff || S.offline) return;
+  const todo = stays.filter(s => s.name && !stayMemo.has(staySig(t.id, s)));
+  if (!todo.length) return;
+  todo.forEach(s => stayMemo.set(staySig(t.id, s), 'busy'));
+  const m = await import('./ui/map.js');
+  for (const s of todo) {
+    const addr = s.address && !isMapLink(s.address) ? s.address : '';
+    const xy = await m.locate({ title: [s.name, addr || t.city].filter(Boolean).join(' ') }).catch(() => null);
+    if (xy === 'off') { placesOff = true; todo.forEach(x => stayMemo.delete(staySig(t.id, x))); break; }
+    stayMemo.set(staySig(t.id, s), xy || null);
+  }
+  // 查完再對一次：期間換了旅程或改了住宿，只套用名稱地址還一樣的
+  if (S.tripId === t.id) locateStays();
 }
 const RENEW_MS = 25 * 86400000;
 async function exactCoords(m) {
