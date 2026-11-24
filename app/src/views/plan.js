@@ -5,9 +5,9 @@ import { parseDate, toDateString, monthDay, todayString } from '../lib/dates.js'
 import { amountOf } from '../lib/expenses.js';
 import { spentDay } from './expense.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
-import { allFlights, allStays } from './move.js';
+import { allFlights, allStays, stayAt } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, storeName, BOOK_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, stayPlace, groupByArea, sameName, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
+import { ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, storeName, BOOK_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, groupByArea, sameName, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -609,12 +609,12 @@ export function driverData(S, trip, k, id) {
     if (!p) return null;
     return { name: storeName(p.title), addr: '', lat: p.lat, lng: p.lng, nav: navTo(p, trip.country) || p.url || '', open: openTo(p, trip.country), map: mapName(p, trip.country), google: false, ...more(p, 'wish:' + p.id, p.placeId || '') };
   }
-  // 交通住宿分頁的住宿：用自己貼的名稱、地址；沒有座標，所以不放小地圖、不查當地語言
+  // 交通住宿分頁的住宿：用自己貼的名稱、地址；打開旅程時有查到 Google 地點，就和行程一樣放小地圖、自動查當地語言
   if (k === 'stay') {
     const st = allStays(S, trip).find(x => x.id === id);
     if (!st) return null;
-    const p = stayPlace(st);
-    return { name: st.name, addr: st.address && !isMapLink(st.address) ? st.address : '', nav: navHref(p, trip.city, trip.country), open: placeHref(p, trip.city, trip.country), map: mapName(p, trip.country), google: false, key: 'stay:' + st.id, pid: '', q: '', lang: '', langName: '' };
+    const p = stayAt(st);
+    return { name: st.name, addr: st.address && !isMapLink(st.address) ? st.address : '', lat: p.lat, lng: p.lng, nav: navHref(p, trip.city, trip.country), open: placeHref(p, trip.city, trip.country), map: mapName(p, trip.country), google: false, ...more({ ...p, title: st.name }, 'stay:' + st.id, p.placeId || '') };
   }
   const p = S.card?.kind === 'place' ? S.card.p : null;
   if (!p) return null;
