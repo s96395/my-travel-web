@@ -7,7 +7,10 @@ import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sort
 
 // 新資料加上還沒轉過的舊版單筆資料
 export const allFlights = (S, trip) => withLegacy(S.flightDocs, legacyFlights(trip.raw.flight));
-export const allStays = (S, trip) => withLegacy(S.stayDocs, legacyStays(trip.raw.hotel, trip.raw));
+// S.stayGeo：打開旅程時用名稱＋地址查到的 Google 地點（座標、地點代碼），只在這次開著的網頁，不存
+export const allStays = (S, trip) => withLegacy(S.stayDocs, legacyStays(trip.raw.hotel, trip.raw)).map(s => (S.stayGeo?.[s.id] ? { ...s, ...S.stayGeo[s.id] } : s));
+// 住宿當成一個地點：有查到座標就帶上，導航照座標開（韓國開 Naver 地點頁）
+export const stayAt = s => ({ ...stayPlace(s), ...(Number.isFinite(s.lat) ? { lat: s.lat, lng: s.lng, placeId: s.placeId || '' } : {}) });
 
 const head = title => `<div class="head"><h2>${title}</h2><button type="button" class="iconbtn" data-act="close" aria-label="關閉">×</button></div>`;
 const EYE = {
@@ -38,7 +41,7 @@ function flightCard(S, f) {
 
 // 住宿卡：導航、給司機看（和行程資訊卡同樣的按鈕）；韓國的導航開 Naver 地點頁，不另外放「開啟地圖」；離線只留給司機看
 function stayLinks(S, s, trip) {
-  const p = stayPlace(s), kr = inKorea(p, trip.country);
+  const p = stayAt(s), kr = inKorea(p, trip.country);
   const go = (href, text, cls, style = '') => `<a class="${cls}" style="text-decoration:none${style}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>`;
   return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${S.offline ? '' : go(navHref(p, trip.city, trip.country), `${ICON.map}導航`, 'btn sm primary')}<button type="button" class="btn sm" data-act="driver" data-k="stay" data-id="${esc(s.id)}">🚕 給司機看</button>${S.offline || kr || !s.address ? '' : go(placeHref(p, trip.city, trip.country), '開啟地圖', 'linkbtn')}</div>`;
 }
