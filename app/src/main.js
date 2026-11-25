@@ -64,7 +64,7 @@ const S = {
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
   hideInstall: store.get('hideInstall') === '1',
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
-  wishDocs: [], mside: 'plan', // 收藏（匯入的 Google 地圖收藏）；手機版看行程還是收藏
+  wishDocs: [], stayGeo: {}, mside: 'plan', // 收藏（匯入的 Google 地圖收藏）；手機版看行程還是收藏
   wishOpen: false, // 電腦版收藏蓋在地圖上，平常收著
   wq: '', wstat: '', wlist: '', wopen: new Set(), // 收藏的搜尋、未安排／已安排、匯入清單篩選，與展開中的區域
   wbox: null, wboxList: '', // 搜尋此區域：按下時的地圖範圍；收藏只列範圍內（'in'）或沒有位置的（'noxy'）
@@ -166,6 +166,36 @@ window.addEventListener('resize', syncDayArrows);
 // 收藏連結算出的座標只到大約哪一區，地圖載入後逐一查精確位置，查到就存起來（每個地點只查一次）
 const tried = new Set();
 let locating = false, placesOff = false;
+// 住宿沒有存地點和座標：打開旅程時用名稱＋地址請 Google 查一次，結果只放在這次開著的網頁（S.stayGeo，不存資料庫），
+// 住宿的導航（韓國開 Naver）和給司機看（自動查韓文）才能和行程一樣
+// stayMemo 用「旅程、住宿、名稱、地址」記查過的結果：回到列表再進來直接用；名稱或地址改了就是新的一筆，舊的位置不會沿用
+const stayMemo = new Map();
+const staySig = (tid, s) => `${tid}|${s.id}|${s.name}|${s.address}`;
+async function locateStays() {
+  const t = curTrip();
+  if (!t) return;
+  const stays = allStays(S, t);
+  let hit = false;
+  for (const s of stays) {
+    const k = staySig(t.id, s), v = stayMemo.get(k);
+    const want = v && v !== 'busy' ? v : undefined;
+    if (S.stayGeo[s.id] !== want) { if (want) S.stayGeo[s.id] = want; else delete S.stayGeo[s.id]; hit = true; }
+  }
+  if (hit) render();
+  if (!mapsKey || placesOff || S.offline) return;
+  const todo = stays.filter(s => s.name && !stayMemo.has(staySig(t.id, s)));
+  if (!todo.length) return;
+  todo.forEach(s => stayMemo.set(staySig(t.id, s), 'busy'));
+  const m = await import('./ui/map.js');
+  for (const s of todo) {
+    const addr = s.address && !isMapLink(s.address) ? s.address : '';
+    const xy = await m.locate({ title: [s.name, addr || t.city].filter(Boolean).join(' ') }).catch(() => null);
+    if (xy === 'off') { placesOff = true; todo.forEach(x => stayMemo.delete(staySig(t.id, x))); break; }
+    stayMemo.set(staySig(t.id, s), xy || null);
+  }
+  // 查完再對一次：期間換了旅程或改了住宿，只套用名稱地址還一樣的
+  if (S.tripId === t.id) locateStays();
+}
 const RENEW_MS = 25 * 86400000;
 async function exactCoords(m) {
   if (locating || placesOff || S.offline || !S.tripId) return;
@@ -358,7 +388,7 @@ function syncItineraryWatch() {
   itin.stops.forEach(off => off());
   itin = { tripId: want, stops: [], tries: 0 };
   undoList.length = 0; // 換旅程就不留上一趟的復原
-  Object.assign(S, { items: [], openIt: '', live: null, flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
+  Object.assign(S, { items: [], openIt: '', live: null, flightDocs: [], stayDocs: [], transitDocs: [], ticketDocs: [], todoDocs: [], packDocs: [], packOpen: {}, todoSeg: 'todo', diveDocs: [], depositDocs: [], wishDocs: [], stayGeo: {}, mside: 'plan', mapFull: false, mapArea: '', wq: '', wstat: '', wlist: '', wopen: new Set(), wbox: null, wboxList: '', expSeg: 'list', expFilter: 'all', reveal: {}, days: {}, pday: 1, tab: 'plan', loadingItems: !!want, loadingMove: !!want, loadingTodo: !!want, loadingDive: !!want });
   if (!want) return;
   // 旅途中打開旅程，直接看今天
   const t = S.trips.find(x => x.id === want), c = t?.start && t.end ? countdown(t) : null;
@@ -440,7 +470,7 @@ function startTripWatch(tripId) {
   itin.stops = [
     watchItinerary(tripId, ok(list => { raw = new Map(list.map(d => [d.id, d])); S.items = list.map(normalizeItem); S.loadingItems = false; }), fail),
     watchRecords(tripId, 'flights', ok(list => { S.flightDocs = list; moveLoaded(); }), fail),
-    watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); }), fail),
+    watchRecords(tripId, 'stays', ok(list => { S.stayDocs = list; moveLoaded(); locateStays(); }), fail),
     watchRecords(tripId, 'transits', ok(list => { S.transitDocs = list; moveLoaded(); }), fail),
     watchRecords(tripId, 'tickets', ok(list => { S.ticketDocs = list; }), fail),
     watchRecords(tripId, 'todos', ok(list => { S.todoDocs = list; S.loadingTodo = false; }), fail),
