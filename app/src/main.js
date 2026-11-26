@@ -1792,14 +1792,14 @@ const actions = {
     if (!(n > 0)) { amt.classList.add('err'); amt.focus(); toast('請填大於 0 的金額'); return; }
     if (S.busy) return;
     S.busy = true; el.disabled = true;
-    try { await addRecord(S.tripId, 'fundDeposits', { pid: $('#dp-who').value, amount: n }, S.user, S.nickname); closeSheet(); toast('已放入公費'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    try { await addRecord(S.tripId, 'fundDeposits', { pid: $('#dp-who').value, amount: n, spentOn: $('#dp-day').value }, S.user, S.nickname); closeSheet(); toast('已加進公費'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
   async delDeposit(el) {
     const trip = curTrip(), dp = S.depositDocs.find(x => x.id === el.dataset.id);
     if (!trip || !dp || !canEditRecord(S, trip, dp) || S.offline) return;
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
-    try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除放入紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除這筆加錢紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
   },
   // 更多：同行者
   addPerson() { if (!S.offline) personSheet(null, companionsOf(S, curTrip())); },
