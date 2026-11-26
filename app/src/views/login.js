@@ -5,6 +5,7 @@ export function renderLogin(S) {
   return `<div class="boot login">
     <div class="brand">沈迷旅行<small>ADDICTED TO YSHEN TRAVEL</small></div>
     <p class="slogan">把嚮往的地方，都變成走過的路 💫🌊🫧✨</p>
+    ${inAppHint()}
     <button type="button" class="btn block login-btn" data-act="signIn" ${S.signingIn || S.offline ? 'disabled' : ''}>${ICON.google}${S.signingIn ? '登入中…' : '用 Google 帳號登入'}</button>
     ${S.offline ? '<p class="small">目前沒有網路，連上網路後才能登入。</p>' : ''}
     ${S.loginError ? `<p class="small err-text" role="alert">${esc(S.loginError)}</p>` : ''}
@@ -19,4 +20,22 @@ export function loginErrorText(err) {
   if (code === 'auth/unauthorized-domain') return '這個網址還沒加入 Firebase 的授權網域，請到 Firebase 主控台加入後再試。';
   if (code === 'auth/network-request-failed') return '網路連線不穩，請稍後再試。';
   return '登入沒有成功，請再試一次。';
+}
+
+// LINE、Facebook、Instagram 用自己內建的瀏覽器開網頁，Google 登入常會失敗，要請使用者改用 Safari／Chrome
+export function inAppName(ua = navigator.userAgent) {
+  if (/ Line\//.test(ua)) return 'LINE';
+  if (/FBAN|FBAV|FB_IAB/.test(ua)) return 'Facebook';
+  if (/Instagram/.test(ua)) return 'Instagram';
+  return '';
+}
+
+function inAppHint() {
+  const name = inAppName();
+  if (!name) return '';
+  return `<div class="card inapp-hint" role="note">
+    <p><b>請改用 Safari 或 Chrome 開啟</b></p>
+    <p class="small">你現在是在 ${name} 裡開啟，這裡沒辦法用 Google 登入。請點畫面角落的「⋯」選「用瀏覽器開啟」，或複製網址貼到 Safari／Chrome。</p>
+    <button type="button" class="btn block" data-act="copyPageUrl">複製網址</button>
+  </div>`;
 }

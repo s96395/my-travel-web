@@ -8,7 +8,7 @@ import { addSampleTrips } from './data/sample.js';
 import { viewTrip, countdown } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
-import { renderLogin, loginErrorText } from './views/login.js';
+import { renderLogin, loginErrorText, inAppName } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { quickTimeSheet, readQuickTime, itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
@@ -975,6 +975,9 @@ const actions = {
     S.signingIn = true; S.loginError = ''; render();
     try { await signIn(); } catch (err) { S.loginError = loginErrorText(err); console.error(err); }
     S.signingIn = false; render();
+  },
+  async copyPageUrl() {
+    try { await navigator.clipboard.writeText(location.href); toast('已複製網址，請貼到 Safari 或 Chrome 開啟'); } catch { toast('沒辦法自動複製，請用「⋯」改用瀏覽器開啟'); }
   },
   async signOut() {
     closeSheet();
@@ -2228,8 +2231,23 @@ const updateSW = registerSW({
   onNeedRefresh() { toast('有新版本可以使用', ['重新整理', 'reload']); },
 });
 
+/* ---------- 從 LINE 開啟：網址加上 openExternalBrowser=1，LINE 會改用手機預設瀏覽器開（LINE 內建瀏覽器無法完成 Google 登入） ---------- */
+function leaveLine() {
+  const u = new URL(location.href);
+  if (u.searchParams.has('openExternalBrowser')) {
+    // 已經換過一次就不再轉，避免 LINE 不理這個參數時一直重新整理；離開 LINE 後把參數拿掉
+    if (!inAppName()) { u.searchParams.delete('openExternalBrowser'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+    return false;
+  }
+  if (inAppName() !== 'LINE') return false;
+  u.searchParams.set('openExternalBrowser', '1');
+  location.replace(u.href);
+  return true;
+}
+
 /* ---------- 啟動 ---------- */
 async function boot() {
+  if (leaveLine()) return;
   readRoute();
   render();
   try {
