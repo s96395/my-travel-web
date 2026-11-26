@@ -395,7 +395,7 @@ export function renderHome(S) {
     <div class="tools"><div class="search">${ICON.search}<input id="q" type="search" placeholder="搜尋旅程或地點" value="${esc(S.q)}" aria-label="搜尋旅程"></div>
     <div class="chips" role="group" aria-label="類型篩選">${['全部', '自由行', '跟團', '潛旅'].map(f => `<button type="button" class="chip" data-act="filter" data-v="${f}" aria-pressed="${S.filter === f}">${f === '全部' ? f : ti(f)}</button>`).join('')}</div></div>
     ${S.localOnly && !trips.length ? '<div class="empty">這支手機還沒有下載任何旅程。連上網路後，進入旅程按標題右邊的下載鈕（離線行程）。</div>' : ''}
-    ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，或先看一趟填好的示範旅程。<br><button type="button" class="btn sm" data-act="demoTrip" style="margin-top:8px" ${S.offline ? 'disabled' : ''}>載入示範旅程</button></div>` : ''}
+    ${!S.localOnly && !loading && !trips.length ? `<div class="empty">還沒有旅程。按「新增旅程」建立第一趟，打開後會一步一步說明怎麼用。</div>` : ''}
     ${near.length ? `<section class="nearbox" aria-label="近期旅程"><div class="nearh"><h3>近期旅程</h3><span class="tag">${near.length} 趟</span></div>
       <div class="list">${near.map(t => tripCard(t, S, nearTag(t, today))).join('')}</div></section>` : ''}
     ${near.length && years.length ? '<p class="small muted yearsh">歷年旅程（點年份展開）</p>' : ''}
