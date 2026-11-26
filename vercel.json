@@ -15,9 +15,20 @@
       "schedule": "0 19 * * *"
     }
   ],
+  "rewrites": [
+    {
+      "source": "/__/auth/:path*",
+      "has": [{ "type": "host", "value": "my-travel-web-pi.vercel.app" }],
+      "destination": "https://my-travel-app-af5e5.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://my-travel-test-7812e.firebaseapp.com/__/auth/:path*"
+    }
+  ],
   "headers": [
     {
-      "source": "/(.*)",
+      "source": "/((?!__/auth/).*)",
       "headers": [
         {
           "key": "X-Frame-Options",
