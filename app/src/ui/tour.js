@@ -19,7 +19,7 @@ function run(steps, last) {
     nextBtnText: '下一步', prevBtnText: '上一步', doneBtnText: '開始使用',
     popoverClass: 'tour', stagePadding: 6, stageRadius: 12,
     disableActiveInteraction: true, smoothScroll: true,
-    // 最後一步可以多放一個按鈕，例如「載入示範旅程」；按鈕帶 data-act，交給主程式處理
+    // 最後一步可以多放一個按鈕，例如「新增旅程」；按鈕帶 data-act，交給主程式處理
     // 還沒到最後一步時，左下角放「跳過」，一次關掉整段導覽
     onPopoverRender(pop, { state }) {
       if (state.activeIndex < list.length - 1) {
@@ -39,17 +39,17 @@ function run(steps, last) {
   cur.drive();
 }
 
-// 首頁：第一次登入時出現；沒有旅程時最後一步多一個「載入示範旅程」
+// 首頁：第一次登入時出現；還沒有旅程時，最後一步直接放「新增旅程」按鈕
 export function homeTour(wide, empty) {
   run([
     { title: '歡迎來到沈迷旅行', text: '每趟旅程的行程、班機、住宿、待辦和支出都整理在這裡，也能和旅伴一起編輯。先花半分鐘看看怎麼用。' },
-    { element: wide ? '.appbar [data-act="newTrip"]' : '.fab', title: '新增旅程', text: '填好目的地和日期，就會建立一趟旅程。' },
-    { element: '[data-act="account"]', title: '帳號選單', text: '可以載入示範旅程、切換深色模式，也可以在這裡重看這段導覽。' },
+    { element: wide ? '.appbar [data-act="newTrip"]' : '.fab', title: '新增旅程', text: '填好目的地和日期，就會建立一趟旅程。一起去的人之後再加就好。' },
+    { element: '[data-act="account"]', title: '帳號選單', text: '切換深色模式、加到手機主畫面，也可以在這裡重看這段導覽。' },
     { element: '.tools', title: '找旅程', text: '旅程多了以後，用搜尋或類型篩選找到想看的那一趟。' },
     empty
-      ? { title: '先看一趟示範旅程？', text: '示範旅程是京都 6 天，行程、班機、住宿、支出都已經填好，可以直接點著試。看完在「更多」就能刪掉。' }
+      ? { title: '建立第一趟旅程', text: '按下面的「新增旅程」開始。建立好打開旅程時，會再一步一步說明每個分頁。' }
       : { title: '準備好了', text: '點開任何一趟旅程，第一次進去時會再說明裡面的分頁。' },
-  ], empty ? { act: 'demoTrip', text: '載入示範旅程' } : null);
+  ], empty ? { act: 'newTrip', text: '新增旅程' } : null);
 }
 
 // 旅程頁：第一次打開旅程時出現
