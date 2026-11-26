@@ -3,11 +3,12 @@ import { esc, ICON, openSheet, $, dtField } from '../ui/dom.js';
 import { monthDay } from '../lib/dates.js';
 import { normTime } from '../lib/time24.js';
 import { inKorea, navHref, placeHref, stayPlace } from '../lib/itinerary.js';
+import { mapsKey } from '../firebase.js';
 import { AIRPORTS, TIMEZONES, airportTz, LEGS, flightMinutes, durationText, sortFlights, sortStays, nights, toInstant, legacyFlights, legacyStays, withLegacy } from '../lib/flights.js';
 
 // 新資料加上還沒轉過的舊版單筆資料
 export const allFlights = (S, trip) => withLegacy(S.flightDocs, legacyFlights(trip.raw.flight));
-// S.stayGeo：打開旅程時用名稱＋地址查到的 Google 地點（座標、地點代碼），只在這次開著的網頁，不存
+// S.stayGeo：打開旅程時查到的 Google 位置（選過地點的用地點代碼 gid 查，沒選的用名稱＋地址），座標只在這次開著的網頁，不存
 export const allStays = (S, trip) => withLegacy(S.stayDocs, legacyStays(trip.raw.hotel, trip.raw)).map(s => (S.stayGeo?.[s.id] ? { ...s, ...S.stayGeo[s.id] } : s));
 // 住宿當成一個地點：有查到座標就帶上，導航照座標開（韓國開 Naver 地點頁）
 export const stayAt = s => ({ ...stayPlace(s), ...(Number.isFinite(s.lat) ? { lat: s.lat, lng: s.lng, placeId: s.placeId || '' } : {}) });
@@ -251,7 +252,8 @@ export function readTransitForm() {
 export function stayFormSheet(trip, s, canDel) {
   const v = s || { name: '', address: '', checkInDate: trip.start || '', checkOutDate: trip.end || '', confirmCode: '', pin: '', note: '' };
   openSheet(`${head(s ? '編輯住宿' : '新增住宿')}
-    ${fld('sf-name', '名稱', v.name, 'text', 'placeholder="飯店或民宿名稱" maxlength="60"')}
+    <div class="field"><label for="sf-name">名稱</label><div class="suggwrap"><input class="input" id="sf-name" type="text" value="${esc(v.name ?? '')}" placeholder="飯店或民宿名稱" maxlength="60" data-gid="${esc(v.gid || '')}"></div></div>
+    ${mapsKey ? `<p class="small muted" id="sf-gid" style="margin:-4px 0 0">${v.gid ? '📍 已選 Google 地點，導航和給司機看會照這個位置' : '打名稱會跳出 Google 地點，選一個導航會比較準'}</p>` : ''}
     ${fld('sf-address', '地址', v.address, 'text', 'placeholder="可以直接貼上地圖上的地址" maxlength="150"')}
     <div class="grid2">${fld('sf-in', '入住', v.checkInDate, 'date')}${fld('sf-out', '退房', v.checkOutDate, 'date')}</div>
     <div class="check" id="sf-n"></div>
@@ -261,6 +263,15 @@ export function stayFormSheet(trip, s, canDel) {
     ${legacyNote(s)}
     <div class="row">${delBtn(s, 'delStay', canDel)}<button type="button" class="btn primary grow" data-act="saveStay" data-id="${esc(s?.id || '')}">儲存</button></div>`);
   updateNights();
+  // 和行程一樣：打名稱跳出 Google 候選地點，選了帶入名稱、地址，存地點代碼（gid）；之後自己改名稱就取消
+  const n = $('#sf-name'), hint = $('#sf-gid');
+  if (!mapsKey || !n) return;
+  n.addEventListener('input', () => { if (n.dataset.gid) { n.dataset.gid = ''; hint.textContent = '名稱改了，要重新選一個 Google 地點'; } });
+  import('../ui/map.js').then(m => m.attachSuggest(n, () => null, p => {
+    n.value = p.title; n.classList.remove('err'); n.dataset.gid = p.pid || '';
+    if (p.addr && !$('#sf-address').value.trim()) $('#sf-address').value = p.addr; // 已經有地址就不蓋掉（Google 給的韓國地址常是英文）
+    hint.textContent = p.pid ? `📍 已選 Google 地點：${p.title}` : '這個地點沒有 Google 代碼，會用名稱和地址找';
+  })).catch(console.error);
 }
 
 export function updateNights() {
@@ -273,7 +284,7 @@ export function updateNights() {
 
 export function readStayForm() {
   document.querySelectorAll('#layer .input.err').forEach(i => i.classList.remove('err'));
-  const s = { name: val('sf-name'), address: val('sf-address'), checkInDate: val('sf-in'), checkOutDate: val('sf-out'), confirmCode: val('sf-code'), pin: val('sf-pin'), note: val('sf-note') };
+  const s = { name: val('sf-name'), address: val('sf-address'), checkInDate: val('sf-in'), checkOutDate: val('sf-out'), confirmCode: val('sf-code'), pin: val('sf-pin'), note: val('sf-note'), gid: $('#sf-name').dataset.gid || '' };
   if (!s.name) { $('#sf-name').classList.add('err'); $('#sf-name').focus(); return { error: '請填住宿名稱' }; }
   if (!(nights(s) > 0)) { $('#sf-out').classList.add('err'); return { error: '退房日要晚於入住日' }; }
   return { data: s };
