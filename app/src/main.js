@@ -8,7 +8,7 @@ import { addSampleTrips } from './data/sample.js';
 import { viewTrip, countdown } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
-import { renderLogin, loginErrorText } from './views/login.js';
+import { renderLogin, loginErrorText, inAppName } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
 import { quickTimeSheet, readQuickTime, itemMenuSheet, itemFormSheet, localLang, readItemForm, importSheet, mapData, areaSheet, areaMoveSheet, areaDistSheet, daySheet, driverData, driverSheet, driverText, addDay } from './views/plan.js';
@@ -168,9 +168,9 @@ const tried = new Set();
 let locating = false, placesOff = false;
 // 住宿沒有存地點和座標：打開旅程時用名稱＋地址請 Google 查一次，結果只放在這次開著的網頁（S.stayGeo，不存資料庫），
 // 住宿的導航（韓國開 Naver）和給司機看（自動查韓文）才能和行程一樣
-// stayMemo 用「旅程、住宿、名稱、地址」記查過的結果：回到列表再進來直接用；名稱或地址改了就是新的一筆，舊的位置不會沿用
+// stayMemo 用「旅程、住宿、名稱、地址、選的 Google 地點」記查過的結果：回到列表再進來直接用；名稱或地址改了就是新的一筆，舊的位置不會沿用
 const stayMemo = new Map();
-const staySig = (tid, s) => `${tid}|${s.id}|${s.name}|${s.address}`;
+const staySig = (tid, s) => `${tid}|${s.id}|${s.name}|${s.address}|${s.gid || ''}`;
 async function locateStays() {
   const t = curTrip();
   if (!t) return;
@@ -189,7 +189,8 @@ async function locateStays() {
   const m = await import('./ui/map.js');
   for (const s of todo) {
     const addr = s.address && !isMapLink(s.address) ? s.address : '';
-    const xy = await m.locate({ title: [s.name, addr || t.city].filter(Boolean).join(' ') }).catch(() => null);
+    // 自己選過 Google 地點的用地點代碼查，沒選的才用名稱＋地址找
+    const xy = await (s.gid ? m.locateById(s.gid) : m.locate({ title: [s.name, addr || t.city].filter(Boolean).join(' ') })).catch(() => null);
     if (xy === 'off') { placesOff = true; todo.forEach(x => stayMemo.delete(staySig(t.id, x))); break; }
     stayMemo.set(staySig(t.id, s), xy || null);
   }
@@ -975,6 +976,9 @@ const actions = {
     S.signingIn = true; S.loginError = ''; render();
     try { await signIn(); } catch (err) { S.loginError = loginErrorText(err); console.error(err); }
     S.signingIn = false; render();
+  },
+  async copyPageUrl() {
+    try { await navigator.clipboard.writeText(location.href); toast('已複製網址，請貼到 Safari 或 Chrome 開啟'); } catch { toast('沒辦法自動複製，請用「⋯」改用瀏覽器開啟'); }
   },
   async signOut() {
     closeSheet();
@@ -2228,8 +2232,23 @@ const updateSW = registerSW({
   onNeedRefresh() { toast('有新版本可以使用', ['重新整理', 'reload']); },
 });
 
+/* ---------- 從 LINE 開啟：網址加上 openExternalBrowser=1，LINE 會改用手機預設瀏覽器開（LINE 內建瀏覽器無法完成 Google 登入） ---------- */
+function leaveLine() {
+  const u = new URL(location.href);
+  if (u.searchParams.has('openExternalBrowser')) {
+    // 已經換過一次就不再轉，避免 LINE 不理這個參數時一直重新整理；離開 LINE 後把參數拿掉
+    if (!inAppName()) { u.searchParams.delete('openExternalBrowser'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+    return false;
+  }
+  if (inAppName() !== 'LINE') return false;
+  u.searchParams.set('openExternalBrowser', '1');
+  location.replace(u.href);
+  return true;
+}
+
 /* ---------- 啟動 ---------- */
 async function boot() {
+  if (leaveLine()) return;
   readRoute();
   render();
   try {
