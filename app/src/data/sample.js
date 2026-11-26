@@ -2,12 +2,13 @@
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { newShareKey } from './trips.js';
+import { parseDate, toDateString, todayString } from '../lib/dates.js';
 
 const TRIPS = [
   { title: '京都賞楓', country: '日本', city: '京都', tripType: '自由行', status: '規劃中', startDate: '2026-11-20', endDate: '2026-11-25', code: 'KIX',
-    // [名稱, 金額, 分攤方式, 分類, 付款人]；付款人 fund 是公費
-    expenses: [['京都飯店 3 晚', 27000, 'equal', '住宿', 'me'], ['HARUKA 車票 ×3', 5520, 'equal', '交通', 'fund'], ['錦市場午餐', 2400, 'custom', '餐飲', 'an'],
-      ['和服體驗 2 人', 6000, 'none', '景點', 'rou'], ['嵐山小火車', 2640, 'equal', '交通', ''], ['燒肉晚餐', 5200, 'equal', '餐飲', 'rou'], ['伏見稻荷御守', 800, 'me', '購物', 'me']] },
+    // [名稱, 金額, 分攤方式, 分類, 付款人, 第幾天花的]；付款人 fund 是公費
+    expenses: [['京都飯店 3 晚', 27000, 'equal', '住宿', 'me', 1], ['HARUKA 車票 ×3', 5520, 'equal', '交通', 'fund', 1], ['錦市場午餐', 2400, 'custom', '餐飲', 'an', 1],
+      ['和服體驗 2 人', 6000, 'none', '景點', 'rou', 2], ['嵐山小火車', 2640, 'equal', '交通', '', 3], ['燒肉晚餐', 5200, 'equal', '餐飲', 'rou', 4], ['伏見稻荷御守', 800, 'me', '購物', 'me', 4]] },
   { title: '綠島潛水', country: '台灣', city: '綠島', tripType: '潛旅', status: '已完成', startDate: '2026-07-10', endDate: '2026-07-13', code: 'GNI', totalTanks: 8,
     expenses: [['潛水套裝 8 支', 28800, 'equal'], ['民宿 3 晚', 9800, 'equal']] },
   { title: '北海道雪祭', country: '日本', city: '北海道', tripType: '跟團', status: '已完成', startDate: '2026-02-03', endDate: '2026-02-08', code: 'CTS',
@@ -21,23 +22,24 @@ const TRIPS = [
 ];
 
 // 京都的每日行程（同雛形）：[天, 類型, 名稱, 備註, 優先度, 預約時間, 區域]
+// 優先度只剩 must（⭐ 重點）會顯示；有預約時間的存成「已預約」，時間軸才會顯示時間
 const KYOTO_PLAN = [
   [1, 'transport', '桃園機場 → 關西機場', 'CI152，07:10 起飛', '', '', ''],
   [1, 'transport', 'HARUKA 到京都車站', '四人用公費買票', '', '', ''],
   [1, 'stay', '入住四條室町飯店', '15:00 後可入住', '', '', '四條'],
-  [1, 'restaurant', '錦市場邊走邊吃', '玉子燒、豆乳甜甜圈', 'want', '', '四條'],
+  [1, 'restaurant', '錦市場邊走邊吃', '玉子燒、豆乳甜甜圈', '', '', '四條'],
   [2, 'attraction', '清水寺', '早上 8 點前人比較少', 'must', '', '東山'],
   [2, 'attraction', '和服體驗', '我和小安兩人', 'must', '10:00', '東山'],
-  [2, 'attraction', '二年坂、三年坂', '', 'want', '', '東山'],
-  [2, 'restaurant', '祇園晚餐', '', 'optional', '', '祇園'],
+  [2, 'attraction', '二年坂、三年坂', '', '', '', '東山'],
+  [2, 'restaurant', '祇園晚餐', '', '', '', '祇園'],
   [3, 'attraction', '嵐山竹林小徑', '', 'must', '', '嵐山'],
   [3, 'attraction', '嵐山小火車', '已劃位 2 車', 'must', '13:32', '嵐山'],
-  [3, 'attraction', '天龍寺', '', 'want', '', '嵐山'],
+  [3, 'attraction', '天龍寺', '', '', '', '嵐山'],
   [4, 'attraction', '東福寺通天橋', '楓葉最佳觀賞點', 'must', '', '伏見'],
-  [4, 'attraction', '伏見稻荷大社', '', 'want', '', '伏見'],
+  [4, 'attraction', '伏見稻荷大社', '', '', '', '伏見'],
   [4, 'restaurant', '燒肉晚餐', '肉格請客先付', '', '18:30', ''],
   [5, 'attraction', '永觀堂夜楓', '需排隊入場', 'must', '17:30', '左京'],
-  [5, 'shopping', '京都車站買伴手禮', '八橋、抹茶', 'want', '', '京都車站'],
+  [5, 'shopping', '京都車站買伴手禮', '八橋、抹茶', '', '', '京都車站'],
   [6, 'transport', '關西機場 → 桃園機場', 'JX821，12:35 起飛', '', '', ''],
 ];
 
@@ -58,12 +60,19 @@ const SEOUL_LEGACY = {
 };
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
 // 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
+// 日期往後挪 n 天；'2026-11-20 07:10' 這種帶時間的也可以
+const shiftDate = (s, n) => { if (!n) return s; const d = parseDate(s.slice(0, 10)); d.setDate(d.getDate() + n); return toDateString(d) + s.slice(10); };
+
 // demo：只加京都一趟（標題加「示範」），回傳那趟的 id
+// 示範旅程改成兩週後出發：還沒結束的旅程才會自動查地點位置，地圖和點一站的 Google 資訊才看得到
 export async function addSampleTrips(user, nickname, demo = false) {
+  const today = todayString();
+  const n = demo ? Math.round((parseDate(today) - parseDate(TRIPS[0].startDate)) / 86400000) + 14 : 0;
+  const onDay = d => shiftDate(TRIPS[0].startDate, n + d - 1);
   const batch = writeBatch(db);
   const later = writeBatch(db);
   let first = '';
-  for (const t of demo ? [{ ...TRIPS[0], title: `${TRIPS[0].title}（示範）` }] : TRIPS) {
+  for (const t of demo ? [{ ...TRIPS[0], title: `${TRIPS[0].title}（示範）`, startDate: shiftDate(TRIPS[0].startDate, n), endDate: shiftDate(TRIPS[0].endDate, n) }] : TRIPS) {
     const ref = doc(collection(db, 'trips'));
     first ||= ref.id;
     const me = doc(collection(db, 'trips')).id, an = doc(collection(db, 'trips')).id, rou = doc(collection(db, 'trips')).id;
@@ -81,8 +90,8 @@ export async function addSampleTrips(user, nickname, demo = false) {
       createdByName: nickname, createdAt: serverTimestamp(), sample: true,
     });
     const pid = { me, an, rou, fund: 'fund', '': '' };
-    for (const [name, amount, mode, category = '其他', payer = ''] of expenses) {
-      const e = { name, amount, category, payMethod: payer === 'fund' ? '現金' : '刷卡', payerId: pid[payer], createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
+    for (const [name, amount, mode, category = '其他', payer = '', d = 0] of expenses) {
+      const e = { name, amount, ...(d ? { spentOn: onDay(d) } : {}), category, payMethod: payer === 'fund' ? '現金' : '刷卡', payerId: pid[payer], createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
       if (mode === 'equal') e.personalShares = splitEqually(amount, people);
       if (mode === 'custom') e.personalShares = { [me]: amount / 2, [an]: amount / 2 };
       if (mode === 'me') e.personalShares = { [me]: amount };
@@ -91,15 +100,15 @@ export async function addSampleTrips(user, nickname, demo = false) {
     }
     if (t.code === 'KIX') {
       const by = { createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
-      KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, ...by }));
-      KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, ...by }));
+      KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, dep: shiftDate(f.dep, n), arr: shiftDate(f.arr, n), ...by }));
+      KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, checkInDate: shiftDate(st.checkInDate, n), checkOutDate: shiftDate(st.checkOutDate, n), ...by }));
       [me, an, rou].forEach(p => later.set(doc(collection(db, `trips/${ref.id}/fundDeposits`)), { pid: p, amount: 3000, ...by }));
       KYOTO_TODOS.forEach(([text, done], i) => later.set(doc(collection(db, `trips/${ref.id}/todos`)), { text, done, order: i + 1, ...by }));
       const orders = {};
       for (const [day, type, title, note, priority, reservationTime, area] of KYOTO_PLAN) {
         orders[day] = (orders[day] || 0) + 1;
         later.set(doc(collection(db, `trips/${ref.id}/itinerary`)), {
-          day, order: orders[day], type, title, note, priority, reservationTime, area,
+          day, order: orders[day], type, title, note, priority, reservationTime, ...(reservationTime ? { book: 'done' } : {}), area,
           createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp(),
         });
       }
