@@ -10,7 +10,9 @@ export const stopTour = () => cur?.destroy();
 export function refreshTour() { if (touring() && cur.getActiveElement()?.isConnected === false) cur.moveTo(cur.getActiveIndex()); }
 
 function run(steps, last) {
-  const list = steps.filter(s => !s.element || document.querySelector(s.element));
+  // 找不到要框的按鈕就跳過這步；soft 的步驟改成置中顯示（例如新旅程還沒有任何一站）
+  const list = steps.filter(s => !s.element || s.soft || document.querySelector(s.element))
+    .map(s => (s.soft && !document.querySelector(s.element) ? { title: s.title, text: s.text } : s));
   if (!list.length) return;
   cur?.destroy();
   cur = driver({
@@ -52,22 +54,24 @@ export function homeTour(wide, empty) {
   ], empty ? { act: 'newTrip', text: '新增旅程' } : null);
 }
 
-// 旅程頁：第一次打開旅程時出現
+// 旅程頁：第一次打開旅程時出現；照實際使用的順序一頁一頁說明，新旅程還沒有資料也看得懂
 export function tripTour(wide) {
   const tabs = wide ? '.toptabs' : '.tabbar';
   run([
-    { element: tabs, title: '旅程分頁', text: '一趟旅程分成行程、交通住宿、待辦、支出和更多，點一下就能切換。' },
+    { element: tabs, title: '旅程分頁', text: '一趟旅程分成行程、交通住宿、待辦、支出和更多幾頁。接下來照出發前到回國的順序，一頁一頁說明。' },
+    { element: '.dpills', title: '每一天', text: '上面一排是每一天，點一下切換。長按日期拖到另一天，兩天的行程會整天對調。' },
+    { element: '.addfab', title: '新增景點', text: '按右下角的 ＋ 會打開地圖，搜尋地名或點地圖上的地點，就能加進正在看的那天。' },
     wide
-      ? { element: '.mapcol', title: '地圖和收藏', text: '地圖會插上每天的行程。按地圖左上的「收藏」打開收藏，可以匯入 Google 地圖收藏的地點，再排進每一天。' }
-      : { element: '.dpills', title: '每一天', text: '上面一排是每一天，點一下切換。長按日期拖到另一天，兩天的行程會整天對調。' },
-    { element: '.item.slim .wname', title: '點一站看詳細', text: wide
-      ? '點站名會在下方展開地址、評分、今天營業時間，可以編輯或刪除，刪除的站會移回收藏。長按右邊的點點可以換順序，或拖到別天。'
-      : '點站名會在下方展開地址、評分、今天營業時間，可以編輯或刪除，刪除的站會移回收藏。右邊可以導航、給司機看，長按點點能換順序或拖到別天。' },
-    { element: '.addfab', title: '新增景點', text: '按右下角的 ＋ 會打開地圖，搜尋地名或點地圖上的地點，就能加進這天。編輯時可以勾 ⭐ 重點。' },
-    ...(wide ? [] : [{ element: '[data-act="mside"][data-v="wish"]', title: '收藏', text: '把 Google 地圖收藏的地點匯進來，再一個個排進每一天，名稱和位置都不會錯。' }]),
+      ? { element: '.mapcol', title: '收藏', text: '按地圖左上的「收藏」，可以把 Google 地圖收藏的地點一次匯進來，再一個個排進每一天，名稱和位置都不會錯。' }
+      : { element: '[data-act="mside"][data-v="wish"]', title: '收藏', text: '可以把 Google 地圖收藏的地點一次匯進來，再一個個排進每一天，名稱和位置都不會錯。' },
+    { element: '.item.slim .wname', soft: true, title: '排好之後', text: wide
+      ? '點站名會展開地址、評分和今天營業時間，可以編輯或刪除，刪除的站會移回收藏。編輯時可以勾 ⭐ 重點；按住右邊的點點拖曳，可以換順序或拖到別天。'
+      : '點站名會展開地址、評分和今天營業時間，可以編輯或刪除，刪除的站會移回收藏。編輯時可以勾 ⭐ 重點。每站右邊可以導航、給司機看，按住點點拖曳可以換順序或拖到別天。' },
+    { element: `${tabs} [data-v="move"]`, title: '交通住宿', text: '填班機、住宿和其他交通。班機會顯示成登機證，住宿可以直接導航，或打開「給司機看」讓司機看當地文字。' },
+    { element: `${tabs} [data-v="todo"]`, title: '待辦', text: '列出出發前要做的事，例如換匯、買網卡、訂門票，做完就打勾。' },
+    { element: `${tabs} [data-v="exp"]`, title: '支出', text: '按「記一筆」填金額、誰付、怎麼分和哪天花的，沒有帳號的同行者也能一起分。「分攤」「結算」會算好誰該給誰多少。' },
+    { element: `${tabs} [data-v="more"]`, title: '更多', text: '新增同行者、傳邀請連結給旅伴一起編輯、修改旅程名稱與日期，也能把這趟複製成新的旅程。' },
     { element: '.dlbtn', title: '離線行程', text: '出國前按一下，把這趟存到裝置上，沒有網路也能看。' },
-    { element: `${tabs} [data-v="exp"]`, title: '支出', text: '記下每筆花費，選誰付、怎麼分。沒有帳號的同行者也能一起分攤。' },
-    { element: '[data-act="quick"]', title: '快速選單', text: '切換外觀、複製行程文字、把行程加到手機行事曆，也可以在「使用小技巧」重看這段導覽。旁邊的月亮（太陽）按一下就能直接換外觀。' },
-    { element: `${tabs} [data-v="more"]`, title: '更多', text: '管理同行者、邀請旅伴一起編輯、修改旅程名稱與日期，也能把這趟複製成新的旅程。' },
+    { element: '[data-act="quick"]', title: '快速選單', text: '切換外觀、複製行程文字、把行程加到手機行事曆，也可以在「使用小技巧」重看這段導覽。' },
   ]);
 }
