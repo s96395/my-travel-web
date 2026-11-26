@@ -36,7 +36,7 @@ export function dayEvents(date, { flights = [], transits = [], stays = [] }, ite
     const at = s => toMin(s.slice(11));
     // 班機落地當天，下一站從出關後開始算
     const land = kind === 'flight' && arr && at(r.arr) !== null;
-    ev.push({ kind, id: r.id, t: dep ? at(r.dep) : at(r.arr), end: arr ? at(r.arr) : null, departs: dep, ...(land ? { ready: at(r.arr) + LAND_MIN } : {}), title, sub: [no, dep ? `${r.dep.slice(11)} 出發` : '', arr ? `${r.arr.slice(11)} 抵達` : '', land ? '落地後抓 1 小時 30 分出關' : ''].filter(Boolean).join('・') });
+    ev.push({ kind, id: r.id, t: dep ? at(r.dep) : at(r.arr), end: arr ? at(r.arr) : null, departs: dep, ...(land ? { ready: at(r.arr) + LAND_MIN } : {}), title, sub: [no, dep ? `${r.dep.slice(11)} 出發` : '', arr ? `${r.arr.slice(11)} 抵達` : ''].filter(Boolean).join('・') });
   };
   flights.forEach(f => move('flight', f, `${f.from || '?'} → ${f.to || '?'}`, f.flightNo));
   transits.forEach(t => move('transit', t, `${t.from || '?'} → ${t.to || '?'}`, t.number || ''));
@@ -52,7 +52,7 @@ export function dayEvents(date, { flights = [], transits = [], stays = [] }, ite
     if (s.checkOutDate === date) {
       // 退房日：前一晚住這裡，第一站前面加「從飯店出發」；退房排在最後
       if (real.length && !firstStay && s.checkInDate < date) ev.push({ kind: 'home', id: s.id, pos: 'start', title: `從 ${s.name} 出發`, place });
-      if (!has(text, '退房')) ev.push({ kind: 'out', id: s.id, pos: 'end', ...(leave !== null ? { t: leave } : {}), title: `退房・${s.name}`, place });
+      if (!has(text, '退房')) ev.push({ kind: 'out', id: s.id, pos: 'end', ...(leave !== null ? { t: leave, est: true } : {}), title: `退房・${s.name}`, place });
     }
     // 抵達日：還沒入住就加「入住」；行程裡已經有這間住宿（例如先去寄放行李）就加「回到飯店」
     if (s.checkInDate === date && !lastStay) {
@@ -64,7 +64,7 @@ export function dayEvents(date, { flights = [], transits = [], stays = [] }, ite
       if (!lastStay) ev.push({ kind: 'home', id: s.id, pos: 'end', title: `回到 ${s.name}`, place });
     }
   });
-  if (leave !== null) ev.push({ kind: 'airport', id: 'airport:' + fly.id, pos: 'end', t: leave, title: '出發去機場', sub: `起飛前 2 小時 30 分到機場，路上抓 ${AIRPORT_TRAVEL / 60} 小時` });
+  if (leave !== null) ev.push({ kind: 'airport', id: 'airport:' + fly.id, pos: 'end', t: leave, title: '出發去機場', est: true });
   return ev;
 }
 
@@ -128,13 +128,9 @@ export function buildDay(items, events, legs = new Map()) {
       // 沒填停留多久就依類型抓時間；住宿、交通不停留，時間接著往下算
       const st = r.it.stay || DEFAULT_STAY[r.it.type] || 0;
       clock = r.at !== null ? r.at + st : null;
-    } else if (r.pos === 'end' && (r.kind === 'home' || r.kind === 'in') && hasXY(r.place)) {
-      // 回到飯店：最後一站的推算時間加上路上的時間
-      const leg = prev && legOf(prev, r.place);
-      const min = leg ? legs.get(leg.key) ?? roughMin(prev, r.place) : null;
-      r.at = clock !== null && min !== null ? clock + min : null;
-      r.est = r.at !== null;
-      if (r.est) r.sub = [r.sub, `${leg.mode === 'WALKING' ? '步行' : '搭車'}約 ${min} 分`].filter(Boolean).join('・');
+    } else if (r.pos === 'end' && (r.kind === 'home' || r.kind === 'in')) {
+      // 回到飯店、入住：不推算幾點到（自由行用不到），只排在最後
+      r.at = null;
     } else {
       r.at = r.t ?? null;
       if (r.kind === 'transit' && landed !== null && r.at !== null && r.at < landed) r.early = landed;

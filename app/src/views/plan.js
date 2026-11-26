@@ -106,7 +106,6 @@ function itemHtml(it, S, trip, r = {}) {
     <div class="grow" style="flex:1;min-width:0">
       <h4>${when}${!S.offline ? `<button type="button" class="wname" data-act="itemOpen" data-id="${esc(it.id)}" aria-expanded="${open}">${name}</button>` : name}</h4>
       ${line ? `<p class="iline"${open ? ' style="white-space:normal"' : ''}>${esc(line)}</p>` : ''}
-      ${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}
       ${backupRows(S, trip, it)}
     </div>
     ${quickBtns(S, trip, it)}${GRIP}
@@ -246,13 +245,12 @@ export function mapData(S, trip) {
 }
 
 // 交通住宿分頁的班機、交通、入住退房，自動排進時間軸；點了到交通住宿分頁看詳細
-// 住宿的位置從行程裡排過的住宿站找，用來推算幾點回到飯店
 const evOf = (S, trip, date, its) => dayEvents(date, { flights: allFlights(S, trip), transits: S.transitDocs, stays: allStays(S, trip) }, its,
   S.items.filter(x => x.type === 'stay' && Number.isFinite(x.lat) && Number.isFinite(x.lng)));
 const EV_ICON = { flight: ICON.plane, transit: ICON.train, in: ICON.bed, out: ICON.bed, home: ICON.bed, airport: ICON.plane };
 const eventHtml = r => `<button type="button" class="item auto" data-act="tab" data-v="move" data-type="${['in', 'out', 'home'].includes(r.kind) ? 'stay' : 'transport'}">
     <span class="ico" aria-hidden="true">${EV_ICON[r.kind]}</span>
-    <div class="grow" style="flex:1"><h4>${r.at !== null ? (r.est ? `<span class="data est">約 ${hmOf(r.at)}</span> ` : `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> `) : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}${r.early ? `<div class="tags"><span class="tag bad">早於預估出關時間 ${hmOf(r.early)}</span></div>` : ''}</div>
+    <div class="grow" style="flex:1"><h4>${r.at !== null && !r.est ? `<span class="data" style="color:var(--accent)">${hmOf(r.at)}</span> ` : ''}${esc(r.title)}</h4>${r.sub ? `<p>${esc(r.sub)}</p>` : ''}</div>
     <span class="tag">交通住宿</span>
   </button>`;
 // 站與站之間的交通時間畫在虛線上，點了開 Google 地圖路線
@@ -461,7 +459,7 @@ function peekHtml(S, trip, days, sel) {
   const at = today ? Math.max(nowIndex(rows, nowMin()), 0) : 0;
   const next = rows.slice(at).find(r => r.kind === 'item' && r.it.kind !== 'area' && !r.it.backupOf);
   const it = next?.it;
-  const line2 = it ? `<span class="tag accent">${today ? '下一站' : '第一站'}</span><b class="grow">${next.at !== null ? `<span class="num">${hmOf(next.at)}</span> ` : ''}${esc(it.title)}</b>${onMap(it) && !S.offline ? `<a class="linkbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">導航</a>` : ''}`
+  const line2 = it ? `<span class="tag accent">${today ? '下一站' : '第一站'}</span><b class="grow">${whenOf(it)}${esc(it.title)}</b>${onMap(it) && !S.offline ? `<a class="linkbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">導航</a>` : ''}`
     : `<span class="muted grow">${today && rows.some(r => r.kind === 'item') ? '今天的行程都走完了' : '這天還沒安排'}</span>`;
   return `<div class="mpeek">
     <div class="row"><b class="daynum">${sel ? 'D' + sel : '?'}</b><b>${today ? '今天' : '這天'} ${n} 站</b><span class="small muted grow">${esc([dayDate(trip, sel), sel ? dayAreas(S.items, sel)[0] : ''].filter(Boolean).join(' '))}</span>
