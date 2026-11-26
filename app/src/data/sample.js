@@ -1,8 +1,8 @@
-// 範例旅程（內容同雛形）：測試環境可以一次載入 6 趟；示範旅程只放京都那趟，正式環境也能用
+// 範例旅程（內容同雛形）：只在測試環境，一次載入 6 趟，方便檢查畫面
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { newShareKey } from './trips.js';
-import { parseDate, toDateString, todayString } from '../lib/dates.js';
+import { parseDate, toDateString } from '../lib/dates.js';
 
 const TRIPS = [
   { title: '京都賞楓', country: '日本', city: '京都', tripType: '自由行', status: '規劃中', startDate: '2026-11-20', endDate: '2026-11-25', code: 'KIX',
@@ -58,21 +58,16 @@ const SEOUL_LEGACY = {
   flight: { airline: '台灣虎航', flightCode: 'T7K2PQ', depFlightNo: 'IT602', depDate: '2025-10-02', depAirport: '桃園 TPE（第 1 航廈）', depTime: '06.50', depArrAirport: '首爾 ICN（第 1 航廈）', arrTime: '10:25', retFlightNo: 'IT603', retDate: '2025-10-06', retAirport: '首爾 ICN（第 1 航廈）', retDepTime: '11:45', retArrTime: '13:30' },
   hotel: { hotelName: 'L7 明洞', hotelAddr: '首爾特別市中區退溪路 137', hotelCode: 'L7-99812', hotelPin: '', checkIn: '15:00', checkOut: '11:00' },
 };
+// 京都第 d 天的日期，給支出的「哪天花的」用
+const kyotoDay = d => { const x = parseDate(TRIPS[0].startDate); x.setDate(x.getDate() + d - 1); return toDateString(x); };
+
 // 同行者：我（綁定帳號）、小安、肉格（兩位都還沒綁定帳號）
 // 旅程與支出分兩次寫入：安全規則要讀到已存在的旅程，才允許寫支出
-// 日期往後挪 n 天；'2026-11-20 07:10' 這種帶時間的也可以
-const shiftDate = (s, n) => { if (!n) return s; const d = parseDate(s.slice(0, 10)); d.setDate(d.getDate() + n); return toDateString(d) + s.slice(10); };
-
-// demo：只加京都一趟（標題加「示範」），回傳那趟的 id
-// 示範旅程改成兩週後出發：還沒結束的旅程才會自動查地點位置，地圖和點一站的 Google 資訊才看得到
-export async function addSampleTrips(user, nickname, demo = false) {
-  const today = todayString();
-  const n = demo ? Math.round((parseDate(today) - parseDate(TRIPS[0].startDate)) / 86400000) + 14 : 0;
-  const onDay = d => shiftDate(TRIPS[0].startDate, n + d - 1);
+export async function addSampleTrips(user, nickname) {
   const batch = writeBatch(db);
   const later = writeBatch(db);
   let first = '';
-  for (const t of demo ? [{ ...TRIPS[0], title: `${TRIPS[0].title}（示範）`, startDate: shiftDate(TRIPS[0].startDate, n), endDate: shiftDate(TRIPS[0].endDate, n) }] : TRIPS) {
+  for (const t of TRIPS) {
     const ref = doc(collection(db, 'trips'));
     first ||= ref.id;
     const me = doc(collection(db, 'trips')).id, an = doc(collection(db, 'trips')).id, rou = doc(collection(db, 'trips')).id;
@@ -91,7 +86,7 @@ export async function addSampleTrips(user, nickname, demo = false) {
     });
     const pid = { me, an, rou, fund: 'fund', '': '' };
     for (const [name, amount, mode, category = '其他', payer = '', d = 0] of expenses) {
-      const e = { name, amount, ...(d ? { spentOn: onDay(d) } : {}), category, payMethod: payer === 'fund' ? '現金' : '刷卡', payerId: pid[payer], createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
+      const e = { name, amount, ...(d ? { spentOn: kyotoDay(d) } : {}), category, payMethod: payer === 'fund' ? '現金' : '刷卡', payerId: pid[payer], createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
       if (mode === 'equal') e.personalShares = splitEqually(amount, people);
       if (mode === 'custom') e.personalShares = { [me]: amount / 2, [an]: amount / 2 };
       if (mode === 'me') e.personalShares = { [me]: amount };
@@ -100,8 +95,8 @@ export async function addSampleTrips(user, nickname, demo = false) {
     }
     if (t.code === 'KIX') {
       const by = { createdByUid: user.uid, createdByName: nickname, createdAt: serverTimestamp() };
-      KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, dep: shiftDate(f.dep, n), arr: shiftDate(f.arr, n), ...by }));
-      KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, checkInDate: shiftDate(st.checkInDate, n), checkOutDate: shiftDate(st.checkOutDate, n), ...by }));
+      KYOTO_FLIGHTS.forEach(f => later.set(doc(collection(db, `trips/${ref.id}/flights`)), { ...f, ...by }));
+      KYOTO_STAYS.forEach(st => later.set(doc(collection(db, `trips/${ref.id}/stays`)), { ...st, ...by }));
       [me, an, rou].forEach(p => later.set(doc(collection(db, `trips/${ref.id}/fundDeposits`)), { pid: p, amount: 3000, ...by }));
       KYOTO_TODOS.forEach(([text, done], i) => later.set(doc(collection(db, `trips/${ref.id}/todos`)), { text, done, order: i + 1, ...by }));
       const orders = {};
