@@ -83,7 +83,7 @@ test('區域卡片不打斷前後兩站的交通與推算時間', () => {
   assert.ok(rows[2].leg && rows[2].leg.from === a);
 });
 
-test('回到飯店：最後一站的推算時間加上路上時間；飯店沒有位置就不推算', () => {
+test('回到飯店：不推算幾點到，也不寫搭車多久', () => {
   const hotel = { title: '海雲台飯店', lat: 35.16, lng: 129.16 };
   const data = { stays: [{ id: 's', name: '海雲台飯店', checkInDate: '2026-11-20', checkOutDate: '2026-11-23' }] };
   const its = [it('A', { time: '10:00', stay: 60, lat: 35.10, lng: 129.04 })];
@@ -92,19 +92,8 @@ test('回到飯店：最後一站的推算時間加上路上時間；飯店沒�
   assert.equal(rows[0].title, '從 海雲台飯店 出發');
   const back = rows[2];
   assert.equal(back.title, '回到 海雲台飯店');
-  assert.equal(back.est, true);
-  assert.equal(back.at, 660 + roughMin(its[0], hotel));
-  assert.match(back.sub, /搭車約 \d+ 分/);
-  // 找不到飯店位置：照樣顯示，但不推算時間
-  const none = buildDay(its, dayEvents('2026-11-21', data, its, []));
-  assert.equal(none[2].at, null);
-  // 有查到的交通時間就用查到的
-  const legs = new Map();
-  const r0 = buildDay(its, dayEvents('2026-11-21', data, its, [hotel]));
-  const key = [its[0].lat, its[0].lng, hotel.lat, hotel.lng].map(v => v.toFixed(5)).join(',') + ',TRANSIT';
-  legs.set(key, 40);
-  assert.equal(buildDay(its, dayEvents('2026-11-21', data, its, [hotel]), legs)[2].at, 700);
-  assert.ok(r0[2].at > 660);
+  assert.equal(back.at, null);
+  assert.ok(!back.sub);
 });
 
 test('粗估交通時間', () => {
@@ -126,6 +115,9 @@ test('抵達日加回到飯店；退房日從飯店出發，退房、出發去�
   const rows = buildDay([it('A', { time: '08:00' }), it('B')], ev);
   assert.deepEqual(rows.map(r => r.kind === 'item' ? r.it.title : r.kind), ['home', 'A', 'B', 'out', 'airport', 'flight']);
   assert.deepEqual(rows.slice(-3).map(r => r.at), [630, 630, 840]);
+  // 退房、出發去機場是推算的時間，畫面不顯示；班機時間照常顯示
+  assert.deepEqual(rows.slice(-3).map(r => !!r.est), [true, true, false]);
+  assert.ok(!rows[rows.length - 2].sub);
 });
 
 test('有空再去的站顯示大約時間，但不把後面的站往後推', () => {
