@@ -318,7 +318,7 @@ async function fetchLegs() {
 
 // 操作導覽：只給新使用者，正式環境第一次看到首頁、第一次打開旅程時各出現一次；之後可以在帳號選單或「更多」重看
 // 「看過了」記在這台裝置，換瀏覽器、從主畫面開或清掉資料就記不得，所以另外用旅程數判斷：
-// 首頁要還沒有旅程才自動出現，旅程頁要只有一趟（剛建立第一趟或剛載入示範旅程）
+// 首頁要還沒有旅程才自動出現，旅程頁要只有一趟（剛建立第一趟）
 let tour = null; // 用到時才載入 ui/tour.js
 function tourCheck() {
   if (tour?.touring()) { tour.refreshTour(); return; }
@@ -1069,17 +1069,6 @@ const actions = {
     if (S.env === 'production' || S.busy) return;
     S.busy = true; el.disabled = true;
     try { await addSampleTrips(S.user, S.nickname); closeSheet(); toast('已加入 6 趟範例旅程'); } catch (err) { console.error(err); el.disabled = false; toast('載入失敗'); }
-    S.busy = false;
-  },
-  // 示範旅程：京都 6 天，加到自己的帳號裡，看完可以在「更多」刪掉（正式環境也有）
-  async demoTrip(el) {
-    if (S.offline || S.busy) return;
-    S.busy = true; el.disabled = true;
-    try {
-      const id = await addSampleTrips(S.user, S.nickname, true);
-      closeSheet(); go(`#/trip/${id}`);
-      toast('已加入示範旅程，看完可以在「更多」刪掉');
-    } catch (err) { console.error(err); el.disabled = false; toast('載入失敗，請稍後再試'); }
     S.busy = false;
   },
   open(el) { go(`#/trip/${el.dataset.id}`); },
