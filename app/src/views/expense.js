@@ -326,7 +326,7 @@ export function expSheetHtml(S, trip, d) {
   const cats = CATS.includes(d.cat) ? CATS : [...CATS, d.cat], pays = PAYS.includes(d.pay) ? PAYS : [...PAYS, d.pay];
   const inactive = c.people.filter(p => p.status === 'inactive').map(p => p.name);
   const m = fmt(d);
-  // 填寫順序：這筆是什麼 → 金額 → 幣別 → 類別 → 哪天花的（預設今天）
+  // 填寫順序：這筆是什麼 → 金額 → 幣別 → 哪天花的（預設今天）→ 類別，都用有框的輸入欄
   // 付款方式、備註是進階選項：平常收起，按了才展開；看別人記的或已經填了備註就直接攤開
   const more = d.more || !d.edit || !!d.note;
   // 表單上方一句話說明目前套用的付款人與分攤方式（例如「我付・平均分給 3 人」），下面改了會跟著變
@@ -337,15 +337,13 @@ export function expSheetHtml(S, trip, d) {
     ${head(d.id ? (d.edit ? '編輯支出' : '支出內容') : '記一筆支出')}
     ${d.edit ? `<p class="small muted" style="margin:0;text-align:center" role="status">目前設定：<b style="color:var(--fg)">${esc(who)}・${esc(how)}</b>（可在下方修改）</p>` : ''}
     ${d.askClose ? '<div class="confirm"><span>剛剛的修改還沒儲存，確定要離開嗎？</span><div class="row"><button type="button" class="btn sm" data-act="stayExp">繼續編輯</button><button type="button" class="btn sm danger" data-act="discardExp">不儲存，離開</button></div></div>' : ''}
-    <div class="amtbox">
-      <input class="namein lg" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="這筆是什麼？例如：錦市場午餐" aria-label="名稱" ${dis}>
-      <label class="label" for="x-amt" style="margin-top:8px">金額</label>
-      <input class="amtin data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis}>
-      ${curPicker(trip, d, dis)}
+    <div class="field"><label for="x-name">這筆是什麼</label><input class="input" id="x-name" data-f="name" maxlength="100" value="${esc(d.name)}" placeholder="例如：錦市場午餐" ${dis}></div>
+    <div class="field"><label for="x-amt">金額</label>
+      <div class="row" style="gap:8px;flex-wrap:nowrap"><input class="input data" id="x-amt" data-f="amt" inputmode="decimal" value="${esc(d.amt)}" placeholder="0" ${dis} style="flex:1;min-width:0">${curPicker(trip, d, dis)}</div>
       ${foreign(d) ? rateLine(d, dis) : ''}
     </div>
-    <div class="picks" role="radiogroup" aria-label="分類">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div>
-    <div class="row" style="gap:10px;align-items:center;justify-content:center"><label class="label" for="x-spent" style="margin:0">哪天花的</label><input class="input" type="date" id="x-spent" data-f="spentOn" value="${esc(d.spentOn)}" ${dis} style="width:auto"></div>
+    <div class="field"><label for="x-spent">哪天花的</label><input class="input" type="date" id="x-spent" data-f="spentOn" value="${esc(d.spentOn)}" ${dis}></div>
+    <div class="field"><span class="label">類別</span><div class="picks" role="radiogroup" aria-label="類別">${cats.map((x, i) => pick('cat', i, x, d.cat === x, dis, `<i>${CAT_ICON[x] || ICON.box}</i>`, x)).join('')}</div></div>
     <div class="field"><span class="label">誰付的錢</span>
       <div class="seg" style="justify-self:start">${[['people', '填每人金額'], ...(c.fund.on || d.payWay === 'fund' ? [['fund', c.fund.on ? '公費付' : '公費付（已關閉）']] : []), ['none', '還不確定']]
         .map(o => `<button type="button" data-act="payWay" data-v="${o[0]}" aria-pressed="${d.payWay === o[0]}" ${dis}>${o[1]}</button>`).join('')}</div>
@@ -387,7 +385,7 @@ function curPicker(trip, d, dis) {
   const rest = CURRENCIES.map(x => x[0]).filter(x => !first.includes(x));
   if (!first.includes(d.cur) && !rest.includes(d.cur)) rest.push(d.cur);
   const opt = x => `<option value="${esc(x)}" ${d.cur === x ? 'selected' : ''}>${esc(curInfo(x).name)} ${esc(x)}</option>`;
-  return `<select class="curpick" id="x-cur" data-f="cur" aria-label="幣別" ${dis}>${first.map(opt).join('')}<option disabled>──────</option>${rest.map(opt).join('')}</select>`;
+  return `<select class="select" id="x-cur" data-f="cur" aria-label="幣別" ${dis} style="width:auto;flex:none">${first.map(opt).join('')}<option disabled>──────</option>${rest.map(opt).join('')}</select>`;
 }
 
 // 外幣：換算成新台幣的金額與匯率，匯率可以自己改
