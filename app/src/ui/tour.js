@@ -1,7 +1,6 @@
 // 操作導覽：畫面變暗、框住按鈕，一步一步說明（Driver.js）
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { ICON } from './dom.js';
 
 let cur = null;
 export const touring = () => !!cur?.isActive();
@@ -17,7 +16,7 @@ function run(steps, last) {
   if (!list.length) return;
   cur?.destroy();
   cur = driver({
-    steps: list.map(({ element, title, text, align }) => ({ element, popover: { title, description: text, ...(align && element ? { align } : {}) } })),
+    steps: list.map(({ element, title, text }) => ({ element, popover: { title, description: text } })),
     showProgress: true, progressText: '{{current}} / {{total}}',
     nextBtnText: '下一步', prevBtnText: '上一步', doneBtnText: '開始使用',
     popoverClass: 'tour', stagePadding: 6, stageRadius: 12,
@@ -36,16 +35,6 @@ function run(steps, last) {
       b.type = 'button'; b.className = 'tour-extra'; b.dataset.act = last.act; b.textContent = last.text;
       b.addEventListener('click', () => cur?.destroy());
       pop.footer.append(b);
-    },
-    // 手機的地圖和日期列固定在上面、分頁列固定在下面，框住的按鈕被蓋住時，先捲到兩者之間
-    onHighlightStarted(el) {
-      if (!el) return;
-      // 本身就固定在畫面上的（分頁列、日期列、＋）不用捲
-      for (let p = el; p && p !== document.body; p = p.parentElement) if (['fixed', 'sticky'].includes(getComputedStyle(p).position)) return;
-      const top = Math.max(0, ...['.appbar', '.mtop'].map(q => document.querySelector(q)?.getBoundingClientRect().bottom || 0));
-      const bottom = document.querySelector('.tabbar')?.getBoundingClientRect().top || innerHeight;
-      const r = el.getBoundingClientRect();
-      if (r.height < bottom - top && (r.top < top + 8 || r.bottom > bottom - 8)) window.scrollBy({ top: r.top - top - 24, behavior: 'instant' });
     },
     onDestroyed() { cur = null; },
   });
@@ -78,10 +67,8 @@ export function tripTour(wide) {
       : { element: '[data-act="mside"][data-v="wish"]', title: '收藏', text: '可以把 Google 地圖收藏的地點一次匯進來，再一個個排進每一天，名稱和位置都不會錯。' },
     { element: '.item.slim .wname', soft: true, title: '排好之後', text: wide
       ? '點站名會展開地址、評分和今天營業時間，可以編輯或刪除，刪除的站會移回收藏。編輯時可以勾 ⭐ 重點；按住右邊的點點拖曳，可以換順序或拖到別天。'
-      : '點站名會展開地址、評分和今天營業時間，可以編輯或刪除，刪除的站會移回收藏。編輯時可以勾 ⭐ 重點；按住右邊的點點拖曳，可以換順序或拖到別天。' },
-    // 旅途中最常用的兩個按鈕，獨立一步說明；手機框住每站右邊的按鈕，電腦版放在點站名打開的資訊卡裡
-    { ...(wide ? {} : { element: '.item.slim .qbtns', soft: true, align: 'end' }), title: '導航和給司機看', text: `${wide ? '點站名打開的資訊卡裡' : '每站右邊'}有兩個按鈕，住宿卡也有：<br>${ICON.map}<b>導航</b>：直接打開 Google 地圖帶路，在韓國會改開 Naver 地圖。<br>${ICON.car}<b>給司機看</b>：把店名和地址用當地文字放大，搭計程車時把手機拿給司機看就好。` },
-    { element: `${tabs} [data-v="move"]`, title: '交通住宿', text: '填班機、住宿和其他交通。班機會顯示成登機證，住宿一樣可以導航和給司機看。' },
+      : '點站名會展開地址、評分和今天營業時間，可以編輯或刪除，刪除的站會移回收藏。編輯時可以勾 ⭐ 重點。每站右邊可以導航、給司機看，按住點點拖曳可以換順序或拖到別天。' },
+    { element: `${tabs} [data-v="move"]`, title: '交通住宿', text: '填班機、住宿和其他交通。班機會顯示成登機證，住宿可以直接導航，或打開「給司機看」讓司機看當地文字。' },
     { element: `${tabs} [data-v="todo"]`, title: '待辦', text: '列出出發前要做的事，例如換匯、買網卡、訂門票，做完就打勾。' },
     { element: `${tabs} [data-v="exp"]`, title: '支出', text: '按「記一筆」填金額、誰付、怎麼分和哪天花的，沒有帳號的同行者也能一起分。「分攤」「結算」會算好誰該給誰多少。' },
     { element: `${tabs} [data-v="more"]`, title: '更多', text: '新增同行者、傳邀請連結給旅伴一起編輯、修改旅程名稱與日期，也能把這趟複製成新的旅程。' },
