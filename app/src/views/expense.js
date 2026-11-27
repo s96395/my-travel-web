@@ -47,16 +47,16 @@ export function renderExp(S, trip) {
   // 電腦：左邊固定是明細，右邊一次只看「分攤」或「結算」，和手機的分頁一致
   if (S.wide) {
     const seg = ['settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'share';
-    return `${segs(S, [['share', '分攤'], ['settle', '結算']], seg === 'fund' ? 'settle' : seg)}
+    return `${segs(S, [['share', '分攤'], ['settle', '結算']], seg)}
     ${seg === 'fund' ? `<div class="narrowcol">${FUND_BACK}${expFund(S, c)}</div>`
       : `<div class="split2"><div class="col">${expList(S, c)}</div><div class="col side">${seg === 'settle' ? expSettle(S, c) : expShare(S, c)}</div></div>`}`;
   }
   const seg = ['list', 'share', 'settle', 'fund'].includes(S.expSeg) ? S.expSeg : 'list';
-  return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算']], seg === 'fund' ? 'settle' : seg)}
+  return `${segs(S, [['list', '明細'], ['share', '分攤'], ['settle', '結算']], seg)}
   ${seg === 'fund' ? FUND_BACK : ''}${{ list: expList, share: expShare, settle: expSettle, fund: expFund }[seg](S, c)}`;
 }
-// 公費不放在上方分頁，從「結算」最下面進去；公費頁上方可以回結算
-const FUND_BACK = '<button type="button" class="linkbtn" data-act="expSeg" data-v="settle" style="justify-self:start;font-size:14px">‹ 回到結算</button>';
+// 公費不放在上方分頁，從「明細」記一筆下面那一行進去；公費頁上方可以回明細
+const FUND_BACK = '<button type="button" class="linkbtn" data-act="expSeg" data-v="list" style="justify-self:start;font-size:14px">‹ 回到明細</button>';
 
 const segs = (S, list, cur) => `<div class="seg" style="justify-self:start;max-width:100%;overflow-x:auto">${list.map(s => `<button type="button" data-act="expSeg" data-v="${s[0]}" aria-pressed="${cur === s[0]}">${s[1]}</button>`).join('')}</div>`;
 
@@ -76,6 +76,8 @@ function expList(S, c) {
     <button type="button" class="btn primary expadd" data-act="newExp" ${off(S)}>${ICON.plus}記一筆</button>
     ${S.wide && !['settle', 'fund'].includes(S.expSeg) ? '' /* 電腦版右邊「分攤」已經有總支出和我的負擔 */ : `<p class="exptot small"><span>這趟 <b class="num">${money(total)}</b>・${all.length} 筆</span><span>我負擔 <b class="num">${mine === null ? '—' : money(mine)}</b></span></p>`}
   </div>
+  ${c.fund.on ? `<button type="button" class="card row" data-act="expSeg" data-v="fund" style="gap:10px;align-items:center;padding:12px 14px;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer"><span class="grow"><b>公費</b> <span class="small muted">保管人 ${esc(c.name(c.fund.keeper))}</span></span><span class="small muted">還剩</span><b class="num">${money(fundIn(c.deposits) - fundOut(c.expenses))}</b><span class="muted" aria-hidden="true">›</span></button>`
+    : c.active.length > 1 ? '<p class="small muted" style="margin:0">大家想先湊一筆錢付共同花費？<button type="button" class="linkbtn" data-act="expSeg" data-v="fund">設定公費</button></p>' : ''}
   ${back && todo.length ? `<div class="check exptodo">回國整理：還有 ${todo.join('、')}<span class="row">${notSplit ? '<button type="button" class="btn sm" data-act="expFilter" data-v="none">只看尚未分攤</button>' : ''}<button type="button" class="btn sm" data-act="expSeg" data-v="settle">看結算</button></span></div>` : ''}
   <div class="chips">
     <button type="button" class="chip" data-act="expFilter" data-v="all" aria-pressed="${S.expFilter !== 'none'}">全部</button>
@@ -166,11 +168,10 @@ function expSettle(S, c) {
         return `<div class="r"><span>${esc(c.name(id))}${c.fund.on && c.fund.keeper === id ? ' <span class="tag accent">保管公費</span>' : ''}</span><span class="num">${money(r.paid)}</span><span class="num">${money(r.owe)}</span><span class="num ${d > 0 ? 'pos' : d < 0 ? 'neg' : ''}">${d > 0 ? '+' : ''}${money(d)}</span></div>`;
       }).join('')}
     </div>
-    <p class="small muted" style="margin:8px 0 0">${c.fund.on ? `已付包含放進公費的錢。公費還剩 ${money(s.balance)}，在保管人${esc(c.name(c.fund.keeper))}手上，所以從保管人的差額扣掉。` : '這趟沒有開公費。'}</p>
+    <p class="small muted" style="margin:8px 0 0">${c.fund.on ? `已付包含加進公費的錢。公費還剩 ${money(s.balance)}，在保管人${esc(c.name(c.fund.keeper))}手上，所以從保管人的差額扣掉。` : '這趟沒有開公費。'}</p>
   </section>
   ${c.fund.on ? `<section class="card"><div class="sec-h"><h2>公費</h2><span class="small muted">餘額 <b class="num">${money(fundIn(c.deposits) - fundOut(c.expenses))}</b></span></div>
-    <button type="button" class="btn sm" data-act="expSeg" data-v="fund" style="justify-self:start;margin-top:8px">放入紀錄、保管人</button></section>`
-    : '<p class="small muted" style="margin:0">大家想先湊一筆錢付共同花費？<button type="button" class="linkbtn" data-act="expSeg" data-v="fund">設定公費</button></p>'}`;
+    <button type="button" class="btn sm" data-act="expSeg" data-v="fund" style="justify-self:start;margin-top:8px">看公費明細</button></section>` : ''}`;
 }
 
 function expFund(S, c) {
@@ -193,14 +194,24 @@ function expFund(S, c) {
       <select class="select" id="keeper" ${off(S)}>${keepers.map(p => `<option value="${esc(p.id)}" ${c.fund.keeper === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
   </section>
   <section class="card">
-    <div class="sec-h"><h2>放入紀錄</h2><button type="button" class="btn sm" data-act="addDeposit" ${off(S)}>${ICON.plus}放入</button></div>
-    <div class="pertable divide" style="margin-top:6px">${c.deposits.map(d => `<div class="r"><span class="who">${c.av(d.pid)}${esc(c.name(d.pid))}</span><span class="row" style="gap:6px"><b class="num">${money(d.amount)}</b>${canEdit(S, c.trip, d) ? `<button type="button" class="more" data-act="delDeposit" data-id="${esc(d.id)}" ${off(S)} aria-label="刪除這筆放入紀錄">×</button>` : ''}</span></div>`).join('') || '<p class="small muted">還沒有人放錢</p>'}</div>
-  </section>
-  <section class="card">
-    <div class="sec-h"><h2>公費支付的支出</h2></div>
-    <div class="pertable divide" style="margin-top:6px">${used.map(e => `<div class="r"><span>${esc(e.name)}</span><b class="num">${money(amountOf(e))}</b></div>`).join('') || '<p class="small muted">還沒有</p>'}</div>
+    <div class="sec-h"><h2>公費明細</h2><button type="button" class="btn sm" data-act="addDeposit" ${off(S)}>${ICON.plus}加錢</button></div>
+    <div class="pertable" style="margin-top:6px">${fundGroups(c.deposits, used).map(g => `<div class="dgroup"><span>${esc(monthDay(g.day))}</span></div>${g.list.map(x => x.pid !== undefined
+      ? `<div class="r"><span class="who">${c.av(x.pid)}<span>${esc(c.name(x.pid))} 加錢</span></span><span class="row" style="gap:6px"><b class="num pos">+${money(x.amount)}</b>${canEdit(S, c.trip, x) ? `<button type="button" class="more" data-act="delDeposit" data-id="${esc(x.id)}" ${off(S)} aria-label="刪除這筆加錢紀錄">×</button>` : ''}</span></div>`
+      : `<div class="r"><button type="button" class="linkbtn" data-act="editExp" data-id="${esc(x.id)}" style="justify-self:start;text-align:left;font-size:15px;color:inherit;text-decoration:none">${esc(x.name)}</button><b class="num">−${money(amountOf(x))}</b></div>`).join('')}`).join('') || '<p class="small muted">還沒有紀錄，有人交錢給保管人時按「加錢」記下來</p>'}</div>
   </section>
   <button type="button" class="btn danger" data-act="fundOff" ${off(S)}>關閉公費</button>`;
+}
+
+// 公費明細：加錢紀錄和公費付的支出依日期排，新的在上面
+function fundGroups(deposits, used) {
+  const at = x => x.createdAt?.seconds || 0;
+  const all = [...deposits, ...used].sort((a, b) => spentDay(b).localeCompare(spentDay(a)) || at(b) - at(a));
+  const out = [];
+  for (const x of all) {
+    const day = spentDay(x), g = out[out.length - 1];
+    if (g && g.day === day) g.list.push(x); else out.push({ day, list: [x] });
+  }
+  return out;
 }
 
 /* ---------- 記一筆／編輯支出 ---------- */
@@ -464,8 +475,9 @@ export function mateShares(S, trip, pid, ids) {
 
 export function depositSheet(S, trip) {
   const c = ctxOf(S, trip);
-  openSheet(`${head('放入公費')}
-    <div class="grid2"><div class="field"><label for="dp-who">誰放的</label><select class="select" id="dp-who">${c.active.map(p => `<option value="${esc(p.id)}" ${p.id === c.me ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
+  openSheet(`${head('加錢到公費')}
+    <div class="grid2"><div class="field"><label for="dp-who">誰加的</label><select class="select" id="dp-who">${c.active.map(p => `<option value="${esc(p.id)}" ${p.id === c.me ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></div>
     <div class="field"><label for="dp-amt">金額</label><input class="input data" id="dp-amt" inputmode="numeric" placeholder="1000"></div></div>
-    <button type="button" class="btn primary" data-act="saveDeposit">放入</button>`);
+    <div class="field"><label for="dp-day">哪天加的</label><input class="input" type="date" id="dp-day" value="${todayString()}"></div>
+    <button type="button" class="btn primary" data-act="saveDeposit">加進公費</button>`);
 }

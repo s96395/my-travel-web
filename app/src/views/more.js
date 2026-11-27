@@ -57,17 +57,17 @@ export function renderMore(S, trip) {
   </div>`;
 }
 
-// 標題列的快速選單：外觀、複製行程文字、加到手機行事曆、使用小技巧，在旅程的哪個分頁都能打開
+// 標題列的快速選單：外觀、複製行程文字、加到手機行事曆、操作導覽、使用小技巧，在旅程的哪個分頁都能打開
 export function quickSheet(S) {
   openSheet(`${head('快速選單')}
     <div class="field"><span class="label">外觀</span><div class="row" style="flex-wrap:wrap;gap:6px">${[['', '跟著系統'], ['light', '淺色'], ['dark', '深色']].map(([v, t]) => `<button type="button" class="chip" data-act="theme" data-v="${v}" aria-pressed="${(S.theme || '') === v}">${t}</button>`).join('')}</div></div>
     <div class="menulist">
       <button type="button" data-act="exportText"><span>${ICON.copy}</span><span class="grow"><b>複製行程文字</b><span class="small muted">整趟行程變成文字，可以貼給 ChatGPT 討論；訂位代號不會放進去</span></span>${ICON.chev}</button>
       <button type="button" data-act="exportIcs"><span>${ICON.cal}</span><span class="grow"><b>加到手機行事曆</b><span class="small muted">下載行事曆檔，訂位代號不會放進去；行程有改要再匯出</span></span>${ICON.chev}</button>
+      <button type="button" data-act="tourTrip"><span>${ICON.help}</span><span class="grow"><b>操作導覽</b><span class="small muted">一步一步說明這趟旅程每一頁怎麼用</span></span>${ICON.chev}</button>
       <details>
         <summary><span>${ICON.bulb}</span><span class="grow"><b>使用小技巧</b></span>${ICON.chev}</summary>
         <div class="tips">
-          <button type="button" class="btn sm" data-act="tourTrip" style="justify-self:start">重看操作導覽</button>
           <p><b>拖曳行程</b>：在行程分頁長按一筆行程（右邊有 ⋮⋮），拖到想放的位置；拖到別天的日期上，會放在那天最後。</p>
           <p><b>整天對調</b>：長按上面的日期按鈕，拖到另一天的日期上放開，兩天的行程會整天交換，按「復原」可以換回來。</p>
           <p><b>離線查看</b>：按旅程標題右邊的下載鈕（離線行程），把這趟存到${S.wide ? '這台電腦' : '這支手機'}，沒有網路也能看行程、班機、住宿、待辦、支出。下載好會變成打勾。</p>

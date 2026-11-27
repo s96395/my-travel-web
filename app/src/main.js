@@ -8,6 +8,7 @@ import { addSampleTrips } from './data/sample.js';
 import { viewTrip, countdown } from './lib/trips.js';
 import { $, esc, store, toast, closeSheet, sheetOpen, ICON } from './ui/dom.js';
 import { renderHome } from './views/home.js';
+import { todayString } from './lib/dates.js';
 import { renderLogin, loginErrorText, inAppName } from './views/login.js';
 import { renderTrip, tabButtons, cropSheet, dlSheet, coverSheet } from './views/trip.js';
 import { sceneUrl } from './ui/scene.js';
@@ -320,8 +321,14 @@ async function fetchLegs() {
 // 「看過了」記在這台裝置，換瀏覽器、從主畫面開或清掉資料就記不得，所以另外用旅程數判斷：
 // 首頁要還沒有旅程才自動出現，旅程頁要只有一趟（剛建立第一趟）
 let tour = null; // 用到時才載入 ui/tour.js
+let tourNext = false; // 從首頁導覽按「看旅程頁說明」：旅程打開、資料載好後接著播旅程頁導覽
 function tourCheck() {
   if (tour?.touring()) { tour.refreshTour(); return; }
+  if (tourNext) {
+    if (S.view !== 'trip') { if (S.view !== 'home') tourNext = false; return; }
+    if (!curTrip() || S.loadingItems || sheetOpen()) return;
+    tourNext = false; store.set('tourTrip', '1'); actions.tourTrip(); return; // 先切回行程分頁再播
+  }
   // 測試環境每個預覽網址都記不到看過了，不自動跳出，要看從帳號選單重看
   if (S.env !== 'production' || !S.user || S.localOnly || S.offline || sheetOpen() || S.loadingTrips) return;
   const which = S.view === 'home' && !S.trips.length ? 'Home'
@@ -329,6 +336,15 @@ function tourCheck() {
   if (!which || store.get('tour' + which) === '1') return;
   store.set('tour' + which, '1');
   startTour(which);
+}
+// 首頁導覽接旅程頁時打開哪一趟：旅行中 → 最近要出發 → 最近回國，已封存的不選
+function tourTripPick() {
+  const today = todayString();
+  const list = S.trips.filter(t => t.status !== '已封存');
+  const pool = list.length ? list : S.trips;
+  return pool.find(t => t.start && t.start <= today && today <= (t.end || t.start))
+    || pool.filter(t => t.start > today).sort((a, b) => a.start.localeCompare(b.start))[0]
+    || [...pool].sort((a, b) => (b.end || b.start || '').localeCompare(a.end || a.start || ''))[0];
 }
 function startTour(which) {
   import('./ui/tour.js').then(m => {
@@ -991,7 +1007,14 @@ const actions = {
     toast('已登出');
   },
   account: () => accountSheet(S),
-  tourHome() { closeSheet(); startTour('Home'); },
+  // 帳號選單在旅程裡打開時，直接重看旅程頁導覽；在首頁就從首頁開始
+  tourHome() { if (S.view === 'trip' && curTrip()) actions.tourTrip(); else { closeSheet(); startTour('Home'); } },
+  tourTripFromHome() {
+    const t = tourTripPick();
+    if (!t) return;
+    tourNext = true;
+    go(`#/trip/${t.id}`);
+  },
   tourTrip() { closeSheet(); if (S.tab !== 'plan') { S.tab = 'plan'; render(); window.scrollTo(0, 0); } startTour('Trip'); },
   theme(el) { setTheme(el.dataset.v); },
   // 還沒排的餐提醒：開或關（記在這台裝置）；從快速選單切換時重開選單讓按鈕狀態更新
@@ -1792,14 +1815,14 @@ const actions = {
     if (!(n > 0)) { amt.classList.add('err'); amt.focus(); toast('請填大於 0 的金額'); return; }
     if (S.busy) return;
     S.busy = true; el.disabled = true;
-    try { await addRecord(S.tripId, 'fundDeposits', { pid: $('#dp-who').value, amount: n }, S.user, S.nickname); closeSheet(); toast('已放入公費'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
+    try { await addRecord(S.tripId, 'fundDeposits', { pid: $('#dp-who').value, amount: n, spentOn: $('#dp-day').value }, S.user, S.nickname); closeSheet(); toast('已加進公費'); } catch (err) { console.error(err); el.disabled = false; toast('儲存失敗，請稍後再試'); }
     S.busy = false;
   },
   async delDeposit(el) {
     const trip = curTrip(), dp = S.depositDocs.find(x => x.id === el.dataset.id);
     if (!trip || !dp || !canEditRecord(S, trip, dp) || S.offline) return;
     if (!el.dataset.sure) { el.dataset.sure = '1'; el.textContent = '確定刪除？'; el.classList.add('sure'); return; }
-    try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除放入紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
+    try { await deleteRecord(S.tripId, 'fundDeposits', dp.id); toast('已刪除這筆加錢紀錄'); } catch (err) { console.error(err); toast('刪除失敗，請稍後再試'); }
   },
   // 更多：同行者
   addPerson() { if (!S.offline) personSheet(null, companionsOf(S, curTrip())); },
