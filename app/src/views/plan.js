@@ -135,13 +135,10 @@ function liveBox(S, it) {
     ${L.canDel ? '<p class="small muted" style="margin:0">刪除會移回收藏，之後還能再加回來。</p>' : ''}
   </div>`;
 }
-// 每站右邊：導航（指南針）、給司機看（計程車），和旅館、交通一樣用線條圖示；電腦版點名稱開資訊卡，只在沒網路時放計程車
-const lineIco = d => `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
-const NAV_ICO = lineIco('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>');
-const TAXI_ICO = lineIco('<path d="M10 4.5h4M5 11l1.6-4.2A2 2 0 0 1 8.5 5.5h7a2 2 0 0 1 1.9 1.3L19 11"/><rect x="3.5" y="11" width="17" height="6" rx="2"/><path d="M6 17v2M18 17v2"/><circle cx="7.5" cy="14" r=".6"/><circle cx="16.5" cy="14" r=".6"/>');
+// 每站右邊：導航（地圖）、給司機看（車子），和住宿卡用同一組線條圖示；電腦版點名稱開資訊卡，只在沒網路時放車子
 function quickBtns(S, trip, it) {
-  const nav = onMap(it) && !S.offline && !S.wide ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${NAV_ICO}</a>` : '';
-  const drv = onMap(it) && (S.offline || !S.wide) ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${TAXI_ICO}</button>` : '';
+  const nav = onMap(it) && !S.offline && !S.wide ? `<a class="qbtn" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener" aria-label="導航到「${esc(it.title)}」" title="導航">${ICON.map}</a>` : '';
+  const drv = onMap(it) && (S.offline || !S.wide) ? `<button type="button" class="qbtn" data-act="driver" data-k="day" data-id="${esc(it.id)}" aria-label="「${esc(it.title)}」給司機看" title="給司機看">${ICON.car}</button>` : '';
   return nav || drv ? `<span class="qbtns">${nav}${drv}</span>` : '';
 }
 
@@ -559,7 +556,7 @@ function infoCard(S, trip, d, mini = false) {
       <h3 style="margin:0;flex:none">${it.kind === 'area' ? esc(it.title) : nameHtml(it, true)}</h3>
       ${when ? `<p style="margin:0">${when}</p>` : ''}${it.tip ? `<p class="small muted" style="margin:0">${esc(it.tip)}</p>` : ''}
       <div class="row">${onMap(it) ? `<a class="btn primary grow" href="${esc(navHref(it, trip.city, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
-      ${cardLinks([it.kind !== 'area' && onMap(it) ? drvLink('day', it.id, 'linkbtn', '🚕 ') : '', onMap(it) && !inKorea(it, trip.country) ? extLink(placeHref(it, trip.city, trip.country), '在 Google 地圖開啟') : ''], cardMore(more))}
+      ${cardLinks([it.kind !== 'area' && onMap(it) ? drvLink('day', it.id, 'linkbtn', ICON.car) : '', onMap(it) && !inKorea(it, trip.country) ? extLink(placeHref(it, trip.city, trip.country), '在 Google 地圖開啟') : ''], cardMore(more))}
       ${facts([['地址', addr], ['備註', esc(noteOf(it))], ['備案', bk]])}`);
   }
   if (c.kind === 'wish') {
@@ -570,7 +567,7 @@ function infoCard(S, trip, d, mini = false) {
     if (mini) return miniCard(p.title, `<button type="button" class="btn sm primary grow" data-act="wishPick" data-id="${id}" data-d="${ad}" ${off} style="white-space:nowrap">${ICON.plus}加入第 ${ad} 天 ▾</button>${navTo(p, trip.country) ? `<a class="btn sm grow" href="${esc(navTo(p, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}`);
     return wrap(['收藏', esc(p.area || ''), days ? `已排第 ${days.join('、')} 天` : ''], `<div class="row" style="gap:10px;align-items:flex-start"><button type="button" class="seenbox" style="margin-top:4px" data-act="wishSeen" data-id="${id}" aria-pressed="${!!p.visited}" ${off} aria-label="${p.visited ? '取消逛過' : '標成逛過'}「${esc(p.title)}」">${p.visited ? '✓' : ''}</button><h3 style="margin:0">${esc(p.title)}</h3></div>
       <div class="row"><button type="button" class="btn primary grow" data-act="wishPick" data-id="${id}" data-d="${ad}" ${off} style="white-space:nowrap">${ICON.plus}加入第 ${ad} 天 ▾</button>${navTo(p, trip.country) ? `<a class="btn grow" href="${esc(navTo(p, trip.country))}" target="_blank" rel="noopener">${ICON.map}導航</a>` : ''}</div>
-      ${cardLinks([drvLink('wish', p.id, 'linkbtn', '🚕 '), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
+      ${cardLinks([drvLink('wish', p.id, 'linkbtn', ICON.car), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟')], cardMore([p.area ? `<button type="button" data-act="areaSheet" data-area="${esc(p.area)}">編輯「${esc(p.area)}」區域</button>` : `<button type="button" data-act="areaSheet" data-area="" data-wid="${id}">放進新的區域</button>`, `<button type="button" data-act="wishDel" data-id="${id}" style="color:var(--bad)">刪除收藏</button>`]))}
       ${facts([['備註', esc(noteOf(p))]])}`);
   }
   const p = c.p;
@@ -586,7 +583,7 @@ function infoCard(S, trip, d, mini = false) {
     ${p.where ? `<p class="small muted" style="margin:-6px 0 0;flex:none">${esc(p.where)}</p>` : ''}
     ${p.more ? '' : '<p class="small muted" style="margin:0">正在讀取評分與營業時間…</p>'}
     <div class="row"><button type="button" class="btn primary grow" data-act="cardPlace" data-k="placePick" style="white-space:nowrap">${ICON.plus}加入第 ${pd} 天 ▾</button><button type="button" class="btn grow" data-act="cardPlace" data-k="placeWish">加入收藏</button></div>
-    ${cardLinks([extLink(navTo(p, trip.country), '導航'), drvLink('place', '', 'linkbtn', '🚕 '), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
+    ${cardLinks([extLink(navTo(p, trip.country), '導航'), drvLink('place', '', 'linkbtn', ICON.car), inKorea(p, trip.country) ? '' : extLink(p.url, '在 Google 地圖開啟'), p.phone ? `<a class="linkbtn" href="tel:${esc(p.phone.replace(/[^\d+]/g, ''))}">電話</a>` : '', extLink(p.web, '網站')])}
     ${facts([['地址', esc(p.addr || '')], ['評分', rate], ['營業', [OPEN_TAG[p.open] || '', esc(today || '')].filter(Boolean).join(' ')], ['電話', esc(p.phone || '')]])}`);
 }
 
