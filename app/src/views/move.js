@@ -44,7 +44,7 @@ function flightCard(S, f) {
 function stayLinks(S, s, trip) {
   const p = stayAt(s), kr = inKorea(p, trip.country);
   const go = (href, text, cls, style = '') => `<a class="${cls}" style="text-decoration:none${style}" href="${esc(href)}" target="_blank" rel="noopener">${text}</a>`;
-  return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${S.offline ? '' : go(navHref(p, trip.city, trip.country), `${ICON.map}導航`, 'btn sm primary')}<button type="button" class="btn sm" data-act="driver" data-k="stay" data-id="${esc(s.id)}">🚕 給司機看</button>${S.offline || kr || !s.address ? '' : go(placeHref(p, trip.city, trip.country), '開啟地圖', 'linkbtn')}</div>`;
+  return `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">${S.offline ? '' : go(navHref(p, trip.city, trip.country), `${ICON.map}導航`, 'btn sm')}<button type="button" class="btn sm" data-act="driver" data-k="stay" data-id="${esc(s.id)}">${ICON.car}給司機看</button>${S.offline || kr || !s.address ? '' : go(placeHref(p, trip.city, trip.country), '開啟地圖', 'linkbtn')}</div>`;
 }
 
 function stayCard(S, s, trip) {

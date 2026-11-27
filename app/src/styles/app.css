@@ -1300,7 +1300,7 @@ html:has(.mplan),body:has(.mplan){overscroll-behavior:none}
 .starchip{justify-self:start;min-height:44px}
 .chips label.starchip{display:inline-flex;align-items:center}
 
-/* 時間軸每站精簡：號碼、名稱、一行說明，右邊 🧭 🚕 和拖曳把手，都對齊中間 */
+/* 時間軸每站精簡：號碼、名稱、一行說明，右邊導航、給司機看和拖曳把手，都對齊中間 */
 .item.slim{align-items:center}
 .item.slim .iline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;overflow-wrap:normal}
 .item.slim .istar{font-size:13px}
