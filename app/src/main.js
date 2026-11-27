@@ -1007,7 +1007,8 @@ const actions = {
     toast('已登出');
   },
   account: () => accountSheet(S),
-  tourHome() { closeSheet(); startTour('Home'); },
+  // 帳號選單在旅程裡打開時，直接重看旅程頁導覽；在首頁就從首頁開始
+  tourHome() { if (S.view === 'trip' && curTrip()) actions.tourTrip(); else { closeSheet(); startTour('Home'); } },
   tourTripFromHome() {
     const t = tourTripPick();
     if (!t) return;

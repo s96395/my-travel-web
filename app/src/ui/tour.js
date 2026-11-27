@@ -73,6 +73,6 @@ export function tripTour(wide) {
     { element: `${tabs} [data-v="exp"]`, title: '支出', text: '按「記一筆」填金額、誰付、怎麼分和哪天花的，沒有帳號的同行者也能一起分。「分攤」「結算」會算好誰該給誰多少。' },
     { element: `${tabs} [data-v="more"]`, title: '更多', text: '新增同行者、傳邀請連結給旅伴一起編輯、修改旅程名稱與日期，也能把這趟複製成新的旅程。' },
     { element: '.dlbtn', title: '離線行程', text: '出國前按一下，把這趟存到裝置上，沒有網路也能看。' },
-    { element: '[data-act="quick"]', title: '快速選單', text: '切換外觀、複製行程文字、把行程加到手機行事曆，也可以在「使用小技巧」重看這段導覽。' },
+    { element: '[data-act="quick"]', title: '快速選單', text: '切換外觀、複製行程文字、把行程加到手機行事曆。想再看一次這段說明，按這裡的「操作導覽」。' },
   ]);
 }
