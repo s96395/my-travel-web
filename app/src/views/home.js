@@ -345,18 +345,17 @@ function statsHtml(S, st) {
 `;
 }
 
-// 近期旅程：旅行中、還沒出發、回國 30 天內（方便回來補帳、整理），已封存不算
-// 排序：旅行中 → 還沒出發（出發日近的在前）→ 剛回國（剛回來的在前）
-const NEAR_BACK = 30;
+// 近期旅程：旅行中、還沒出發，已封存不算；回國後就回到下面的歷年旅程
+// 排序：旅行中 → 還沒出發（出發日近的在前）
 function nearTrips(trips, today) {
-  const rank = t => (t.start <= today && today <= t.end ? 0 : t.start > today ? 1 : 2);
-  return trips.filter(t => t.status !== '已封存' && t.start && t.end && (t.end >= today || daysBetween(t.end, today) <= NEAR_BACK))
-    .sort((a, b) => rank(a) - rank(b) || (rank(a) === 2 ? b.end.localeCompare(a.end) : a.start.localeCompare(b.start)));
+  const rank = t => (t.start <= today ? 0 : 1);
+  return trips.filter(t => t.status !== '已封存' && t.start && t.end && t.end >= today)
+    .sort((a, b) => rank(a) - rank(b) || a.start.localeCompare(b.start));
 }
 function nearTag(t, today) {
-  if (t.start <= today && today <= t.end) return '旅行中';
-  if (t.start > today) { const n = daysBetween(today, t.start); return n === 1 ? '明天出發' : `${n} 天後出發`; }
-  return '已回國';
+  if (t.start <= today) return '旅行中';
+  const n = daysBetween(today, t.start);
+  return n === 1 ? '明天出發' : `${n} 天後出發`;
 }
 
 function tripCard(t, S, near = '') {

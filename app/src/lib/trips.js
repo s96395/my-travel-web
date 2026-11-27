@@ -18,6 +18,12 @@ export function myParticipantId(trip, uid) {
   return participantsOf(trip).find(p => p.uid && p.uid === uid)?.id || null;
 }
 
+// 封面右上角狀態：旅程結束後，手動設的「規劃中／即將出發」已經不對，改顯示「已完成」（不改原始資料）
+export function shownStatus(status, endDate, today = todayString()) {
+  const s = status || '規劃中';
+  return endDate && endDate < today && (s === '規劃中' || s === '即將出發') ? '已完成' : s;
+}
+
 export function viewTrip(trip) {
   const active = participantsOf(trip).filter(p => p.status !== 'inactive');
   return {

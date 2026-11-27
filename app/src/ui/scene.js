@@ -1,4 +1,5 @@
 // 封面：有上傳照片就用照片；沒有上傳時，用使用者挑的預設圖案，或依旅程類型、地點與出發月份畫一張風景（規格書 F06）
+import { shownStatus } from '../lib/trips.js';
 // 共 34 種圖案，「自動」依地點關鍵字挑，沒有對到就用出發月份的山景
 import { esc } from './dom.js';
 
@@ -396,5 +397,5 @@ const moved = c => (c.x ?? 50) != 50 || (c.y ?? 50) != 50 || (c.z ?? 1) != 1;
 export const art = (trip, cover) => (cover?.src ? coverImg(cover) : cover && moved(cover) ? coverImg({ ...cover, src: sceneUrl(trip, cover.style) }) : scene(trip, cover?.style));
 
 export function coverHtml(trip, big = false, cover = null) {
-  return `<span class="cover${big ? ' big' : ''}">${art(trip, cover)}<span class="status">${esc(trip.status)}</span></span>`;
+  return `<span class="cover${big ? ' big' : ''}">${art(trip, cover)}<span class="status">${esc(shownStatus(trip.status, trip.end))}</span></span>`;
 }
