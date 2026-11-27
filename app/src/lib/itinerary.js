@@ -4,9 +4,13 @@ export const ITEM_TYPES = ['attraction', 'restaurant', 'cafe', 'shopping', 'tran
 export const ITEM_LABEL = { attraction: '景點', restaurant: '餐廳', cafe: '咖啡', shopping: '購物', transport: '交通', stay: '住宿', other: '其他' };
 export const ITEM_ICON = { attraction: '📍', restaurant: '🍽️', cafe: '☕', shopping: '🛍️', transport: '🚆', stay: '🏨', other: '📝' };
 export const PRIORITIES = ['must', 'want', 'optional'];
-// 餐別：顯示在名稱前面，例如「〔午餐〕五福豬肉湯飯」；名稱本身只放店名
-export const MEALS = ['breakfast', 'lunch', 'dinner', 'snack', 'night'];
-export const MEAL_LABEL = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心', night: '消夜' };
+// 類別：顯示在名稱前面的小圖示（美食、景點、購物、車站），存在 meal 欄位；名稱本身只放店名
+// 舊資料的餐別（早餐、午餐…）資料照留，畫面上一律當成「美食」
+export const MEALS = ['food', 'sight', 'shop', 'station'];
+const OLD_MEALS = ['breakfast', 'lunch', 'dinner', 'snack', 'night'];
+export const MEAL_LABEL = { food: '美食', sight: '景點', shop: '購物', station: '車站', breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心', night: '消夜' };
+// 舊餐別換成美食，不認得的回傳空字串
+export const mealKind = m => (OLD_MEALS.includes(m) ? 'food' : MEALS.includes(m) ? m : '');
 const MEAL_WORD = { 早餐: 'breakfast', 早午餐: 'breakfast', 午餐: 'lunch', 午飯: 'lunch', 晚餐: 'dinner', 晚飯: 'dinner', 點心: 'snack', 下午茶: 'snack', 消夜: 'night', 宵夜: 'night' };
 // 「午餐」「晚飯」這類字換成餐別代碼，不是餐別就回傳空字串
 export const mealOf = w => MEAL_WORD[String(w || '').trim()] || '';
@@ -43,7 +47,8 @@ export function normalizeItem(raw) {
     address: raw.address || '',
     type: ITEM_TYPES.includes(raw.type) ? raw.type : 'other',
     priority: PRIORITIES.includes(raw.priority) ? raw.priority : '',
-    meal: MEALS.includes(raw.meal) ? raw.meal : '',
+    meal: mealKind(raw.meal),
+    oldMeal: OLD_MEALS.includes(raw.meal) ? raw.meal : '', // 舊餐別：沒改類別時照原值存回
     time: raw.reservationTime || '',
     stay: num(raw.stay) > 0 ? num(raw.stay) : 0,
     note: raw.note || '',
@@ -329,7 +334,7 @@ const DESC_TAIL = /\s*[（(]([^）)]*(買|看|逛|吃|喝|拍|夜景|粥|樓)[^�
 export function tidyItem(raw) {
   const old = String(raw.title || '');
   let t = old.replace(LEAD_EMOJI, '').trim();
-  let meal = MEALS.includes(raw.meal) ? raw.meal : '';
+  let meal = mealKind(raw.meal) ? raw.meal : '';
   let priority = raw.priority || '';
   const notes = [], descs = [];
   const takeMeal = m => { if (m && !meal) meal = m; };
@@ -354,7 +359,7 @@ export function tidyItem(raw) {
   if (tail) {
     const word = tail[0].trim().slice(1, -1).trim();
     if (/有空/.test(word)) { if (!priority) priority = 'optional'; } else if (mealOf(word)) takeMeal(mealOf(word));
-    else { takeMeal(MEALS.find(k => word.includes(MEAL_LABEL[k])) || ''); notes.push(word); }
+    else { takeMeal(OLD_MEALS.find(k => word.includes(MEAL_LABEL[k])) || ''); notes.push(word); }
     const rest = t.slice(0, tail.index).trim();
     if (rest) t = rest; else notes.length = 0;
   }

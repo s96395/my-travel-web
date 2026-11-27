@@ -219,7 +219,9 @@ test('storeName：導航和給司機看只用店名', async () => {
   assert.ok(naverHref({ title: '晚餐｜83 Haechi', lat: 35, lng: 129 }, '').includes('83%20Haechi'));
   assert.equal(mealOf('晚飯'), 'dinner');
   assert.equal(mealOf('下午'), '');
-  assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).meal, 'lunch');
+  assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).meal, 'food');
+  assert.equal(normalizeItem({ id: 'a', meal: 'lunch' }).oldMeal, 'lunch');
+  assert.equal(normalizeItem({ id: 'a', meal: 'station' }).meal, 'station');
   assert.equal(normalizeItem({ id: 'a', meal: 'xx' }).meal, '');
 });
 
