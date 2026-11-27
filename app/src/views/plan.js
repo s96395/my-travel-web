@@ -7,7 +7,7 @@ import { spentDay } from './expense.js';
 import { dayEvents, buildDay, nowIndex, hmOf } from '../lib/timeline.js';
 import { allFlights, allStays, stayAt } from './move.js';
 import { tripDays } from '../lib/trips.js';
-import { ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, storeName, BOOK_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, groupByArea, sameName, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
+import { ITEM_LABEL, MEALS, MEAL_LABEL, mealOf, mealKind, storeName, BOOK_LABEL, planDays, itemsOfDay, dayAreas, onMap, placeHref, navHref, isMapLink, inKorea, naverHref, naverRoute, mapName, groupByArea, sameName, stayText, rankDays, bestSpot, backupsOf } from '../lib/itinerary.js';
 import { nearDay, kmText, distanceKm, farOff } from '../lib/places.js';
 import { mapsKey } from '../firebase.js';
 
@@ -58,13 +58,13 @@ export function readQuickTime() {
   return { reservationTime: hm, timeText: hm ? '' : tv };
 }
 
-// 名稱前面自動加類型圖示（icon）和餐別「〔午餐〕」，使用者不用自己在名稱裡打 emoji 或「午餐｜」
-// 餐別的表情符號：時間軸、資訊卡、編輯畫面一起用
-const MEAL_EMO = { breakfast: '🍳', lunch: '🍱', dinner: '🍽️', snack: '🍰', night: '🍜' };
+// 名稱前面自動加類型圖示（icon）和類別「〔🍴美食〕」，使用者不用自己在名稱裡打 emoji 或「午餐｜」
+// 類別的表情符號：時間軸、資訊卡、編輯畫面一起用（舊餐別在 normalizeItem 已換成美食）
+const MEAL_EMO = { food: '🍴', sight: '📷', shop: '🛍️', station: '🚉' };
 const mealWord = m => `${MEAL_EMO[m] || ''}${MEAL_LABEL[m]}`;
-// 卡片上餐別只放表情符號（名稱、類型圖示已經說明是吃飯，不再多一個「〔午餐〕」）；文字放在提示與讀屏
+// 卡片上類別只放表情符號；文字放在提示與讀屏
 const mealTag = it => (it.meal ? `<span class="mealtag" title="${MEAL_LABEL[it.meal]}" aria-label="${MEAL_LABEL[it.meal]}">${MEAL_EMO[it.meal] || ''}</span> ` : '');
-// 有餐別時表情符號已經說明是吃飯，不再放類型圖示
+// 有類別時表情符號已經說明，不再放類型圖示
 const nameHtml = (it, icon = false) => `${icon && !it.meal && ITEM_ICON[it.type] ? `<span aria-hidden="true">${ITEM_ICON[it.type]}</span> ` : ''}${mealTag(it)}${esc(it.title)}`;
 const nameText = it => `${it.meal ? `〔${mealWord(it.meal)}〕` : ''}${it.title}`;
 
@@ -729,7 +729,7 @@ export function areaDistSheet(list) {
 }
 
 // 時間欄可以直接填幾點，也可以寫時段
-// 餐別（早餐、午餐…）放在時間欄下面：按了標在名稱前面，再按一次取消；原本的「早上、下午」時段按鈕已拿掉
+// 類別（美食、景點、購物、車站）放在重點旁邊：按了標在名稱前面，再按一次取消
 
 // near：行程大約位置（Google 候選地點優先找這附近），沒有就是 null；areas：這趟已有的區域名稱，區域欄可以直接選
 // tickets：這趟已用過的票券標記，可以直接點選
@@ -739,8 +739,8 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
   const v = it || { title: '', area: '', address: '', type: 'attraction', priority: '', meal: '', time: '', timeText: '', stay: 0, note: '', tip: '', book: '', bookUrl: '', tickets: [] };
   // 已經綁定地點（從 Google 或收藏加的、有地點代碼或地圖連結）：名稱可以隨意改，要換地點從名稱欄選新的或貼連結
   const bound = !!it && (!!it.placeId || isMapLink(it.address) || !!it.exact);
-  // 舊資料時間欄寫「午餐」「晚餐」的，打開時改成餐別
-  const oldMeal = !v.meal && !v.time ? mealOf(v.timeText) : '';
+  // 舊資料時間欄寫「午餐」「晚餐」的，打開時勾美食
+  const oldMeal = !v.meal && !v.time ? mealKind(mealOf(v.timeText)) : '';
   const meal = v.meal || oldMeal, when = v.time || (oldMeal ? '' : v.timeText) || '';
   // 一句提示和備註合成一欄：第一行顯示在行程卡片上
   const note = [v.tip, v.note].filter(Boolean).join('\n');
@@ -751,7 +751,7 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     <label for="n-title" class="small muted" style="text-align:center;margin-bottom:-8px">✎ 名稱${bound ? '（可以改成好認的中文，不影響導航）' : ''}</label>
     <div class="suggwrap"><input class="namein lg" id="n-title" maxlength="60" placeholder="要去哪裡？例如：南禪寺" aria-label="名稱" value="${esc(v.title)}" data-type="${esc(v.type || 'attraction')}"></div>
     ${bound ? `<p class="small muted" style="margin:-4px 0 0;text-align:center;overflow-wrap:anywhere">📍 <span id="n-bound">${it.placeId ? '已綁定地點，正在查是哪一間…' : '已綁定位置（沒有 Google 地點資料）'}</span>${onMap(it) ? `・<a href="${esc(placeHref(it))}" target="_blank" rel="noopener" style="color:var(--accent)">在地圖上看</a>` : ''}</p>` : ''}
-    <div class="chips" style="flex-wrap:wrap" aria-label="重點與餐別"><label class="chip starchip"><input type="checkbox" id="n-star" data-old="${esc(v.priority || '')}" ${v.priority === 'must' ? 'checked' : ''}>⭐ 重點</label>${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${mealWord(m)}</label>`).join('')}</div>
+    <div class="chips" style="flex-wrap:wrap" aria-label="重點與類別"><label class="chip starchip"><input type="checkbox" id="n-star" data-old="${esc(v.priority || '')}" ${v.priority === 'must' ? 'checked' : ''}>⭐ 重點</label>${MEALS.map(m => `<label class="chip"><input type="checkbox" name="n-meal" value="${m}" ${m === meal ? 'checked' : ''}>${mealWord(m)}</label>`).join('')}</div>
     <div class="field"><span class="label">訂位</span>
       <div class="chips" role="radiogroup" aria-label="訂位">${[['', '不用'], ['need', BOOK_LABEL.need], ['done', BOOK_LABEL.done]].map(b => `<label class="chip"><input type="radio" name="n-book" value="${b[0]}" ${b[0] === (v.book || '') ? 'checked' : ''}>${b[1]}</label>`).join('')}</div></div>
     <div class="field" id="n-timebox" ${done ? '' : 'hidden'}><label for="n-time">預約幾點</label><input class="input tany" id="n-time" type="text" autocomplete="off" maxlength="20" placeholder="例如 14:30" value="${esc(when)}"></div>
@@ -765,7 +765,7 @@ export function itemFormSheet(day, it = null, near = null, areas = [], tickets =
     $('#n-timebox').hidden = !on;
     if (!on) $('#n-time-err').hidden = true; else $('#n-time').focus();
   }));
-  // 餐別只能選一個：勾了一個就取消其他的
+  // 類別只能選一個：勾了一個就取消其他的
   document.querySelectorAll('input[name="n-meal"]').forEach(x => x.addEventListener('change', () => {
     if (x.checked) document.querySelectorAll('input[name="n-meal"]').forEach(y => { if (y !== x) y.checked = false; });
   }));
@@ -842,7 +842,8 @@ export function readItemForm() {
     type: t.dataset.type || o.type || 'other',
     // ⭐ 重點＝必去；取消時，原本是想去／有空再去的舊資料照留，不覆寫
     priority: $('#n-star').checked ? 'must' : ($('#n-star').dataset.old === 'must' ? '' : $('#n-star').dataset.old || ''),
-    meal: $('input[name="n-meal"]:checked')?.value || '',
+    // 舊資料的餐別（午餐…）沒改類別時照原值存回
+    meal: (m => (m && m === o.meal && o.oldMeal ? o.oldMeal : m))($('input[name="n-meal"]:checked')?.value || ''),
     ...when,
     note: nv,
     book,
