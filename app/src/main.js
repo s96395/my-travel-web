@@ -327,7 +327,7 @@ function tourCheck() {
   if (tourNext) {
     if (S.view !== 'trip') { if (S.view !== 'home') tourNext = false; return; }
     if (!curTrip() || S.loadingItems || sheetOpen()) return;
-    tourNext = false; store.set('tourTrip', '1'); startTour('Trip'); return;
+    tourNext = false; store.set('tourTrip', '1'); actions.tourTrip(); return; // 先切回行程分頁再播
   }
   // 測試環境每個預覽網址都記不到看過了，不自動跳出，要看從帳號選單重看
   if (S.env !== 'production' || !S.user || S.localOnly || S.offline || sheetOpen() || S.loadingTrips) return;
