@@ -410,6 +410,5 @@ export function renderHome(S) {
       </section>`;
     }).join('')}
     ${trips.length ? '<p class="small muted" style="text-align:center;margin:0">搜尋和篩選只影響旅程列表，不影響上方統計</p>' : ''}
-    ${S.hideInstall || S.standalone || S.visits < 2 ? '' : `<div class="install" role="note">${ICON.phone}<span class="grow">可以加到手機主畫面，像 App 一樣開啟</span><button type="button" class="linkbtn" data-act="install">怎麼加</button><button type="button" class="x" data-act="hideInstall" aria-label="不再顯示">×</button></div>`}
   </div>`;
 }

@@ -43,6 +43,13 @@ import { shrinkImage, loadCover, saveCover } from './data/cover.js';
 
 const WIDE = window.matchMedia('(min-width: 1000px)');
 const STANDALONE = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+// 手機或平板（iPad 新版會假裝成 Mac，用觸控點數分辨）；只有手機瀏覽器才自動提示加到主畫面
+const UA = navigator.userAgent;
+const IOS = /iPhone|iPad|iPod/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
+const MOBILE = IOS || /Android/.test(UA);
+// 按「不用了」記下時間，30 天內不再提示；舊版記的是 '1'（永久不提示），改成從現在起算 30 天
+if (store.get('hideInstall') === '1') store.set('hideInstall', String(Date.now()));
+const INSTALL_QUIET = 30 * 864e5;
 
 // 外觀：跟著系統、淺色或深色，記在這台裝置上
 const applyTheme = v => { if (v) document.documentElement.dataset.theme = v; else delete document.documentElement.dataset.theme; };
@@ -63,7 +70,8 @@ const S = {
   depositDocs: [], expSeg: 'list', expFilter: 'all', draft: null,
   q: '', filter: '全部', years: {}, stats: {},
   wide: WIDE.matches, offline: !navigator.onLine, standalone: STANDALONE,
-  hideInstall: store.get('hideInstall') === '1',
+  hideInstall: Date.now() - (Number(store.get('hideInstall')) || 0) < INSTALL_QUIET,
+  canInstall: false, // Android Chrome 送來可以一鍵安裝的通知後才是 true
   visits: (Number(store.get('visits')) || 0) + 1, // 第幾次打開，第二次起才提示加到主畫面
   wishDocs: [], stayGeo: {}, mside: 'plan', // 收藏（匯入的 Google 地圖收藏）；手機版看行程還是收藏
   wishOpen: false, // 電腦版收藏蓋在地圖上，平常收著
@@ -79,6 +87,10 @@ const S = {
   dl: {}, dlBusy: null, localOnly: false, // dl：下載過的旅程 id → 下載時間；localOnly：沒網路開啟，只讀手機上下載的資料
 };
 store.set('visits', String(S.visits));
+// Android Chrome：先把安裝通知留著，等使用者按「安裝」再跳出系統的安裝視窗
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; S.canInstall = true; if (S.ready) render(); });
+addEventListener('appinstalled', () => { installEvt = null; S.canInstall = false; S.standalone = true; if (S.ready) render(); });
 let local = new Map(); // 沒網路開啟時，下載的旅程 id → 整份資料
 
 let stopTrips = null;
@@ -137,7 +149,7 @@ function render() {
   $('#tabSlot').innerHTML = S.user && S.view === 'trip' && trip && !S.wide
     ? `<nav class="tabbar" aria-label="旅程分頁">${tabButtons(trip, S.tab)}</nav>` : '';
   $('#fabSlot').innerHTML = S.user && S.view === 'home' && !S.wide
-    ? `<button type="button" class="fab" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>` : '';
+    ? `<button type="button" class="fab" data-act="newTrip" ${S.offline ? 'disabled' : ''}>${ICON.plus}新增旅程</button>${installBar()}` : '';
   if (keepQ) { const q = document.getElementById(keepQ[0]); if (q) { q.focus(); q.setSelectionRange(keepQ[1], keepQ[2]); } }
   // 日期列重畫後會回到最左邊；天數多時把選到的那天捲到中間
   const pill = $('.dpill[aria-current="true"]');
@@ -352,6 +364,15 @@ function startTour(which) {
     // 等畫面排好再框按鈕
     setTimeout(() => (which === 'Home' ? m.homeTour(S.wide, !S.trips.length) : m.tripTour(S.wide)), 300);
   }).catch(err => console.error(err));
+}
+
+// 首頁底部的加到主畫面提示：手機瀏覽器、還沒加過、建好第一趟旅程或第二次來才出現
+function installBar() {
+  if (!MOBILE || S.standalone || S.hideInstall || S.offline || (S.visits < 2 && !S.trips.length)) return '';
+  const side = 'max(16px,calc(50% - var(--appw)/2 + 16px))';
+  return `<div class="install" role="note" style="position:fixed;left:${side};right:${side};bottom:calc(80px + env(safe-area-inset-bottom,0px));z-index:6;box-shadow:var(--sh-pop)">${ICON.phone}<span class="grow">加到手機主畫面，像 App 一樣開啟</span>${S.canInstall && !inAppName()
+    ? '<button type="button" class="linkbtn" data-act="installNow">安裝</button>'
+    : '<button type="button" class="linkbtn" data-act="install">怎麼加</button>'}<button type="button" class="x" data-act="hideInstall" aria-label="不用了">×</button></div>`;
 }
 
 function envTag() {
@@ -1022,7 +1043,16 @@ const actions = {
   // 標題列的切換鈕：照目前看到的外觀換成另一種
   toggleTheme() { setTheme((S.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')) === 'dark' ? 'light' : 'dark'); },
   quick: () => quickSheet(S),
-  install: () => installSheet(),
+  install: () => installSheet({ ios: IOS, android: MOBILE && !IOS, inApp: inAppName(), canInstall: S.canInstall, standalone: S.standalone }),
+  async installNow() {
+    if (!installEvt) { actions.install(); return; }
+    closeSheet();
+    const e = installEvt; installEvt = null; S.canInstall = false;
+    e.prompt();
+    const { outcome } = await e.userChoice;
+    if (outcome === 'accepted') S.standalone = true; else toast('之後可以在帳號選單找到「加到手機主畫面」');
+    render();
+  },
   privacy: () => privacySheet(),
   async exportText() {
     const trip = curTrip();
@@ -1070,7 +1100,7 @@ const actions = {
       box.hidden = false;
     } finally { S.busy = false; }
   },
-  hideInstall() { S.hideInstall = true; store.set('hideInstall', '1'); render(); toast('之後可以在帳號選單或旅程的「更多」找到「加到手機主畫面」'); },
+  hideInstall() { S.hideInstall = true; store.set('hideInstall', String(Date.now())); render(); toast('30 天內不再提示，想加的時候可以在帳號選單找到「加到手機主畫面」'); },
   newTrip() { if (!S.offline) newTripSheet(); },
   ntType(el) { el.parentNode.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === el)); },
   async saveTrip(el) {

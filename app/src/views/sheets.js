@@ -45,13 +45,24 @@ export function privacySheet() {
     <p class="small" style="margin:0">旅程內容可以自己修改或刪除。要刪除整個帳號，可以在帳號選單按「刪除帳號」；其他問題請寄信到 s96395@gmail.com。</p>`);
 }
 
-export function installSheet() {
-  openSheet(`${head('加到手機主畫面')}
-    <p class="label">iPhone（Safari）</p>
-    <ol class="steps"><li>點畫面下方的「分享」按鈕（方框加向上箭頭）</li><li>往下找到「加入主畫面」</li><li>點右上角「新增」，主畫面就會出現沈迷旅行</li></ol>
-    <p class="label">Android（Chrome）</p>
-    <ol class="steps"><li>點網址列右邊的「⋮」</li><li>選「安裝應用程式」或「加到主畫面」</li></ol>
-    <p class="small muted" style="margin:0">Android 會自動跳出安裝提示；iPhone 不會，所以由網站顯示這份說明。</p>`);
+// 加到主畫面：依手機種類只顯示該看的說明；在 LINE、FB、IG 裡開啟時要先改用瀏覽器
+const shareIc = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-3px"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M7 10H5.5v10.5h13V10H17"/></svg>';
+const plusIc = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" style="vertical-align:-3px"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8.5v7M8.5 12h7"/></svg>';
+export function installSheet({ ios = false, android = false, inApp = '', canInstall = false, standalone = false } = {}) {
+  const iosSteps = `<ol class="steps"><li>點 Safari 下方的分享按鈕 ${shareIc}（沒看到的話，先點右下角的「⋯」）</li>
+      <li>往下滑，點「加入主畫面」${plusIc}</li><li>點右上角「新增」，主畫面就會出現沈迷旅行</li></ol>`;
+  const androidSteps = '<ol class="steps"><li>點 Chrome 網址列右邊的「⋮」</li><li>選「安裝應用程式」或「加到主畫面」</li></ol>';
+  let body;
+  if (standalone) body = '<p style="margin:0">已經是從主畫面開啟，不用再加一次。</p>';
+  else if (inApp) body = `<p style="margin:0"><b>請先改用 ${ios ? 'Safari' : 'Chrome'} 開啟</b></p>
+    <p class="small muted" style="margin:0">你現在是在 ${inApp} 裡開啟，這裡沒辦法加到主畫面。請點畫面角落的「⋯」選「用瀏覽器開啟」，或複製網址貼到 ${ios ? 'Safari' : 'Chrome'}，再照說明加入。</p>
+    <button type="button" class="btn block" data-act="copyPageUrl">複製網址</button>`;
+  else if (ios) body = `${iosSteps}<p class="small muted" style="margin:0">iPhone 沒有一鍵安裝，要從分享選單加入。</p>`;
+  else if (canInstall) body = `<p style="margin:0">按下面的按鈕，再按「安裝」，主畫面就會出現沈迷旅行。</p>
+    <button type="button" class="btn primary" data-act="installNow">安裝到主畫面</button>`;
+  else if (android) body = androidSteps;
+  else body = `<p class="label">iPhone（Safari）</p>${iosSteps}<p class="label">Android（Chrome）</p>${androidSteps}`;
+  openSheet(`${head('加到手機主畫面')}${body}`);
 }
 
 // 新增旅程；傳入旅程時改成編輯（多了狀態可選）
